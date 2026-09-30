@@ -31,10 +31,9 @@ use opencue_proto::{
     report::{ChildrenProcStats, ProcStats, Stat},
 };
 use sysinfo::{
-    DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessStatus,
-    ProcessesToUpdate, RefreshKind,
+    MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessStatus, ProcessesToUpdate, RefreshKind,
 };
-use tracing::debug;
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
@@ -108,29 +107,62 @@ impl MacOsSystem {
     pub fn init(config: &MachineConfig) -> Result<Self> {
         let data = Self::read_cpuinfo(&config.cpuinfo_path)?;
 
-        let identified_os = config
-            .override_real_values
-            .clone()
-            .and_then(|c| c.os)
-            .unwrap_or_else(|| {
-                Self::read_distro(&config.distro_release_path).unwrap_or("macos".to_string())
-            });
+        let overrides = config.override_real_values.clone().unwrap_or_default();
+        if config.override_real_values.is_some() {
+            info!(
+                "Applying override_real_values: cores={:?}, procs={:?}, memory_size={:?}, hostname={:?}, os={:?}, workstation_mode={:?}",
+                overrides.cores,
+                overrides.procs,
+                overrides.memory_size,
+                overrides.hostname,
+                overrides.os,
+                overrides.workstation_mode,
+            );
+        }
+
+        let identified_os = overrides.os.clone().unwrap_or_else(|| {
+            Self::read_distro(&config.distro_release_path).unwrap_or("macos".to_string())
+        });
 
         // Initialize sysinfo collector
         let sysinfo = sysinfo::System::new_with_specifics(
             RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
         );
-        let total_memory = sysinfo.total_memory();
+        let real_total_memory = sysinfo.total_memory();
+        let total_memory = overrides
+            .memory_size
+            .map(|b| b.as_u64())
+            .unwrap_or(real_total_memory);
+        if total_memory > real_total_memory {
+            warn!(
+                "override_real_values.memory_size ({} bytes) exceeds real total memory ({} bytes); \
+                 the scheduler may dispatch frames the host cannot fit and they will OOM.",
+                total_memory, real_total_memory,
+            );
+        }
         let total_swap = sysinfo.total_swap();
+
+        let hostname = match overrides.hostname.clone() {
+            Some(h) => h,
+            None => Self::get_hostname(config.use_ip_as_hostname)?,
+        };
+        let num_sockets = overrides
+            .procs
+            .map(|p| p as u32)
+            .unwrap_or(data.num_sockets);
+        let cores_per_socket = overrides
+            .cores
+            .map(|c| c as u32)
+            .unwrap_or(data.cores_per_socket);
 
         Ok(Self {
             config: config.clone(),
             static_info: MachineStaticInfo {
-                hostname: Self::get_hostname(config.use_ip_as_hostname)?,
+                hostname,
                 total_memory,
                 total_swap,
-                num_sockets: data.num_sockets,
-                cores_per_socket: data.cores_per_socket,
+                num_sockets,
+                cores_per_socket,
                 hyperthreading_multiplier: data.hyperthreading_multiplier,
                 boot_time_secs: Self::read_boot_time(&config.proc_stat_path).unwrap_or(0),
                 tags: Self::setup_tags(config),
@@ -399,7 +431,10 @@ impl MacOsSystem {
         Ok(MachineDynamicInfo {
             // sysinfo.available_memory() would be the best way to infer available memory, but it
             // returns 0 on M macs
-            available_memory: sysinfo.total_memory() - sysinfo.used_memory(),
+            available_memory: self
+                .static_info
+                .total_memory
+                .saturating_sub(sysinfo.used_memory()),
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
@@ -432,32 +467,26 @@ impl MacOsSystem {
         load_val.ok_or(miette!("Couldn't find load average"))
     }
 
-    /// Reads storage information from the temporary mount point and extracts
+    /// Reads storage information for the configured temp path and extracts
     /// the total space and available space.
+    ///
+    /// Uses `statvfs` directly so the path is followed through symlinks and
+    /// stats the actual underlying filesystem. The previous `sysinfo`-based
+    /// mount-list lookup misreported any host where `temp_path` was a symlink,
+    /// because the prefix match could fall back to the root filesystem.
     ///
     /// # Returns
     ///
     /// A `Result` containing a tuple of total space and available space in bytes.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
-        let mut diskinfo =
-            Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
-        let tmp_disk = diskinfo.list_mut().iter_mut().find(|disk| {
-            self.config.temp_path.starts_with(
-                disk.mount_point()
-                    .to_str()
-                    .unwrap_or("invalid_path_will_never_match"),
-            )
-        });
-        match tmp_disk {
-            Some(disk) => {
-                disk.refresh_specifics(DiskRefreshKind::everything());
-                Ok((disk.total_space(), disk.available_space()))
-            }
-            None => Err(miette!(
-                "Could not locate disk for temp path {}",
-                self.config.temp_path
-            )),
-        }
+        let stat = nix::sys::statvfs::statvfs(self.config.temp_path.as_str())
+            .into_diagnostic()
+            .wrap_err_with(|| {
+                format!("statvfs failed for temp path {}", self.config.temp_path)
+            })?;
+        let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
+        let available_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
+        Ok((total_space, available_space))
     }
 
     /// Refresh the cache of children procs.

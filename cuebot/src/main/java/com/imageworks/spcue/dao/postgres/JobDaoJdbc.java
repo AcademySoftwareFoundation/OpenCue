@@ -152,19 +152,42 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         }
     };
 
-    private static final String GET_DISPATCH_JOB = "SELECT " + "job.pk_job, " + "job.pk_facility, "
-            + "job.pk_show, " + "job.str_name, " + "job.str_show, " + "job.str_state, "
-            + "job.b_paused, " + "job.int_max_retries, " + "job.b_autoeat, " + "job.b_auto_book,"
-            + "job.b_auto_unbook " + "FROM " + "job " + "WHERE " + "pk_job = ?";
+    // spotless:off
+    private static final String GET_DISPATCH_JOB =
+            "SELECT "
+                + "job.pk_job, "
+                + "job.pk_facility, "
+                + "job.pk_show, "
+                + "job.str_name, "
+                + "job.str_show, "
+                + "job.str_state, "
+                + "job.b_paused, "
+                + "job.int_max_retries, "
+                + "job.b_autoeat, "
+                + "job.b_auto_book,"
+                + "job.b_auto_unbook "
+            + "FROM job "
+            + "WHERE pk_job = ?";
+    // spotless:on
 
     @Override
     public DispatchJob getDispatchJob(String uuid) {
         return getJdbcTemplate().queryForObject(GET_DISPATCH_JOB, DISPATCH_JOB_MAPPER, uuid);
     }
 
-    private static final String IS_JOB_COMPLETE = "SELECT " + "SUM (" + "int_waiting_count + "
-            + "int_running_count + " + "int_dead_count + " + "int_depend_count + "
-            + "int_checkpoint_count " + ") " + "FROM " + "job_stat " + "WHERE " + "pk_job=?";
+    // spotless:off
+    private static final String IS_JOB_COMPLETE =
+            "SELECT "
+                + "SUM ("
+                    + "int_waiting_count + "
+                    + "int_running_count + "
+                    + "int_dead_count + "
+                    + "int_depend_count + "
+                    + "int_checkpoint_count "
+                + ") "
+            + "FROM job_stat "
+            + "WHERE pk_job=?";
+    // spotless:on
 
     @Override
     public boolean isJobComplete(JobInterface job) {
@@ -175,21 +198,58 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId()) == 0;
     }
 
-    public static final String GET_JOB = "SELECT " + "job.pk_job, " + "job.pk_show, "
-            + "job.pk_dept," + "job.pk_facility," + "job.str_name " + "FROM " + "job ";
+    // spotless:off
+    public static final String GET_JOB =
+            "SELECT "
+                + "job.pk_job, "
+                + "job.pk_show, "
+                + "job.pk_dept,"
+                + "job.pk_facility,"
+                + "job.str_name "
+            + "FROM job ";
+    // spotless:on
 
-    private static final String GET_JOB_DETAIL = "SELECT " + "job.pk_job," + "job.pk_show,"
-            + "job.pk_facility," + "job.pk_dept," + "job.pk_folder," + "job.str_log_dir,"
-            + "job.str_loki_url," + "job.str_name," + "job.str_shot," + "job.str_state,"
-            + "job.int_uid," + "job.str_user," + "job.str_email," + "job.int_frame_count,"
-            + "job.int_layer_count," + "job.ts_started," + "job.ts_stopped," + "job.b_paused,"
-            + "job.int_max_retries," + "job_resource.int_max_cores," + "job_resource.int_min_cores,"
-            + "job_resource.int_max_gpus," + "job_resource.int_min_gpus,"
-            + "job_resource.int_priority," + "show.str_name AS show_name, "
-            + "dept.str_name AS dept_name, " + "facility.str_name AS facility_name " + "FROM "
-            + "job, " + "job_resource, " + "show, " + "dept, " + "facility " + "WHERE "
-            + "job.pk_job = job_resource.pk_job " + "AND " + "job.pk_show = show.pk_show " + "AND "
-            + "job.pk_dept = dept.pk_dept " + "AND " + "job.pk_facility = facility.pk_facility ";
+    // spotless:off
+    private static final String GET_JOB_DETAIL =
+            "SELECT "
+                + "job.pk_job,"
+                + "job.pk_show,"
+                + "job.pk_facility,"
+                + "job.pk_dept,"
+                + "job.pk_folder,"
+                + "job.str_log_dir,"
+                + "job.str_loki_url,"
+                + "job.str_name,"
+                + "job.str_shot,"
+                + "job.str_state,"
+                + "job.int_uid,"
+                + "job.str_user,"
+                + "job.str_email,"
+                + "job.int_frame_count,"
+                + "job.int_layer_count,"
+                + "job.ts_started,"
+                + "job.ts_stopped,"
+                + "job.b_paused,"
+                + "job.int_max_retries,"
+                + "job_resource.int_max_cores,"
+                + "job_resource.int_min_cores,"
+                + "job_resource.int_max_gpus,"
+                + "job_resource.int_min_gpus,"
+                + "job_resource.int_priority,"
+                + "show.str_name AS show_name, "
+                + "dept.str_name AS dept_name, "
+                + "facility.str_name AS facility_name "
+            + "FROM "
+                + "job, "
+                + "job_resource, "
+                + "show, "
+                + "dept, "
+                + "facility "
+            + "WHERE job.pk_job = job_resource.pk_job "
+            + "AND job.pk_show = show.pk_show "
+            + "AND job.pk_dept = dept.pk_dept "
+            + "AND job.pk_facility = facility.pk_facility ";
+    // spotless:on
 
     private static final String GET_JOB_BY_ID = GET_JOB_DETAIL + "AND job.pk_job=?";
 
@@ -216,11 +276,24 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         return getJdbcTemplate().queryForObject(GET_JOB + " WHERE pk_job=?", JOB_MAPPER, id);
     }
 
-    public static final String GET_JOBS_BY_TASK = "SELECT " + "job.pk_job, " + "job.pk_show, "
-            + "job.pk_dept, " + "job.pk_facility, " + "job.str_name " + "FROM " + "job," + "folder "
-            + "WHERE " + "job.pk_folder = folder.pk_folder " + "AND "
-            + "folder.b_exclude_managed = false " + "AND " + "job.str_state = ? " + "AND "
-            + "job.pk_dept = ? " + "AND " + "job.str_shot = ? " + "ORDER BY " + "ts_started ASC ";
+    // spotless:off
+    public static final String GET_JOBS_BY_TASK =
+            "SELECT "
+                + "job.pk_job, "
+                + "job.pk_show, "
+                + "job.pk_dept, "
+                + "job.pk_facility, "
+                + "job.str_name "
+            + "FROM "
+                + "job,"
+                + "folder "
+            + "WHERE job.pk_folder = folder.pk_folder "
+            + "AND folder.b_exclude_managed = false "
+            + "AND job.str_state = ? "
+            + "AND job.pk_dept = ? "
+            + "AND job.str_shot = ? "
+            + "ORDER BY ts_started ASC ";
+    // spotless:on
 
     @Override
     public List<JobInterface> getJobs(TaskEntity t) {
@@ -367,9 +440,16 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId(), value);
     }
 
-    private static final String UPDATE_JOB_FINISHED = "UPDATE " + "job " + "SET "
-            + "str_state = ?, " + "str_visible_name = NULL, " + "ts_stopped = current_timestamp "
-            + "WHERE " + "str_state = 'PENDING' " + "AND " + "pk_job = ?";
+    // spotless:off
+    private static final String UPDATE_JOB_FINISHED =
+            "UPDATE job "
+            + "SET "
+                + "str_state = ?, "
+                + "str_visible_name = NULL, "
+                + "ts_stopped = current_timestamp "
+            + "WHERE str_state = 'PENDING' "
+            + "AND pk_job = ?";
+    // spotless:on
 
     @Override
     public boolean updateJobFinished(JobInterface job) {
@@ -382,11 +462,31 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         return false;
     }
 
-    private static final String INSERT_JOB = "INSERT INTO " + "job " + "(" + "pk_job," + "pk_show,"
-            + "pk_folder," + "pk_facility," + "pk_dept," + "str_name," + "str_visible_name,"
-            + "str_show," + "str_shot," + "str_user," + "str_email," + "str_state," + "str_log_dir,"
-            + "str_os, " + "int_uid," + "b_paused," + "b_autoeat," + "int_max_retries, "
-            + "str_loki_url " + ") " + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_JOB =
+            "INSERT INTO job ("
+                + "pk_job,"
+                + "pk_show,"
+                + "pk_folder,"
+                + "pk_facility,"
+                + "pk_dept,"
+                + "str_name,"
+                + "str_visible_name,"
+                + "str_show,"
+                + "str_shot,"
+                + "str_user,"
+                + "str_email,"
+                + "str_state,"
+                + "str_log_dir,"
+                + "str_os, "
+                + "int_uid,"
+                + "b_paused,"
+                + "b_autoeat,"
+                + "int_max_retries, "
+                + "str_loki_url "
+            + ") "
+            + "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertJob(JobDetail j, JobLogUtil jobLogUtil) {
@@ -402,8 +502,14 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 j.os, j.uid.orElse(null), j.isPaused, j.isAutoEat, j.maxRetries, j.logLokiURL);
     }
 
-    private static final String JOB_EXISTS = "SELECT " + "1 " + "FROM " + "job " + "WHERE "
-            + "str_name = ? " + "AND " + "str_state='PENDING' " + "LIMIT 1";
+    // spotless:off
+    private static final String JOB_EXISTS =
+            "SELECT 1 "
+            + "FROM job "
+            + "WHERE str_name = ? "
+            + "AND str_state='PENDING' "
+            + "LIMIT 1";
+    // spotless:on
 
     @Override
     public boolean exists(String name) {
@@ -414,8 +520,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         }
     }
 
+    // spotless:off
     private static final String IS_LAUNCHING =
-            "SELECT " + "str_state " + "FROM " + "job " + "WHERE " + "pk_job=?";
+            "SELECT str_state "
+            + "FROM job "
+            + "WHERE pk_job=?";
+    // spotless:on
 
     @Override
     public boolean isLaunching(JobInterface j) {
@@ -479,10 +589,18 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         updateState(job, jobState);
     }
 
-    private static final String HAS_PENDING_FRAMES = "SELECT " + "int_waiting_count " + "FROM "
-            + "job," + "job_stat " + "WHERE " + "job.pk_job = job_stat.pk_job " + "AND "
-            + "job.str_state = 'PENDING' " + "AND " + "job.b_paused = false " + "AND "
-            + "job.b_auto_book = true " + "AND " + "job.pk_job = ?";
+    // spotless:off
+    private static final String HAS_PENDING_FRAMES =
+            "SELECT int_waiting_count "
+            + "FROM "
+                + "job,"
+                + "job_stat "
+            + "WHERE job.pk_job = job_stat.pk_job "
+            + "AND job.str_state = 'PENDING' "
+            + "AND job.b_paused = false "
+            + "AND job.b_auto_book = true "
+            + "AND job.pk_job = ?";
+    // spotless:on
 
     @Override
     public boolean hasPendingFrames(JobInterface job) {
@@ -494,9 +612,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         }
     }
 
-    private static final String IS_JOB_OVER_MIN_CORES = "SELECT " + "COUNT(1) " + "FROM "
-            + "job_resource " + "WHERE " + "job_resource.pk_job = ? " + "AND "
-            + "job_resource.int_cores > job_resource.int_min_cores";
+    // spotless:off
+    private static final String IS_JOB_OVER_MIN_CORES =
+            "SELECT COUNT(1) "
+            + "FROM job_resource "
+            + "WHERE job_resource.pk_job = ? "
+            + "AND job_resource.int_cores > job_resource.int_min_cores";
+    // spotless:on
 
     @Override
     public boolean isOverMinCores(JobInterface job) {
@@ -504,9 +626,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId()) > 0;
     }
 
-    private static final String IS_JOB_OVER_MAX_CORES = "SELECT " + "COUNT(1) " + "FROM "
-            + "job_resource " + "WHERE " + "job_resource.pk_job = ? " + "AND "
-            + "job_resource.int_cores + ? > job_resource.int_max_cores";
+    // spotless:off
+    private static final String IS_JOB_OVER_MAX_CORES =
+            "SELECT COUNT(1) "
+            + "FROM job_resource "
+            + "WHERE job_resource.pk_job = ? "
+            + "AND job_resource.int_cores + ? > job_resource.int_max_cores";
+    // spotless:on
 
     @Override
     public boolean isOverMaxCores(JobInterface job) {
@@ -520,9 +646,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId(), coreUnits) > 0;
     }
 
-    private static final String IS_JOB_AT_MAX_CORES = "SELECT " + "COUNT(1) " + "FROM "
-            + "job_resource " + "WHERE " + "job_resource.pk_job = ? " + "AND "
-            + "job_resource.int_cores >= job_resource.int_max_cores ";
+    // spotless:off
+    private static final String IS_JOB_AT_MAX_CORES =
+            "SELECT COUNT(1) "
+            + "FROM job_resource "
+            + "WHERE job_resource.pk_job = ? "
+            + "AND job_resource.int_cores >= job_resource.int_max_cores ";
+    // spotless:on
 
     @Override
     public boolean isAtMaxCores(JobInterface job) {
@@ -530,9 +660,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId()) > 0;
     }
 
-    private static final String IS_JOB_OVER_MAX_GPUS = "SELECT " + "COUNT(1) " + "FROM "
-            + "job_resource " + "WHERE " + "job_resource.pk_job = ? " + "AND "
-            + "job_resource.int_gpus + ? > job_resource.int_max_gpus";
+    // spotless:off
+    private static final String IS_JOB_OVER_MAX_GPUS =
+            "SELECT COUNT(1) "
+            + "FROM job_resource "
+            + "WHERE job_resource.pk_job = ? "
+            + "AND job_resource.int_gpus + ? > job_resource.int_max_gpus";
+    // spotless:on
 
     @Override
     public boolean isOverMaxGpus(JobInterface job) {
@@ -546,9 +680,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 gpu) > 0;
     }
 
-    private static final String IS_JOB_AT_MAX_GPUS = "SELECT " + "COUNT(1) " + "FROM "
-            + "job_resource " + "WHERE " + "job_resource.pk_job = ? " + "AND "
-            + "job_resource.int_gpus >= job_resource.int_max_gpus ";
+    // spotless:off
+    private static final String IS_JOB_AT_MAX_GPUS =
+            "SELECT COUNT(1) "
+            + "FROM job_resource "
+            + "WHERE job_resource.pk_job = ? "
+            + "AND job_resource.int_gpus >= job_resource.int_max_gpus ";
+    // spotless:on
 
     @Override
     public boolean isAtMaxGpus(JobInterface job) {
@@ -573,9 +711,17 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 j.getJobId());
     }
 
+    // spotless:off
     private static final String GET_FRAME_STATE_TOTALS =
-            "SELECT " + "job.int_frame_count," + "job_stat.* " + "FROM " + "job," + "job_stat "
-                    + "WHERE " + "job.pk_job = job_stat.pk_job " + "AND " + "job.pk_job=?";
+            "SELECT "
+                + "job.int_frame_count,"
+                + "job_stat.* "
+            + "FROM "
+                + "job,"
+                + "job_stat "
+            + "WHERE job.pk_job = job_stat.pk_job "
+            + "AND job.pk_job=?";
+    // spotless:on
 
     public FrameStateTotals getFrameStateTotals(JobInterface job) {
         return getJdbcTemplate().queryForObject(GET_FRAME_STATE_TOTALS,
@@ -594,12 +740,22 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 }, job.getJobId());
     }
 
+    // spotless:off
     private static final String GET_EXECUTION_SUMMARY =
-            "SELECT " + "job_usage.int_core_time_success," + "job_usage.int_core_time_fail,"
-                    + "job_usage.int_gpu_time_success," + "job_usage.int_gpu_time_fail,"
-                    + "job_mem.int_max_rss " + "FROM " + "job," + "job_usage, " + "job_mem "
-                    + "WHERE " + "job.pk_job = job_usage.pk_job " + "AND "
-                    + "job.pk_job = job_mem.pk_job " + "AND " + "job.pk_job = ?";
+            "SELECT "
+                + "job_usage.int_core_time_success,"
+                + "job_usage.int_core_time_fail,"
+                + "job_usage.int_gpu_time_success,"
+                + "job_usage.int_gpu_time_fail,"
+                + "job_mem.int_max_rss "
+            + "FROM "
+                + "job,"
+                + "job_usage, "
+                + "job_mem "
+            + "WHERE job.pk_job = job_usage.pk_job "
+            + "AND job.pk_job = job_mem.pk_job "
+            + "AND job.pk_job = ?";
+    // spotless:on
 
     public ExecutionSummary getExecutionSummary(JobInterface job) {
         return getJdbcTemplate().queryForObject(GET_EXECUTION_SUMMARY,
@@ -619,8 +775,13 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 }, job.getJobId());
     }
 
-    private static final String INSERT_JOB_ENV = "INSERT INTO " + "job_env " + "("
-            + "pk_job_env, pk_job, str_key, str_value " + ") " + "VALUES (?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_JOB_ENV =
+            "INSERT INTO job_env ("
+                + "pk_job_env, pk_job, str_key, str_value "
+            + ") "
+            + "VALUES (?,?,?,?)";
+    // spotless:on
 
     @Override
     public void insertEnvironment(JobInterface job, Map<String, String> env) {
@@ -750,14 +911,24 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         }
     }
 
-    private static final String HAS_PENDING_JOBS = "SELECT " + "job.pk_job " + "FROM " + "job, "
-            + "job_stat, " + "job_resource " + "WHERE " + "job.pk_job = job_stat.pk_job " + "AND "
-            + "job.pk_job = job_resource.pk_job " + "AND " + "job.str_state = 'PENDING' " + "AND "
-            + "job.b_paused = false " + "AND " + "job.b_auto_book = true " + "AND "
-            + "job_stat.int_waiting_count != 0 " + "AND "
-            + "job_resource.int_cores < job_resource.int_max_cores " + "AND "
-            + "job_resource.int_gpus < job_resource.int_max_gpus " + "AND " + "job.pk_facility = ? "
+    // spotless:off
+    private static final String HAS_PENDING_JOBS =
+            "SELECT job.pk_job "
+            + "FROM "
+                + "job, "
+                + "job_stat, "
+                + "job_resource "
+            + "WHERE job.pk_job = job_stat.pk_job "
+            + "AND job.pk_job = job_resource.pk_job "
+            + "AND job.str_state = 'PENDING' "
+            + "AND job.b_paused = false "
+            + "AND job.b_auto_book = true "
+            + "AND job_stat.int_waiting_count != 0 "
+            + "AND job_resource.int_cores < job_resource.int_max_cores "
+            + "AND job_resource.int_gpus < job_resource.int_max_gpus "
+            + "AND job.pk_facility = ? "
             + "LIMIT 1";
+    // spotless:on
 
     @Override
     public boolean cueHasPendingJobs(FacilityInterface f) {
@@ -776,8 +947,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getJobId());
     }
 
+    // spotless:off
     public static final String MAP_POST_JOB =
-            "INSERT INTO " + "job_post " + "(pk_job_post, pk_job, pk_post_job) " + "VALUES (?,?,?)";
+            "INSERT INTO job_post "
+                + "(pk_job_post, pk_job, pk_post_job) "
+            + "VALUES (?,?,?)";
+    // spotless:on
 
     @Override
     public void mapPostJob(BuildableJob job) {
@@ -785,8 +960,12 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                 job.getPostJob().detail.id);
     }
 
-    public static final String ACTIVATE_POST_JOB = "UPDATE " + "job " + "SET " + "str_state=? "
-            + "WHERE " + "pk_job IN (SELECT pk_post_job FROM job_post WHERE pk_job = ?)";
+    // spotless:off
+    public static final String ACTIVATE_POST_JOB =
+            "UPDATE job "
+            + "SET str_state=? "
+            + "WHERE pk_job IN (SELECT pk_post_job FROM job_post WHERE pk_job = ?)";
+    // spotless:on
 
     @Override
     public void activatePostJob(JobInterface job) {

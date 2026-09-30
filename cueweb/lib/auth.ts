@@ -1,5 +1,25 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 
 import { NextAuthOptions } from "next-auth";
+import { extractGroups, getUserGroups, isEffectiveAdmin } from "@/lib/authz";
+// Import the store directly (not lib/audit) to avoid a require cycle: lib/audit
+// imports authOptions from here for getServerSession.
+import { recordAudit } from "@/lib/audit-store";
 import OktaProvider from "next-auth/providers/okta";
 import GoogleProvider from "next-auth/providers/google";
 import GitHubProvider from "next-auth/providers/github";
@@ -125,9 +145,16 @@ const providers = providerConfigs.map(({ type, provider, envKeys }) => {
     
     if (type === "Okta") {
         return OktaProvider({
-            clientId: settings.clientId,
-            clientSecret: settings.clientSecret,
-            issuer: settings.issuer
+          clientId: settings.clientId,
+          clientSecret: settings.clientSecret,
+          issuer: settings.issuer,
+          // Request the `groups` claim alongside the standard OIDC scopes so
+          // the ID token carries the user's group memberships (consumed by
+          // extractGroups in lib/authz.ts). Note: with Okta's Org
+          // Authorization Server, groups are emitted by the app's ID-token
+          // "Groups claim" filter and this scope is a no-op; it becomes
+          // required only when using a custom Okta Authorization Server.
+          authorization: { params: { scope: "openid email profile groups" } },
         });
     } else if (type === "Google") {
         return GoogleProvider({
@@ -147,6 +174,61 @@ const providers = providerConfigs.map(({ type, provider, envKeys }) => {
 
 export const authOptions: NextAuthOptions = {
     providers,
-    // Additional NextAuth configurations can be added here
+    callbacks: {
+        // Resolve the user's groups once, at sign-in (this runs in Node and so
+        // can reach the identity provider), and stamp them on the JWT. The
+        // Edge middleware later reads token.groups to enforce access. The
+        // OIDC `profile` is only present on the initial sign-in; `user` covers
+        // credentials/LDAP providers that attach a `groups` field in authorize.
+        async jwt({ token, profile, user }) {
+            if (profile || user) {
+                // Always set (even to []) so a user whose groups were cleared
+                // doesn't keep stale memberships from a previous token. This
+                // branch only runs at sign-in; later requests leave it intact.
+                token.groups = extractGroups(
+                    profile as unknown as Record<string, unknown> | undefined,
+                    user as unknown as Record<string, unknown> | undefined,
+                );
+            }
+            return token;
+        },
+        // Expose the groups on the session so client/server components can
+        // tailor the UI (e.g. hide admin-only controls). `isAdmin` is the
+        // effective decision (true for everyone when the authz gate is
+        // inactive) so the AppHeader/AppSidebar can show or hide the Admin ->
+        // CueWeb Audit entry without re-deriving the policy.
+        async session({ session, token }) {
+            const groups = getUserGroups(token as { groups?: unknown });
+            (session as { groups?: string[] }).groups = groups;
+            (session as { isAdmin?: boolean }).isAdmin = isEffectiveAdmin(groups);
+            return session;
+        },
+    },
+    // Audit authentication events into the CueWeb Audit trail (Admin -> CueWeb
+    // Audit). Best-effort: a logging failure must never block sign-in/out.
+    events: {
+        async signIn({ user }) {
+            await recordAudit({
+                at: new Date().toISOString(),
+                actor: user?.email || user?.name || "anonymous",
+                category: "auth",
+                action: "Sign in",
+                result: "success",
+            }).catch(() => undefined);
+        },
+        async signOut({ token }) {
+            const actor =
+                (token as { email?: string; name?: string })?.email ||
+                (token as { name?: string })?.name ||
+                "anonymous";
+            await recordAudit({
+                at: new Date().toISOString(),
+                actor,
+                category: "auth",
+                action: "Sign out",
+                result: "success",
+            }).catch(() => undefined);
+        },
+    },
 };
 

@@ -259,10 +259,45 @@ services:
     build:
       context: ./cueweb
       dockerfile: Dockerfile
+      # Expose the repo root as a named build context so the Dockerfile can read
+      # the shared VERSION.in (CueWeb tracks it via OVERRIDE_CUEWEB_VERSION.in).
+      additional_contexts:
+        project_root: .
       args:
         # Build-time environment variables for Next.js
         - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-        - NEXT_PUBLIC_URL=http://localhost:3000
+        # Short Git SHA shown in the "About CueWeb" dialog. Inject in CI with
+        # --build-arg NEXT_PUBLIC_GIT_SHA=$(git rev-parse --short HEAD).
+        - NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA:-}
+        # Empty = client builds same-origin relative URLs, so the app
+        # works from any host the user reaches it on (localhost on the
+        # dev environment, the LAN IP from another device, etc.). Set to an
+        # absolute URL only if the API is on a different origin than the UI.
+        - NEXT_PUBLIC_URL=
+        # Deep-link template for the Frame context menu's
+        # "View Log on <editor>" item. `{path}` is substituted with the
+        # absolute log path at click time. Default targets VSCode since
+        # the sandbox is dev-focused; override at build time for other
+        # editors, e.g.
+        #   docker compose build cueweb \
+        #     --build-arg NEXT_PUBLIC_LOG_EDITOR_URL='subl://open?url=file://{path}'
+        # Set to an empty string to hide the menu item entirely.
+        - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+        # "Show Progress Bar" launches the CueProgBar desktop tool via a URL
+        # scheme. {job} is replaced with the job name. Register an OS handler
+        # for cueprogbar:// that runs:
+        #   python -m cuegui.cueguiplugin.cueprogbar <job>
+        # (empty hides the launch and uses the in-table Progress column).
+        - NEXT_PUBLIC_CUEPROGBAR_URL=cueprogbar://{job}
+        # Command shown in the "Show Progress Bar" dialog ({job} -> job name).
+        # Override with a site launcher, e.g. "spawn launch cueprogbar {job}".
+        - NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+        # "Preview All" (Frames menu) external image viewer. PREVIEW_COMMAND is
+        # shown/copied; PREVIEW_URL (optional) is a registered scheme the Launch
+        # button hands off to a local handler. Placeholders: {paths} {job}
+        # {layer} {frame}. e.g. a viewer scheme "openrv://{paths}".
+        - NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+        - NEXT_PUBLIC_PREVIEW_URL=
         - NEXTAUTH_URL=http://localhost:3000
         - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production
         # Authentication disabled by default for sandbox/development
@@ -280,7 +315,29 @@ services:
     environment:
       # Runtime environment variables
       - NEXT_PUBLIC_OPENCUE_ENDPOINT=http://rest-gateway:8448
-      - NEXT_PUBLIC_URL=http://localhost:3000
+      # Cuebot Facility switching (CueGUI "Cuebot Facility" menu parity).
+      # NEXT_PUBLIC_CUEBOT_FACILITIES lists the facilities in the header menu;
+      # defaults to "local,dev,cloud,external". Each facility can target its own
+      # gateway via CUEBOT_<NAME>_REST_GATEWAY_URL + CUEBOT_<NAME>_JWT_SECRET
+      # (server-only); a facility without overrides falls back to
+      # NEXT_PUBLIC_OPENCUE_ENDPOINT / NEXT_JWT_SECRET below. Examples:
+      # - NEXT_PUBLIC_CUEBOT_FACILITIES=local,dev,cloud,external
+      # - CUEBOT_DEV_REST_GATEWAY_URL=http://dev-rest-gateway:8448
+      # - CUEBOT_DEV_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+      # See the build args block above - empty means same-origin relative.
+      - NEXT_PUBLIC_URL=
+      # See the build args block above. Runtime value is only useful if
+      # something reads process.env at request time; for the client
+      # bundle the build arg is what matters.
+      - NEXT_PUBLIC_LOG_EDITOR_URL=vscode://file{path}
+      - NEXT_PUBLIC_CUEPROGBAR_URL=cueprogbar://{job}
+      - NEXT_PUBLIC_CUEPROGBAR_COMMAND=python -m cuegui.cueguiplugin.cueprogbar {job}
+      - NEXT_PUBLIC_PREVIEW_COMMAND=rv {paths}
+      - NEXT_PUBLIC_PREVIEW_URL=
+      # Allow-list for the frame-preview file server. The route fails closed when
+      # unset, so scope it to the mounted render dir (matches the read-only
+      # /tmp/rqd/logs volume above). Colon-separated for multiple roots.
+      - CUEWEB_PREVIEW_ROOTS=/tmp/rqd/logs
       - NEXT_JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=cueweb-nextauth-secret-change-in-production

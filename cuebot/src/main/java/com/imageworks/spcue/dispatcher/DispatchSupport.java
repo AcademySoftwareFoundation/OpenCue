@@ -94,6 +94,14 @@ public interface DispatchSupport {
     static final AtomicLong clearedProcs = new AtomicLong(0);
 
     /**
+     * A lost proc whose release was deferred because the kill-before-release could not confirm the
+     * frame was stopped and the host was not confirmed dead (likely a flapping host). The proc and
+     * its RUNNING frame are left intact to avoid double-booking until the host is confirmed DOWN or
+     * the frame completes naturally.
+     */
+    static final AtomicLong deferredReleaseProcs = new AtomicLong(0);
+
+    /**
      * Long for counting dispatch errors
      */
     static final AtomicLong bookingErrors = new AtomicLong(0);
@@ -180,8 +188,10 @@ public interface DispatchSupport {
      * @param proc
      * @param reason
      * @param exitStatus
+     * @return true if the proc was actually released (unbooked and its frame reset); false if the
+     *         release was deferred to avoid double-booking a possibly-still-rendering host
      */
-    void lostProc(VirtualProc proc, String reason, int exitStatus);
+    boolean lostProc(VirtualProc proc, String reason, int exitStatus);
 
     /**
      * Unbooks a proc with no message

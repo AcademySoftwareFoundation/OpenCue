@@ -266,6 +266,10 @@ cueadmin -lh -alloc main.render | head -10
 
 # Filter by name pattern
 cueadmin -lh render | grep render01
+
+# Filter by lock state, and sort by idleness
+cueadmin -lh -lock-state NIMBY_LOCKED         # Hosts locked by user activity
+cueadmin -lh -lock-state OPEN -sort-idle       # Available hosts, most idle first
 ```
 
 ### Locking and Unlocking Hosts

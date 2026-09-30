@@ -16,6 +16,7 @@
 package com.imageworks.spcue.dao;
 
 import java.sql.Timestamp;
+import java.util.List;
 
 import com.imageworks.spcue.AllocationInterface;
 import com.imageworks.spcue.DispatchHost;
@@ -23,6 +24,7 @@ import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -278,6 +280,15 @@ public interface HostDao {
      * @return int
      */
     int getStrandedCoreUnits(HostInterface h);
+
+    /**
+     * Return per-allocation core counts (total, idle, memory-stranded) across all UP and OPEN
+     * hosts, one entry per allocation. Stranded cores are idle cores on hosts whose idle memory is
+     * at or below Dispatcher.MEM_STRANDED_THRESHHOLD. Used to expose memory-stranded core metrics.
+     *
+     * @return List of StrandedCoreStats, one per allocation
+     */
+    List<StrandedCoreStats> getStrandedCoreStats();
 
     /**
      * Return the number of whole stranded gpus on this host. The must have less than

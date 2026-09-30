@@ -23,6 +23,8 @@ pub struct VirtualProc {
     pub proc_id: Uuid,
     pub host_id: Uuid,
     pub show_id: Uuid,
+    pub folder_id: Uuid,
+    pub dept_id: Uuid,
     pub layer_id: Uuid,
     pub job_id: Uuid,
     pub frame_id: Uuid,

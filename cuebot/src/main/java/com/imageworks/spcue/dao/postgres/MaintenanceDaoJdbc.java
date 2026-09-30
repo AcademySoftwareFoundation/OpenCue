@@ -27,26 +27,54 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
 
     private static final String HOST_DOWN_INTERVAL = "interval '300' second";
 
+    // spotless:off
     private static final String UPDATE_HOSTS_DOWN =
-            "UPDATE " + "host_stat " + "SET " + "str_state = ? " + "WHERE " + "str_state = 'UP' "
-                    + "AND " + "current_timestamp - ts_ping > " + HOST_DOWN_INTERVAL;
+            "UPDATE "
+                + "host_stat "
+            + "SET "
+                + "str_state = ? "
+            + "WHERE "
+                + "str_state = 'UP' "
+            + "AND "
+                + "current_timestamp - ts_ping > " + HOST_DOWN_INTERVAL;
+    // spotless:on
 
     public int setUpHostsToDown() {
         return getJdbcTemplate().update(UPDATE_HOSTS_DOWN, HardwareState.DOWN.toString());
     }
 
-    public static final String LOCK_TASK = "UPDATE " + "task_lock " + "SET " + "int_lock = ?, "
-            + "ts_lastrun = current_timestamp " + "WHERE " + "str_name = ? " + "AND "
-            + "(int_lock = ? OR ? - int_lock > int_timeout)";
+    // spotless:off
+    public static final String LOCK_TASK =
+            "UPDATE "
+                + "task_lock "
+            + "SET "
+                + "int_lock = ?, "
+                + "ts_lastrun = current_timestamp "
+            + "WHERE "
+                + "str_name = ? "
+            + "AND "
+                + "(int_lock = ? OR ? - int_lock > int_timeout)";
+    // spotless:on
 
     public boolean lockTask(MaintenanceTask task) {
         long now = System.currentTimeMillis();
         return getJdbcTemplate().update(LOCK_TASK, now, task.toString(), 0, now) == 1;
     }
 
-    public static final String LOCK_TASK_MIN = "UPDATE " + "task_lock " + "SET " + "int_lock = ?, "
-            + "ts_lastrun = current_timestamp " + "WHERE " + "str_name= ? " + "AND "
-            + "int_lock = ? " + "AND " + "interval_to_seconds(current_timestamp - ts_lastrun) > ? ";
+    // spotless:off
+    public static final String LOCK_TASK_MIN =
+            "UPDATE "
+                + "task_lock "
+            + "SET "
+                + "int_lock = ?, "
+                + "ts_lastrun = current_timestamp "
+            + "WHERE "
+                + "str_name= ? "
+            + "AND "
+                + "int_lock = ? "
+            + "AND "
+                + "interval_to_seconds(current_timestamp - ts_lastrun) > ? ";
+    // spotless:on
 
     public boolean lockTask(MaintenanceTask task, int minutes) {
         long now = System.currentTimeMillis();
@@ -67,20 +95,29 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
 
     // spotless:off
     /**
-     * Finds active, non-composite depends whose depended-upon entity has already completed
-     * successfully. Composite depends (b_composite = true) are parent depends that are
-     * automatically satisfied when all their child depends are satisfied, so they should
-     * not be resolved directly.
+     * Finds active, non-composite depends whose depended-upon entity has already completed.
+     * Composite depends (b_composite = true) are parent depends that are automatically
+     * satisfied when all their child depends are satisfied, so they should not be resolved
+     * directly.
      *
-     * Section 1: Job-level depends (JOB_ON_JOB, LAYER_ON_JOB, FRAME_ON_JOB) where
-     *   every frame in the depended-upon job has SUCCEEDED or been EATEN.
+     * The set of frame states that count as completion is selected by
+     * {@code includeEatenAsComplete}: SUCCEEDED only, or SUCCEEDED+EATEN. This mirrors the
+     * runtime behavior gated by {@code depend.satisfy_only_on_frame_success} in
+     * {@code FrameCompleteHandler}.
+     *
+     * Section 1: Job-level depends (JOB_ON_JOB, LAYER_ON_JOB, FRAME_ON_JOB) where every
+     *   frame in the depended-upon job is in a completion state.
      * Section 2: Layer-level depends (JOB_ON_LAYER, LAYER_ON_LAYER, FRAME_ON_LAYER) where
-     *   every frame in the depended-upon layer has SUCCEEDED or been EATEN.
+     *   every frame in the depended-upon layer is in a completion state.
      * Section 3: Frame-level depends (JOB_ON_FRAME, LAYER_ON_FRAME, FRAME_ON_FRAME) where
-     *   the specific depended-upon frame has SUCCEEDED or been EATEN.
+     *   the specific depended-upon frame is in a completion state.
      */
-    private static final String FIND_STALE_DEPEND_IDS =
-            // Section 1: Job-level depends where all frames in the job succeeded or were eaten.
+    private static String buildFindStaleDependIdsSql(boolean includeEatenAsComplete) {
+        String completeStates = includeEatenAsComplete
+                ? "('SUCCEEDED', 'EATEN')"
+                : "('SUCCEEDED')";
+        return
+            // Section 1: Job-level depends where all frames in the job completed.
             // Pre-filter on job.str_state = 'FINISHED' leverages the i_job_str_state index to
             // skip depends on active jobs. A FINISHED job may still have DEAD frames, so we
             // also verify frame states via NOT EXISTS.
@@ -94,11 +131,11 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
             + "AND NOT EXISTS ("
                 + "SELECT 1 FROM frame f "
                 + "WHERE f.pk_job = d.pk_job_depend_on "
-                + "AND f.str_state NOT IN ('SUCCEEDED', 'EATEN')) "
+                + "AND f.str_state NOT IN " + completeStates + ") "
 
             + "UNION ALL "
 
-            // Section 2: Layer-level depends where all frames in the layer succeeded or were eaten.
+            // Section 2: Layer-level depends where all frames in the layer completed.
             + "SELECT pk_depend FROM depend d "
             + "WHERE d.b_active = true "
             + "AND d.b_composite = false "
@@ -107,11 +144,11 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
             + "AND NOT EXISTS ("
                 + "SELECT 1 FROM frame f "
                 + "WHERE f.pk_layer = d.pk_layer_depend_on "
-                + "AND f.str_state NOT IN ('SUCCEEDED', 'EATEN')) "
+                + "AND f.str_state NOT IN " + completeStates + ") "
 
             + "UNION ALL "
 
-            // Section 3: Frame-level depends where the specific frame succeeded or was eaten.
+            // Section 3: Frame-level depends where the specific frame completed.
             + "SELECT pk_depend FROM depend d "
             + "WHERE d.b_active = true "
             + "AND d.b_composite = false "
@@ -120,14 +157,22 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
             + "AND EXISTS ("
                 + "SELECT 1 FROM frame f "
                 + "WHERE f.pk_frame = d.pk_frame_depend_on "
-                + "AND f.str_state IN ('SUCCEEDED', 'EATEN')) "
+                + "AND f.str_state IN " + completeStates + ") "
 
             + "LIMIT ?";
+    }
+
+    private static final String FIND_STALE_DEPEND_IDS_INCLUDING_EATEN =
+            buildFindStaleDependIdsSql(true);
+    private static final String FIND_STALE_DEPEND_IDS_SUCCEEDED_ONLY =
+            buildFindStaleDependIdsSql(false);
     // spotless:on
 
     @Override
-    public List<String> findStaleDependIds(int limit) {
-        return getJdbcTemplate().queryForList(FIND_STALE_DEPEND_IDS, String.class, limit);
+    public List<String> findStaleDependIds(int limit, boolean includeEatenAsComplete) {
+        String sql = includeEatenAsComplete ? FIND_STALE_DEPEND_IDS_INCLUDING_EATEN
+                : FIND_STALE_DEPEND_IDS_SUCCEEDED_ONLY;
+        return getJdbcTemplate().queryForList(sql, String.class, limit);
     }
 
     // spotless:off
@@ -141,11 +186,21 @@ public class MaintenanceDaoJdbc extends JdbcDaoSupport implements MaintenanceDao
                     + "SELECT 1 FROM depend d "
                     + "WHERE d.b_active = true "
                     + "AND d.pk_job_depend_er = f.pk_job "
-                    + "AND ("
-                        + "d.pk_frame_depend_er = f.pk_frame "
-                        + "OR (d.pk_layer_depend_er = f.pk_layer AND d.pk_frame_depend_er IS NULL) "
-                        + "OR (d.pk_layer_depend_er IS NULL AND d.pk_frame_depend_er IS NULL)"
-                    + ")"
+                    + "AND d.pk_frame_depend_er = f.pk_frame"
+                + ") "
+                + "AND NOT EXISTS ("
+                    + "SELECT 1 FROM depend d "
+                    + "WHERE d.b_active = true "
+                    + "AND d.pk_job_depend_er = f.pk_job "
+                    + "AND d.pk_layer_depend_er = f.pk_layer "
+                    + "AND d.pk_frame_depend_er IS NULL"
+                + ") "
+                + "AND NOT EXISTS ("
+                    + "SELECT 1 FROM depend d "
+                    + "WHERE d.b_active = true "
+                    + "AND d.pk_job_depend_er = f.pk_job "
+                    + "AND d.pk_layer_depend_er IS NULL "
+                    + "AND d.pk_frame_depend_er IS NULL"
                 + ") "
                 + "LIMIT ?"
             + ")";

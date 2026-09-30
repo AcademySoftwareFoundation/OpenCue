@@ -34,8 +34,17 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class ActionDaoJdbc extends JdbcDaoSupport implements ActionDao {
 
-    public static final String INSERT_ACTION = "INSERT INTO " + "action " + "("
-            + "pk_action,pk_filter,str_action,str_value_type,b_stop" + ") VALUES (?,?,?,?,?)";
+    // spotless:off
+    public static final String INSERT_ACTION =
+            "INSERT INTO action ("
+                + "pk_action,"
+                + "pk_filter,"
+                + "str_action,"
+                + "str_value_type,"
+                + "b_stop"
+            + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     public void createAction(ActionEntity action) {
         action.id = SqlUtil.genKeyRandom();
@@ -45,8 +54,17 @@ public class ActionDaoJdbc extends JdbcDaoSupport implements ActionDao {
         updateAction(action);
     }
 
-    private static final String GET_ACTION = "SELECT " + "action.*," + "filter.pk_show " + "FROM "
-            + "action," + "filter " + "WHERE " + "action.pk_filter = filter.pk_filter";
+    // spotless:off
+    private static final String GET_ACTION =
+            "SELECT "
+                + "action.*,"
+                + "filter.pk_show "
+            + "FROM "
+                + "action,"
+                + "filter "
+            + "WHERE "
+                + "action.pk_filter = filter.pk_filter";
+    // spotless:on
 
     public ActionEntity getAction(String id) {
         return getJdbcTemplate().queryForObject(GET_ACTION + " AND pk_action=?",

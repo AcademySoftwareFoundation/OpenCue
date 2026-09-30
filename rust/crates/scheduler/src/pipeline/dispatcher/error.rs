@@ -81,4 +81,16 @@ pub enum DispatchVirtualProcError {
 
     #[error("Resource limit exceeded")]
     ResourceLimitExceeded(DispatchError),
+
+    /// Redis is unreachable / transient infra fault. Operations runbook: check Redis
+    /// health, scheduler should self-recover when Redis comes back.
+    #[error("Accounting service unavailable: {0}")]
+    AccountingUnavailable(String),
+
+    /// Programmer/protocol error from the accounting layer (malformed Lua return,
+    /// unexpected redis error type, CAS contention budget exhausted on a hot-path
+    /// call). Should never fire in steady state - surfacing distinctly so ops can
+    /// alert on it separately from `AccountingUnavailable`.
+    #[error("Accounting internal error: {0}")]
+    AccountingUnexpected(String),
 }

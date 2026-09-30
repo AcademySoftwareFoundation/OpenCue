@@ -32,8 +32,17 @@ import com.imageworks.spcue.util.SqlUtil;
 
 public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
 
-    private static final String INSERT_MATCHER = "INSERT INTO " + "matcher " + "( "
-            + "pk_matcher,pk_filter,str_subject,str_match,str_value" + ") VALUES (?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_MATCHER =
+            "INSERT INTO matcher ( "
+                + "pk_matcher,"
+                + "pk_filter,"
+                + "str_subject,"
+                + "str_match,"
+                + "str_value"
+            + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     public void insertMatcher(MatcherEntity matcher) {
         matcher.id = SqlUtil.genKeyRandom();
@@ -46,8 +55,17 @@ public class MatcherDaoJdbc extends JdbcDaoSupport implements MatcherDao {
         getJdbcTemplate().update("DELETE FROM matcher WHERE pk_matcher=?", matcher.getMatcherId());
     }
 
-    private static final String GET_MATCHER = "SELECT " + "matcher.*, " + "filter.pk_show "
-            + "FROM " + "matcher, " + "filter " + "WHERE " + "matcher.pk_filter = filter.pk_filter";
+    // spotless:off
+    private static final String GET_MATCHER =
+            "SELECT "
+                + "matcher.*, "
+                + "filter.pk_show "
+            + "FROM "
+                + "matcher, "
+                + "filter "
+            + "WHERE "
+                + "matcher.pk_filter = filter.pk_filter";
+    // spotless:on
 
     public MatcherEntity getMatcher(String id) {
         return getJdbcTemplate().queryForObject(GET_MATCHER + " AND matcher.pk_matcher=?",

@@ -33,6 +33,7 @@ import com.imageworks.spcue.grpc.host.NestedHost;
 import com.imageworks.spcue.grpc.host.NestedHostSeq;
 import com.imageworks.spcue.grpc.host.NestedProc;
 import com.imageworks.spcue.grpc.job.GroupStats;
+import com.imageworks.spcue.grpc.job.Job;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.JobStats;
 import com.imageworks.spcue.grpc.job.NestedGroup;
@@ -43,9 +44,16 @@ import com.imageworks.spcue.util.CueUtil;
 
 public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhiteboardDao {
 
+    /**
+     * Cached whiteboard result. Note: each cached NestedGroup tree carries fully hydrated Job
+     * messages via NestedGroup.inline_jobs (populated by NestedJobWhiteboardMapper). Memory cost
+     * per entry scales with the show's pending job count and per-job stat payload — the trade-off
+     * is intentional: it eliminates the per-group getJobs fan-out previously paid by every CueGUI
+     * tick.
+     */
     private class CachedJobWhiteboardMapper {
         public final long time;
-        public NestedJobWhiteboardMapper mapper;
+        public final NestedJobWhiteboardMapper mapper;
 
         public CachedJobWhiteboardMapper(NestedJobWhiteboardMapper result) {
             this.mapper = result;
@@ -53,50 +61,122 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         }
     }
 
-    private static final int CACHE_TIMEOUT = 5000;
+    private static final int CACHE_TIMEOUT_MS = 10000;
     private final ConcurrentHashMap<String, CachedJobWhiteboardMapper> jobCache =
             new ConcurrentHashMap<String, CachedJobWhiteboardMapper>(20);
+    // Per-show refresh lock. Entries are intentionally never evicted: shows are stable
+    // (created/deleted rarely, monitored for long sessions), so the map size is bounded
+    // by the number of distinct shows on the deployment — a handful of dozens of small
+    // Object instances. Adding an eviction hook would couple this DAO to show lifecycle
+    // events for no practical benefit.
+    private final ConcurrentHashMap<String, Object> refreshLocks =
+            new ConcurrentHashMap<String, Object>(20);
 
-    public static final String GET_NESTED_GROUPS = "SELECT " + "show.pk_show, "
-            + "show.str_name AS str_show, " + "facility.str_name AS facility_name, "
-            + "dept.str_name AS dept_name, " + "folder.pk_folder, " + "folder.pk_parent_folder, "
-            + "folder.str_name AS group_name, "
-            + "folder.int_job_priority as int_def_job_priority, "
-            + "folder.int_job_min_cores as int_def_job_min_cores, "
-            + "folder.int_job_max_cores as int_def_job_max_cores, "
-            + "folder.int_job_min_gpus as int_def_job_min_gpus, "
-            + "folder.int_job_max_gpus as int_def_job_max_gpus, "
-            + "folder_resource.int_min_cores AS folder_min_cores, "
-            + "folder_resource.int_max_cores AS folder_max_cores, "
-            + "folder_resource.int_min_gpus AS folder_min_gpus, "
-            + "folder_resource.int_max_gpus AS folder_max_gpus, " + "folder_level.int_level, "
-            + "job.pk_job, " + "job.str_name, " + "job.str_shot, " + "job.str_user, "
-            + "job.str_state, " + "job.str_log_dir, " + "job.int_uid, "
-            + "job_resource.int_priority, " + "job.ts_started, " + "job.ts_stopped, "
-            + "job.ts_updated, " + "job.b_paused, " + "job.b_autoeat, " + "job.b_comment, "
-            + "COALESCE(str_os, '') AS str_os, " + "job.int_frame_count, " + "job.int_layer_count, "
-            + "job_stat.int_waiting_count, " + "job_stat.int_running_count, "
-            + "job_stat.int_dead_count, " + "job_stat.int_eaten_count,"
-            + "job_stat.int_depend_count, " + "job_stat.int_succeeded_count, "
-            + "job_usage.int_core_time_success, " + "job_usage.int_core_time_fail, "
-            + "job_usage.int_gpu_time_success, " + "job_usage.int_gpu_time_fail, "
-            + "job_usage.int_frame_success_count, " + "job_usage.int_frame_fail_count, "
-            + "job_usage.int_clock_time_high, " + "job_usage.int_clock_time_success, "
-            + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores, "
-            + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
-            + "job_resource.int_min_cores, " + "job_resource.int_min_gpus, "
-            + "job_resource.int_max_cores, " + "job_resource.int_max_gpus, "
-            + "job_mem.int_max_rss, " + "job_mem.int_max_pss " + "FROM " + "show, " + "dept, "
-            + "folder_level, " + "folder_resource, " + "folder " + "LEFT JOIN " + "job " + "ON "
-            + " (folder.pk_folder = job.pk_folder AND job.str_state='PENDING') " + "LEFT JOIN "
-            + "facility " + "ON " + "(job.pk_facility = facility.pk_facility) " + "LEFT JOIN "
-            + "job_stat " + "ON " + "(job.pk_job = job_stat.pk_job) " + "LEFT JOIN "
-            + "job_resource " + "ON " + "(job.pk_job = job_resource.pk_job) " + "LEFT JOIN "
-            + "job_usage " + "ON " + "(job.pk_job = job_usage.pk_job) " + "LEFT JOIN " + "job_mem "
-            + "ON " + "(job.pk_job = job_mem.pk_job) " + "WHERE " + "show.pk_show = folder.pk_show "
-            + "AND " + "folder.pk_folder = folder_level.pk_folder " + "AND "
-            + "folder.pk_folder = folder_resource.pk_folder " + "AND "
-            + "folder.pk_dept = dept.pk_dept ";
+    // IMPORTANT: this SELECT must remain a column-superset of WhiteboardDaoJdbc.GET_JOB.
+    // NestedJobWhiteboardMapper feeds each row through WhiteboardDaoJdbc.JOB_MAPPER to
+    // populate NestedGroup.inline_jobs, so any column the JOB_MAPPER reads must appear
+    // here. Dropping a column (or renaming an alias) will surface only at runtime as a
+    // SQLException during a cache refresh.
+    // spotless:off
+    public static final String GET_NESTED_GROUPS =
+            "SELECT "
+                + "show.pk_show, "
+                + "show.str_name AS str_show, "
+                + "facility.str_name AS facility_name, "
+                + "dept.str_name AS dept_name, "
+                + "folder.pk_folder, "
+                + "folder.pk_parent_folder, "
+                + "folder.str_name AS group_name, "
+                + "folder.int_job_priority as int_def_job_priority, "
+                + "folder.int_job_min_cores as int_def_job_min_cores, "
+                + "folder.int_job_max_cores as int_def_job_max_cores, "
+                + "folder.int_job_min_gpus as int_def_job_min_gpus, "
+                + "folder.int_job_max_gpus as int_def_job_max_gpus, "
+                + "folder_resource.int_min_cores AS folder_min_cores, "
+                + "folder_resource.int_max_cores AS folder_max_cores, "
+                + "folder_resource.int_min_gpus AS folder_min_gpus, "
+                + "folder_resource.int_max_gpus AS folder_max_gpus, "
+                + "folder_level.int_level, "
+                + "job.pk_job, "
+                + "job.str_name, "
+                + "job.str_shot, "
+                + "job.str_user, "
+                + "job.str_state, "
+                + "job.str_log_dir, "
+                + "job.str_loki_url, "
+                + "job.int_uid, "
+                + "job_resource.int_priority, "
+                + "job.ts_started, "
+                + "job.ts_stopped, "
+                + "job.ts_eligible, "
+                + "job.ts_updated, "
+                + "job.b_paused, "
+                + "job.b_autoeat, "
+                + "job.b_comment, "
+                + "COALESCE(str_os, '') AS str_os, "
+                + "job.int_frame_count, "
+                + "job.int_layer_count, "
+                + "job_stat.int_waiting_count, "
+                + "job_stat.int_running_count, "
+                + "job_stat.int_dead_count, "
+                + "job_stat.int_eaten_count,"
+                + "job_stat.int_depend_count, "
+                + "job_stat.int_succeeded_count, "
+                + "job_usage.int_core_time_success, "
+                + "job_usage.int_core_time_fail, "
+                + "job_usage.int_gpu_time_success, "
+                + "job_usage.int_gpu_time_fail, "
+                + "job_usage.int_frame_success_count, "
+                + "job_usage.int_frame_fail_count, "
+                + "job_usage.int_clock_time_high, "
+                + "job_usage.int_clock_time_success, "
+                + "(job_resource.int_cores + job_resource.int_local_cores) AS int_cores, "
+                + "(job_resource.int_gpus + job_resource.int_local_gpus) AS int_gpus, "
+                + "job_resource.int_min_cores, "
+                + "job_resource.int_min_gpus, "
+                + "job_resource.int_max_cores, "
+                + "job_resource.int_max_gpus, "
+                + "job_mem.int_max_rss, "
+                + "job_mem.int_max_pss "
+            + "FROM "
+                + "show, "
+                + "dept, "
+                + "folder_level, "
+                + "folder_resource, "
+                + "folder "
+            + "LEFT JOIN "
+                + "job "
+            + "ON "
+                + " (folder.pk_folder = job.pk_folder AND job.str_state='PENDING') "
+            + "LEFT JOIN "
+                + "facility "
+            + "ON "
+                + "(job.pk_facility = facility.pk_facility) "
+            + "LEFT JOIN "
+                + "job_stat "
+            + "ON "
+                + "(job.pk_job = job_stat.pk_job) "
+            + "LEFT JOIN "
+                + "job_resource "
+            + "ON "
+                + "(job.pk_job = job_resource.pk_job) "
+            + "LEFT JOIN "
+                + "job_usage "
+            + "ON "
+                + "(job.pk_job = job_usage.pk_job) "
+            + "LEFT JOIN "
+                + "job_mem "
+            + "ON "
+                + "(job.pk_job = job_mem.pk_job) "
+            + "WHERE "
+                + "show.pk_show = folder.pk_show "
+            + "AND "
+                + "folder.pk_folder = folder_level.pk_folder "
+            + "AND "
+                + "folder.pk_folder = folder_resource.pk_folder "
+            + "AND "
+                + "folder.pk_dept = dept.pk_dept ";
+    // spotless:on
 
     private class ChildrenEntry {
         String key;
@@ -199,8 +279,9 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                         .setReservedCores(oldStats.getReservedCores() + jobStats.getReservedCores())
                         .setPendingJobs(oldStats.getPendingJobs() + 1).build();
 
+                Job inlineJob = WhiteboardDaoJdbc.JOB_MAPPER.mapRow(rs, rowNum);
                 group = group.toBuilder().setStats(groupStats).addJobs(rs.getString("pk_job"))
-                        .build();
+                        .addInlineJobs(inlineJob).build();
                 groups.put(groupId, group);
             }
             return group;
@@ -227,22 +308,36 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     }
 
     public NestedGroup getJobWhiteboard(ShowInterface show) {
+        String showId = show.getShowId();
 
-        CachedJobWhiteboardMapper cachedMapper = jobCache.get(show.getShowId());
-        if (cachedMapper != null) {
-            if (System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT) {
-                return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
-            }
+        CachedJobWhiteboardMapper cachedMapper = jobCache.get(showId);
+        if (cachedMapper != null
+                && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+            return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
         }
 
-        NestedJobWhiteboardMapper mapper = new NestedJobWhiteboardMapper();
-        getJdbcTemplate().query(
-                GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
-                mapper, show.getShowId());
+        /*
+         * Ensures only 1 thread per show is running the query; other threads for the same show wait
+         * and then return the result of the thread that actually did the work. Different shows do
+         * not contend.
+         */
+        Object lock = refreshLocks.computeIfAbsent(showId, k -> new Object());
+        synchronized (lock) {
+            cachedMapper = jobCache.get(showId);
+            if (cachedMapper != null
+                    && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+                return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
+            }
 
-        mapper = updateConnections(mapper);
-        jobCache.put(show.getShowId(), new CachedJobWhiteboardMapper(mapper));
-        return mapper.groups.get(mapper.rootGroupID);
+            NestedJobWhiteboardMapper mapper = new NestedJobWhiteboardMapper();
+            getJdbcTemplate().query(
+                    GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
+                    mapper, showId);
+
+            mapper = updateConnections(mapper);
+            jobCache.put(showId, new CachedJobWhiteboardMapper(mapper));
+            return mapper.groups.get(mapper.rootGroupID);
+        }
     }
 
     private static final NestedJob mapResultSetToJob(ResultSet rs) throws SQLException {
@@ -260,6 +355,8 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
                 .setUser(rs.getString("str_user")).setIsPaused(rs.getBoolean("b_paused"))
                 .setHasComment(rs.getBoolean("b_comment")).setAutoEat(rs.getBoolean("b_autoeat"))
                 .setStartTime((int) (rs.getTimestamp("ts_started").getTime() / 1000))
+                .setEligibleTime(
+                        WhiteboardDaoJdbc.getEligibleTimeInEpoch(rs, rs.getTimestamp("ts_started")))
                 .setStats(WhiteboardDaoJdbc.mapJobStats(rs));
 
         int uid = rs.getInt("int_uid");
@@ -276,32 +373,85 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         return jobBuilder.build();
     }
 
-    private static final String GET_HOSTS = "SELECT " + "alloc.str_name AS alloc_name, "
-            + "host.pk_host, " + "host.str_name AS host_name, "
-            + "host_stat.str_state AS host_state, " + "host.b_nimby, " + "host_stat.ts_booted, "
-            + "host_stat.ts_ping, " + "host.int_cores, " + "host.int_cores_idle, "
-            + "host.int_gpus, " + "host.int_gpus_idle, " + "host.int_gpu_mem, "
-            + "host.int_gpu_mem_idle, " + "host.int_mem, " + "host.int_mem_idle, "
-            + "host.str_lock_state, " + "host.str_tags, " + "host.b_comment, "
-            + "host.int_thread_mode, " + "host_stat.str_os, " + "host_stat.int_mem_total, "
-            + "host_stat.int_mem_free, " + "host_stat.int_swap_total, "
-            + "host_stat.int_swap_free, " + "host_stat.int_mcp_total, " + "host_stat.int_mcp_free, "
-            + "host_stat.int_gpu_mem_total, " + "host_stat.int_gpu_mem_free, "
-            + "host_stat.int_load, " + "proc.pk_proc, " + "proc.int_cores_reserved AS proc_cores, "
-            + "proc.int_gpus_reserved AS proc_gpus, " + "proc.int_mem_reserved AS proc_memory, "
-            + "proc.int_mem_used AS used_memory, " + "proc.int_mem_max_used AS max_memory, "
-            + "proc.int_pss_used AS used_pss, " + "proc.int_pss_max_used AS max_pss, "
-            + "proc.int_gpu_mem_reserved AS proc_gpu_memory, " + "proc.ts_ping, "
-            + "proc.ts_booked, " + "proc.ts_dispatched, " + "proc.b_unbooked, "
-            + "redirect.str_name AS str_redirect, " + "job.str_name AS job_name, "
-            + "job.str_log_dir, " + "show.str_name AS show_name, " + "frame.str_name AS frame_name "
-            + "FROM " + "alloc, " + "host_stat, " + "host " + "LEFT JOIN " + "proc " + "ON "
-            + "(proc.pk_host = host.pk_host) " + "LEFT JOIN " + "frame " + "ON "
-            + "(proc.pk_frame = frame.pk_frame) " + "LEFT JOIN " + "job " + "ON "
-            + "(proc.pk_job  = job.pk_job) " + "LEFT JOIN " + "show " + "ON "
-            + "(proc.pk_show = show.pk_show) " + "LEFT JOIN " + "redirect " + "ON "
-            + "(proc.pk_proc = redirect.pk_proc) " + "WHERE " + "host.pk_alloc = alloc.pk_alloc "
-            + "AND " + "host.pk_host = host_stat.pk_host ";
+    // spotless:off
+    private static final String GET_HOSTS =
+            "SELECT "
+                + "alloc.str_name AS alloc_name, "
+                + "host.pk_host, "
+                + "host.str_name AS host_name, "
+                + "host_stat.str_state AS host_state, "
+                + "host.b_nimby, "
+                + "host_stat.ts_booted, "
+                + "host_stat.ts_ping, "
+                + "host.int_cores, "
+                + "host.int_cores_idle, "
+                + "host.int_gpus, "
+                + "host.int_gpus_idle, "
+                + "host.int_gpu_mem, "
+                + "host.int_gpu_mem_idle, "
+                + "host.int_mem, "
+                + "host.int_mem_idle, "
+                + "host.str_lock_state, "
+                + "host.str_tags, "
+                + "host.b_comment, "
+                + "host.int_thread_mode, "
+                + "host_stat.str_os, "
+                + "host_stat.int_mem_total, "
+                + "host_stat.int_mem_free, "
+                + "host_stat.int_swap_total, "
+                + "host_stat.int_swap_free, "
+                + "host_stat.int_mcp_total, "
+                + "host_stat.int_mcp_free, "
+                + "host_stat.int_gpu_mem_total, "
+                + "host_stat.int_gpu_mem_free, "
+                + "host_stat.int_load, "
+                + "proc.pk_proc, "
+                + "proc.int_cores_reserved AS proc_cores, "
+                + "proc.int_gpus_reserved AS proc_gpus, "
+                + "proc.int_mem_reserved AS proc_memory, "
+                + "proc.int_mem_used AS used_memory, "
+                + "proc.int_mem_max_used AS max_memory, "
+                + "proc.int_pss_used AS used_pss, "
+                + "proc.int_pss_max_used AS max_pss, "
+                + "proc.int_gpu_mem_reserved AS proc_gpu_memory, "
+                + "proc.ts_ping, "
+                + "proc.ts_booked, "
+                + "proc.ts_dispatched, "
+                + "proc.b_unbooked, "
+                + "redirect.str_name AS str_redirect, "
+                + "job.str_name AS job_name, "
+                + "job.str_log_dir, "
+                + "show.str_name AS show_name, "
+                + "frame.str_name AS frame_name "
+            + "FROM "
+                + "alloc, "
+                + "host_stat, "
+                + "host "
+            + "LEFT JOIN "
+                + "proc "
+            + "ON "
+                + "(proc.pk_host = host.pk_host) "
+            + "LEFT JOIN "
+                + "frame "
+            + "ON "
+                + "(proc.pk_frame = frame.pk_frame) "
+            + "LEFT JOIN "
+                + "job "
+            + "ON "
+                + "(proc.pk_job  = job.pk_job) "
+            + "LEFT JOIN "
+                + "show "
+            + "ON "
+                + "(proc.pk_show = show.pk_show) "
+            + "LEFT JOIN "
+                + "redirect "
+            + "ON "
+                + "(proc.pk_proc = redirect.pk_proc) "
+            + "WHERE "
+                + "host.pk_alloc = alloc.pk_alloc "
+            + "AND "
+                + "host.pk_host = host_stat.pk_host ";
+    // spotless:on
 
     /**
      * Caches a the host whiteboard. This class is not thread safe so you have to synchronize calls

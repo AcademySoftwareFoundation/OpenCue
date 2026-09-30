@@ -1,0 +1,189 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "liveNow": false,
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["opencue", "cueweb", "usage"],
+  "templating": {
+    "list": [
+      {
+        "current": { "selected": true, "text": "All", "value": "$__all" },
+        "datasource": { "type": "prometheus", "uid": "prometheus" },
+        "definition": "label_values(cueweb_page_views_total, user)",
+        "includeAll": true,
+        "allValue": ".*",
+        "multi": true,
+        "name": "user",
+        "label": "User",
+        "options": [],
+        "query": { "query": "label_values(cueweb_page_views_total, user)", "refId": "user" },
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-6h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "CueWeb User Usage",
+  "uid": "cueweb-user-usage",
+  "version": 1,
+  "panels": [
+    { "type": "row", "title": "Overview", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "id": 1 },
+    {
+      "type": "stat", "title": "Total Page Views", "id": 2,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(cueweb_page_views_total{user=~\"$user\"})", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "Total Actions", "id": 3,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(cueweb_actions_total{user=~\"$user\"})", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "Active Users (all-time)", "id": 4,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "thresholds" } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "none" },
+      "targets": [ { "refId": "A", "expr": "count(count by (user) (cueweb_page_views_total))", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "stat", "title": "API Error Ratio (5m)", "id": 5,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+      "fieldConfig": { "defaults": { "unit": "percentunit", "color": { "mode": "thresholds" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 0.01 }, { "color": "red", "value": 0.05 } ] } }, "overrides": [] },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "value", "graphMode": "area" },
+      "targets": [ { "refId": "A", "expr": "sum(rate(cueweb_api_requests_total{status=~\"4xx|5xx\"}[5m])) / clamp_min(sum(rate(cueweb_api_requests_total[5m])), 1)", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    { "type": "row", "title": "Pages / Modules", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }, "id": 10 },
+    {
+      "type": "timeseries", "title": "Page Views / sec by Page", "id": 11,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "sum by (page) (rate(cueweb_page_views_total{user=~\"$user\"}[$__rate_interval]))", "legendFormat": "{{page}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Top Pages (total views)", "id": 12,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "topk(15, sum by (page) (cueweb_page_views_total{user=~\"$user\"}))", "legendFormat": "{{page}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    { "type": "row", "title": "Actions", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 }, "id": 20 },
+    {
+      "type": "timeseries", "title": "Actions / sec by Action", "id": 21,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "topk(15, sum by (action) (rate(cueweb_actions_total{user=~\"$user\"}[$__rate_interval])))", "legendFormat": "{{action}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Top 20 Actions (total)", "id": 22,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "topk(20, sum by (action) (cueweb_actions_total{user=~\"$user\"}))", "legendFormat": "{{action}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    { "type": "row", "title": "API Requests & Latency", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 }, "id": 30 },
+    {
+      "type": "timeseries", "title": "Requests / sec by Endpoint (Top 15)", "id": 31,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "topk(15, sum by (endpoint) (rate(cueweb_api_requests_total[$__rate_interval])))", "legendFormat": "{{endpoint}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "API Latency p50 / p90 / p99 (all endpoints)", "id": 32,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        { "refId": "A", "expr": "histogram_quantile(0.50, sum by (le) (rate(cueweb_api_request_duration_seconds_bucket[5m])))", "legendFormat": "p50", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "refId": "B", "expr": "histogram_quantile(0.90, sum by (le) (rate(cueweb_api_request_duration_seconds_bucket[5m])))", "legendFormat": "p90", "datasource": { "type": "prometheus", "uid": "prometheus" } },
+        { "refId": "C", "expr": "histogram_quantile(0.99, sum by (le) (rate(cueweb_api_request_duration_seconds_bucket[5m])))", "legendFormat": "p99", "datasource": { "type": "prometheus", "uid": "prometheus" } }
+      ]
+    },
+    {
+      "type": "timeseries", "title": "Average Latency by Endpoint", "id": 33,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["mean"] } },
+      "targets": [ { "refId": "A", "expr": "sum by (endpoint) (rate(cueweb_api_request_duration_seconds_sum[5m])) / clamp_min(sum by (endpoint) (rate(cueweb_api_request_duration_seconds_count[5m])), 0.0001)", "legendFormat": "{{endpoint}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Error Rate by Endpoint (4xx/5xx)", "id": 34,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "sum by (endpoint) (rate(cueweb_api_requests_total{status=~\"4xx|5xx\"}[$__rate_interval]))", "legendFormat": "{{endpoint}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    { "type": "row", "title": "Users", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 41 }, "id": 40 },
+    {
+      "type": "timeseries", "title": "Top 20 Users by Page Views", "id": 41,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 42 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "topk(20, sum by (user) (cueweb_page_views_total{user=~\"$user\"}))", "legendFormat": "{{user}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Top 20 Users by Actions", "id": 42,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 42 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "topk(20, sum by (user) (cueweb_actions_total{user=~\"$user\"}))", "legendFormat": "{{user}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Page Views / sec by User (Top 10)", "id": 43,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 50 },
+      "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["sum"] } },
+      "targets": [ { "refId": "A", "expr": "topk(10, sum by (user) (rate(cueweb_page_views_total{user=~\"$user\"}[$__rate_interval])))", "legendFormat": "{{user}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+    {
+      "type": "timeseries", "title": "Logins by User", "id": 44,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 50 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "bars", "fillOpacity": 60 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "topk(20, sum by (user) (cueweb_logins_total{user=~\"$user\"}))", "legendFormat": "{{user}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    },
+
+    { "type": "row", "title": "Facilities", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 58 }, "id": 50 },
+    {
+      "type": "timeseries", "title": "Cuebot Facility Switches by Facility", "id": 51,
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 59 },
+      "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10 } }, "overrides": [] },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull"] } },
+      "targets": [ { "refId": "A", "expr": "sum by (facility) (cueweb_facility_selected_total{user=~\"$user\"})", "legendFormat": "{{facility}}", "datasource": { "type": "prometheus", "uid": "prometheus" } } ]
+    }
+  ]
+}

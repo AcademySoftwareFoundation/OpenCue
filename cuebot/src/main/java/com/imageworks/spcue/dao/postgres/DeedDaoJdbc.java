@@ -55,8 +55,15 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
         getJdbcTemplate().update("DELETE FROM deed WHERE pk_owner = ?", owner.getId());
     }
 
-    private static final String INSERT_DEED = "INSERT INTO " + "deed " + "(" + "pk_deed,"
-            + "pk_owner," + "pk_host " + ") " + "VALUES (?,?,?)";
+    // spotless:off
+    private static final String INSERT_DEED =
+            "INSERT INTO deed ("
+                + "pk_deed,"
+                + "pk_owner,"
+                + "pk_host "
+            + ") "
+            + "VALUES (?,?,?)";
+    // spotless:on
 
     public DeedEntity insertDeed(OwnerEntity owner, HostInterface host) {
         DeedEntity deed = new DeedEntity();
@@ -69,10 +76,21 @@ public class DeedDaoJdbc extends JdbcDaoSupport implements DeedDao {
         return deed;
     }
 
+    // spotless:off
     private static final String QUERY_FOR_DEED =
-            "SELECT " + "deed.pk_deed, " + "host.str_name as str_hostname, " + "owner.str_username "
-                    + "FROM " + "deed," + "host," + "owner " + "WHERE "
-                    + "deed.pk_owner = owner.pk_owner " + "AND " + "deed.pk_host = host.pk_host ";
+            "SELECT "
+                + "deed.pk_deed, "
+                + "host.str_name as str_hostname, "
+                + "owner.str_username "
+            + "FROM "
+                + "deed,"
+                + "host,"
+                + "owner "
+            + "WHERE "
+                + "deed.pk_owner = owner.pk_owner "
+            + "AND "
+                + "deed.pk_host = host.pk_host ";
+    // spotless:on
 
     @Override
     public DeedEntity getDeed(String id) {

@@ -140,7 +140,7 @@ impl Handler<Request> for LayerPermitService {
             _ => {
                 // No valid permit exists - grant new permit
                 let new_permit = LayerPermit::new(duration);
-                let _ = self.permits.insert_sync(id, new_permit);
+                let _ = self.permits.upsert_sync(id, new_permit);
                 debug!("Granted permit for layer {} (duration: {:?})", id, duration);
                 true
             }

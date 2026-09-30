@@ -17,6 +17,7 @@ package com.imageworks.spcue.test.dao.postgres;
 
 import javax.annotation.Resource;
 
+import org.junit.After;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -61,6 +62,13 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     private static String SHOW_ID = "00000000-0000-0000-0000-000000000000";
     private static String SHOW_NAME = "pipe";
+
+    @After
+    public void resetSchedulerManagedCache() {
+        // @Rollback rolls back the DB row but leaves the in-process Guava cache populated; clear
+        // it so the next test reads the (rolled-back) value from the DB instead of stale cache.
+        showDao.invalidateSchedulerManagedCache();
+    }
 
     public DispatchHost createHost() {
 
@@ -214,6 +222,63 @@ public class ShowDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
                 "SELECT int_frame_fail_count FROM show_stats WHERE pk_show=?", Integer.class,
                 show.id);
         assertEquals(frameFail + 1, frameFail2);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateSchedulerManaged() {
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        assertFalse(show.schedulerManaged);
+        assertFalse(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+
+        showDao.updateSchedulerManaged(show, true);
+        assertTrue(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+
+        // Re-read entity to confirm the SHOW_MAPPER picks up the new column.
+        ShowEntity reread = showDao.findShowDetail(SHOW_NAME);
+        assertTrue(reread.schedulerManaged);
+
+        showDao.updateSchedulerManaged(show, false);
+        assertFalse(jdbcTemplate.queryForObject(
+                "SELECT b_scheduler_managed FROM show WHERE pk_show=?", Boolean.class, show.id));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testIsSchedulerManagedReadYourWrites() {
+        // Default false, cached after first read.
+        assertFalse(showDao.isSchedulerManaged(SHOW_ID));
+        // Local cache must be refreshed by the writer so the same Cuebot sees its
+        // own write immediately (the ~30s TTL is only for stale reads on other
+        // Cuebots in the fleet).
+        ShowEntity show = showDao.findShowDetail(SHOW_NAME);
+        showDao.updateSchedulerManaged(show, true);
+        assertTrue(showDao.isSchedulerManaged(SHOW_ID));
+        showDao.updateSchedulerManaged(show, false);
+        assertFalse(showDao.isSchedulerManaged(SHOW_ID));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testCountSchedulerManagedShows() {
+        // No shows are scheduler-managed by default.
+        assertEquals(0, showDao.countSchedulerManagedShows());
+
+        // Flip the pipe show; count should be 1.
+        ShowEntity pipe = showDao.findShowDetail(SHOW_NAME);
+        showDao.updateSchedulerManaged(pipe, true);
+        assertEquals(1, showDao.countSchedulerManagedShows());
+
+        // Flip a second show; count should be 2. Use 'edu' since 'fx' is just an alias
+        // for 'pipe' in the test fixtures.
+        ShowEntity edu = showDao.findShowDetail("edu");
+        showDao.updateSchedulerManaged(edu, true);
+        assertEquals(2, showDao.countSchedulerManagedShows());
     }
 
     @Test

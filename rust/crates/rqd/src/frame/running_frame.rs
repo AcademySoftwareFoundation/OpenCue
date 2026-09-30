@@ -683,8 +683,8 @@ impl RunningFrame {
         // If the cmd wrapper interprets the signal as an output, 128 needs to be subtracted
         // from the code to recover the received signal
         if exit_code > 128 {
-            exit_code = 1;
             exit_signal = Some(exit_code - 128);
+            exit_code = 1;
         }
         (exit_code, exit_signal)
     }
@@ -1720,6 +1720,70 @@ mod tests {
         if let Ok(status) = running_frame.read_exit_file().await {
             assert_eq!((0, None), status);
         }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_interprete_output_signal_killed() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::ExitStatus;
+
+        // Bash wrapper exits normally with code `128 + signal` when the child
+        // is killed by a signal. Construct an ExitStatus that mirrors that:
+        // wait status encodes a normal exit as `exit_code << 8`.
+        let exit_status = ExitStatus::from_raw(137 << 8); // SIGKILL (9)
+        assert_eq!(
+            (1, Some(9)),
+            RunningFrame::interprete_output(exit_status),
+            "SIGKILL-wrapped exit code 137 should produce (1, Some(9))",
+        );
+
+        let exit_status = ExitStatus::from_raw(143 << 8); // SIGTERM (15)
+        assert_eq!(
+            (1, Some(15)),
+            RunningFrame::interprete_output(exit_status),
+            "SIGTERM-wrapped exit code 143 should produce (1, Some(15))",
+        );
+
+        let exit_status = ExitStatus::from_raw(139 << 8); // SIGSEGV (11)
+        assert_eq!(
+            (1, Some(11)),
+            RunningFrame::interprete_output(exit_status),
+            "SIGSEGV-wrapped exit code 139 should produce (1, Some(11))",
+        );
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_interprete_output_normal_exit() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::ExitStatus;
+
+        let exit_status = ExitStatus::from_raw(0);
+        assert_eq!((0, None), RunningFrame::interprete_output(exit_status));
+
+        let exit_status = ExitStatus::from_raw(1 << 8);
+        assert_eq!((1, None), RunningFrame::interprete_output(exit_status));
+
+        let exit_status = ExitStatus::from_raw(42 << 8);
+        assert_eq!((42, None), RunningFrame::interprete_output(exit_status));
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn test_interprete_output_direct_signal() {
+        use std::os::unix::process::ExitStatusExt;
+        use std::process::ExitStatus;
+
+        // Direct-signal case: wait status low 7 bits hold the signal number.
+        // ExitStatus::code() returns None here, so the wrapper-translation
+        // branch must not run and `exit_signal` should reflect the raw signal.
+        let exit_status = ExitStatus::from_raw(9);
+        assert_eq!(
+            (1, Some(9)),
+            RunningFrame::interprete_output(exit_status),
+            "direct SIGKILL should produce (1, Some(9))",
+        );
     }
 
     // Test fails intermitently. Commenting it out for now as the outputs are correct,

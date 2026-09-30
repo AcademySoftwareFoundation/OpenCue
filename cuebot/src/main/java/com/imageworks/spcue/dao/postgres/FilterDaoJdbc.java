@@ -41,13 +41,35 @@ import com.imageworks.spcue.util.SqlUtil;
  */
 public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
 
-    private static final String GET_FILTER = "SELECT " + "filter.* " + "FROM " + "filter ";
+    // spotless:off
+    private static final String GET_FILTER =
+            "SELECT "
+                + "filter.* "
+            + "FROM "
+                + "filter ";
 
-    private static final String GET_ACTIVE_FILTERS = "SELECT " + "filter.* " + "FROM " + "filter "
-            + "WHERE " + "b_enabled = true " + "AND " + "pk_show=? " + "ORDER BY " + "f_order ASC";
+    private static final String GET_ACTIVE_FILTERS =
+            "SELECT "
+                + "filter.* "
+            + "FROM "
+                + "filter "
+            + "WHERE "
+                + "b_enabled = true "
+            + "AND "
+                + "pk_show=? "
+            + "ORDER BY "
+                + "f_order ASC";
 
-    private static final String GET_FILTERS = "SELECT " + "filter.* " + "FROM " + "filter "
-            + "WHERE " + "pk_show=? " + "ORDER BY " + "f_order ASC";
+    private static final String GET_FILTERS =
+            "SELECT "
+                + "filter.* "
+            + "FROM "
+                + "filter "
+            + "WHERE "
+                + "pk_show=? "
+            + "ORDER BY "
+                + "f_order ASC";
+    // spotless:on
 
     public static final RowMapper<FilterEntity> FILTER_DETAIL_MAPPER =
             new RowMapper<FilterEntity>() {
@@ -78,9 +100,17 @@ public class FilterDaoJdbc extends JdbcDaoSupport implements FilterDao {
         reorderFilters(f);
     }
 
-    private static final String INSERT_FILTER = "INSERT INTO " + "filter " + "(" + "pk_filter,"
-            + "pk_show," + "str_name," + "str_type," + "f_order "
-            + ") VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1) FROM filter WHERE pk_show=?))";
+    // spotless:off
+    private static final String INSERT_FILTER =
+            "INSERT INTO filter ("
+                + "pk_filter,"
+                + "pk_show,"
+                + "str_name,"
+                + "str_type,"
+                + "f_order "
+            + ") "
+            + "VALUES (?,?,?,?,(SELECT COALESCE(MAX(f_order)+1,1) FROM filter WHERE pk_show=?))";
+    // spotless:on
 
     public void insertFilter(FilterEntity f) {
         f.id = SqlUtil.genKeyRandom();

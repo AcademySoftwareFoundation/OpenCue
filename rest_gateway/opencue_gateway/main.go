@@ -48,6 +48,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -203,8 +204,21 @@ func run() error {
 	// Initialize gRPC-gateway multiplexer for HTTP-to-gRPC translation
 	mux := runtime.NewServeMux()
 
-	// Configure gRPC connection options (using insecure for internal network)
-	opts := []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}
+	// Configure gRPC connection options (using insecure for internal network).
+	// Raise the max receive message size above gRPC's 4MB default so large list
+	// responses (e.g. GetJobs on a busy production facility — tens of MB) aren't
+	// rejected with "received message larger than max". Override via
+	// GRPC_MAX_RECV_MSG_MB (megabytes).
+	maxRecvMsgBytes := 256 * 1024 * 1024 // 256 MB default
+	if v := os.Getenv("GRPC_MAX_RECV_MSG_MB"); v != "" {
+		if mb, err := strconv.Atoi(v); err == nil && mb > 0 {
+			maxRecvMsgBytes = mb * 1024 * 1024
+		}
+	}
+	opts := []grpc.DialOption{
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgBytes)),
+	}
 
 	// Register all gRPC interface handlers
 	if err := registerGRPCHandlers(ctx, mux, grpcServerEndpoint, opts); err != nil {
@@ -265,6 +279,7 @@ func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServer
 		gw.RegisterServiceInterfaceHandlerFromEndpoint,
 		gw.RegisterServiceOverrideInterfaceHandlerFromEndpoint,
 		gw.RegisterTaskInterfaceHandlerFromEndpoint,
+		gw.RegisterDepartmentInterfaceHandlerFromEndpoint,
 	}
 
 	// Register each handler, failing fast if any registration fails

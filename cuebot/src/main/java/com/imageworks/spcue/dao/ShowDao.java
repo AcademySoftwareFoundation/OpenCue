@@ -132,6 +132,41 @@ public interface ShowDao {
     void updateActive(ShowInterface s, boolean enabled);
 
     /**
+     * Set whether accounting for this show is owned by the Rust scheduler.
+     *
+     * @param s
+     * @param value
+     */
+    void updateSchedulerManaged(ShowInterface s, boolean value);
+
+    /**
+     * Return whether the given show is scheduler-managed. Backed by a short-TTL cache to keep this
+     * safe to call from hot paths. Returns the cached value when fresh; otherwise consults the
+     * database. Up to ~30s of staleness on other Cuebots is accepted by design (Q9b); local writes
+     * via {@link #updateSchedulerManaged} refresh the cache so the writer sees its own write
+     * immediately.
+     *
+     * @param showId
+     * @return true if b_scheduler_managed is set on the show
+     */
+    boolean isSchedulerManaged(String showId);
+
+    /**
+     * Return the number of shows currently flagged scheduler-managed. Used at boot by the Redis
+     * accounting publisher to emit the deployment-invariant misconfiguration warning.
+     *
+     * @return count of rows with b_scheduler_managed = true
+     */
+    int countSchedulerManagedShows();
+
+    /**
+     * Invalidate the in-process scheduler-managed flag cache. Production code does not need this —
+     * the cache TTL or writer-cache refresh handles staleness. Exposed so transactional tests
+     * (which @Rollback the DB row but leave the Guava cache populated) can reset state in @After.
+     */
+    void invalidateSchedulerManagedCache();
+
+    /**
      * An array of email addresses for which all job comments are echoed to.
      *
      * @param s

@@ -11,33 +11,42 @@
 // the License.
 
 use std::{
-    collections::{BTreeSet, HashMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    ops::ControlFlow,
+    panic::AssertUnwindSafe,
     sync::{
         atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex, RwLock,
     },
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 
-use futures::StreamExt;
+use futures::{FutureExt, StreamExt};
 use itertools::Itertools;
 use miette::{IntoDiagnostic, Result};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Notify};
 use tracing::{debug, error, warn};
 use uuid::Uuid;
 
 use crate::{
     cluster_key::{Tag, TagType},
     config::CONFIG,
-    dao::{helpers::parse_uuid, ClusterDao},
+    dao::{helpers::parse_uuid, ActiveTagModel, ClusterDao, JobDao},
+    metrics,
 };
 
 pub static CLUSTER_ROUNDS: AtomicUsize = AtomicUsize::new(0);
 
+/// Active tag set produced by the awake-gate scan, keyed by `(facility_id,
+/// show_id)`. A cluster is eligible for emission if at least one of its tags
+/// appears in the set under its own `(facility_id, show_id)` key. Built from
+/// [`JobDao::scan_active_tags`] rows by [`ClusterFeed::build_active_map`].
+type ActiveTagMap = HashMap<(String, Uuid), HashSet<String>>;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct Cluster {
-    pub facility_id: Uuid,
+    pub facility_id: String,
     pub show_id: Uuid,
     pub tags: BTreeSet<Tag>,
 }
@@ -55,7 +64,7 @@ impl std::fmt::Display for Cluster {
 }
 
 impl Cluster {
-    pub fn single_tag(facility_id: Uuid, show_id: Uuid, tag: Tag) -> Self {
+    pub fn single_tag(facility_id: String, show_id: Uuid, tag: Tag) -> Self {
         Cluster {
             facility_id,
             show_id,
@@ -63,21 +72,73 @@ impl Cluster {
         }
     }
 
-    pub fn multiple_tag(facility_id: Uuid, show_id: Uuid, tags: Vec<Tag>) -> Self {
+    pub fn multiple_tag(facility_id: String, show_id: Uuid, tags: Vec<Tag>) -> Self {
         Cluster {
             facility_id,
             show_id,
             tags: tags.into_iter().collect(),
         }
     }
+
+    /// Bounded metric label for the cluster's tag class. Clusters are built from
+    /// a single `TagType` (alloc clusters are one-tag; manual/hostname/hardware
+    /// clusters chunk tags of one type), so the first tag determines the class.
+    /// Returns a `&'static str` to keep Prometheus label cardinality at four.
+    pub fn cluster_type(&self) -> &'static str {
+        match self.tags.iter().next().map(|t| &t.ttype) {
+            Some(TagType::Alloc) => "alloc",
+            Some(TagType::Manual) => "manual",
+            Some(TagType::HostName) => "hostname",
+            Some(TagType::Hardware) => "hardware",
+            None => "unknown",
+        }
+    }
 }
+
+/// Inputs retained by a DB-backed [`ClusterFeed`] so it can periodically reload
+/// its cluster set. Absent on feeds built from an explicit list (tests), which
+/// never reload.
+#[derive(Debug, Clone)]
+struct ReloadCtx {
+    facility_id: Option<String>,
+    ignore_tags: Vec<String>,
+}
+
+/// Interval the producer idles for when the cluster set is currently empty
+/// (e.g. every show was flipped to Cuebot-managed). The reload loop will
+/// repopulate the set; this is just how often the producer re-checks.
+const EMPTY_FEED_POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 #[derive(Debug)]
 pub struct ClusterFeed {
     pub clusters: Arc<RwLock<Vec<Cluster>>>,
+    /// The awake subset of `clusters` the producer actually round-robins,
+    /// recomputed every `active_scan_interval` by [`ClusterFeed::start_active_scan_loop`].
+    /// A cluster appears here if the latest scan found it has plausibly-
+    /// dispatchable work (see [`JobDao::scan_active_tags`]); everything else is
+    /// skipped until a later scan re-activates it. `current_index` indexes this
+    /// vector, not `clusters`. Seeded by `build`/`load_from_clusters`.
+    active: Arc<RwLock<Vec<Cluster>>>,
+    /// Pinged by the scan loop when `active` transitions empty -> non-empty, so
+    /// the producer's empty-feed idle returns immediately instead of waiting out
+    /// `EMPTY_FEED_POLL_INTERVAL`. This ties idle->dispatch latency to
+    /// `active_scan_interval` rather than the idle poll.
+    active_notify: Arc<Notify>,
     current_index: Arc<AtomicUsize>,
     stop_flag: Arc<AtomicBool>,
+    /// Pinged alongside `stop_flag` so the reload loop can break its
+    /// `interval.tick()` immediately on shutdown instead of waiting up to
+    /// `cluster_reload_interval`.
+    stop_notify: Arc<Notify>,
     sleep_map: Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+    /// Tracks the last emission time per active cluster for the round-trip
+    /// histogram. Owned by the feed so `apply_reload_inner` can prune entries
+    /// for clusters that no longer exist; the producer/receiver tasks share
+    /// clones of this `Arc`.
+    last_sent_map: Arc<Mutex<HashMap<Cluster, Instant>>>,
+    /// `Some` for DB-backed feeds (enables periodic reload), `None` for feeds
+    /// built from an explicit cluster list.
+    reload: Option<ReloadCtx>,
 }
 
 /// Control messages for the cluster feed stream.
@@ -106,16 +167,12 @@ pub enum FeedMessage {
 /// ```ignore
 /// let feed = ClusterFeed::facility(facility_id)
 ///     .with_ignore_tags(ignore_tags)
-///     .with_clusters(clusters)
-///     .with_entire_shows(shows)
 ///     .build()
 ///     .await?;
 /// ```
 pub struct ClusterFeedBuilder {
-    facility_id: Option<Uuid>,
+    facility_id: Option<String>,
     ignore_tags: Vec<String>,
-    clusters: Vec<Cluster>,
-    entire_shows: Vec<String>,
 }
 
 impl ClusterFeedBuilder {
@@ -125,57 +182,51 @@ impl ClusterFeedBuilder {
         self
     }
 
-    /// Provides an explicit list of clusters instead of loading from the database.
-    pub fn with_clusters(mut self, clusters: Vec<Cluster>) -> Self {
-        self.clusters = clusters;
-        self
-    }
-
-    /// Specifies show names whose frames should be scheduled in their entirety.
-    pub fn with_entire_shows(mut self, shows: Vec<String>) -> Self {
-        self.entire_shows = shows;
-        self
-    }
-
     /// Builds the [`ClusterFeed`].
     ///
-    /// If explicit clusters were provided via [`with_clusters`](Self::with_clusters), they are
-    /// used directly (filtered by ignore tags). Otherwise all clusters are loaded from the
-    /// database, filtered to the configured facility and ignore tags.
+    /// Loads every cluster for shows where `b_scheduler_managed = true` from the
+    /// database, filtered to the configured facility and ignore tags. The returned
+    /// feed retains its facility/ignore-tags so [`ClusterFeed::start_reload_loop`]
+    /// can refresh the set without a restart.
     pub async fn build(self) -> Result<ClusterFeed> {
-        let clusters = if self.clusters.is_empty() && self.entire_shows.is_empty() {
-            let all = ClusterFeed::load_clusters(self.facility_id, &self.ignore_tags, None).await?;
-            ClusterFeed::filter_clusters(all, &self.ignore_tags)
-        } else {
-            let mut clusters: HashSet<Cluster> = self.clusters.into_iter().collect();
-            if !self.entire_shows.is_empty() {
-                let show_clusters = ClusterFeed::load_clusters(
-                    self.facility_id,
-                    &self.ignore_tags,
-                    Some(self.entire_shows),
-                )
-                .await?;
-                clusters.extend(show_clusters);
+        let loaded =
+            ClusterFeed::load_clusters(self.facility_id.clone(), &self.ignore_tags).await?;
+        let clusters = ClusterFeed::filter_clusters(loaded, &self.ignore_tags);
+        // Seed the awake set with an initial scan so the producer doesn't idle
+        // until the first scan-loop tick.
+        let active = match ClusterFeed::scan_active_map(self.facility_id.as_deref()).await {
+            Ok(map) => {
+                metrics::set_active_tags(ClusterFeed::active_tag_count(&map));
+                ClusterFeed::filter_active(&clusters, &map)
             }
-            ClusterFeed::filter_clusters(clusters.into_iter().collect(), &self.ignore_tags)
+            Err(err) => {
+                warn!("Initial active scan failed, starting fully awake: {err}");
+                clusters.clone()
+            }
         };
         Ok(ClusterFeed {
             clusters: Arc::new(RwLock::new(clusters)),
+            active: Arc::new(RwLock::new(active)),
+            active_notify: Arc::new(Notify::new()),
             current_index: Arc::new(AtomicUsize::new(0)),
             stop_flag: Arc::new(AtomicBool::new(false)),
+            stop_notify: Arc::new(Notify::new()),
             sleep_map: Arc::new(Mutex::new(HashMap::new())),
+            last_sent_map: Arc::new(Mutex::new(HashMap::new())),
+            reload: Some(ReloadCtx {
+                facility_id: self.facility_id,
+                ignore_tags: self.ignore_tags,
+            }),
         })
     }
 }
 
 impl ClusterFeed {
     /// Returns a builder for a feed scoped to the given facility.
-    pub fn facility(facility_id: Uuid) -> ClusterFeedBuilder {
+    pub fn facility(facility_id: String) -> ClusterFeedBuilder {
         ClusterFeedBuilder {
             facility_id: Some(facility_id),
             ignore_tags: Vec::new(),
-            clusters: Vec::new(),
-            entire_shows: Vec::new(),
         }
     }
 
@@ -184,16 +235,40 @@ impl ClusterFeed {
         ClusterFeedBuilder {
             facility_id: None,
             ignore_tags: Vec::new(),
-            clusters: Vec::new(),
-            entire_shows: Vec::new(),
         }
     }
 
-    /// Loads all clusters from the database and organizes them by tag type.
+    /// Creates a feed from an explicit list of clusters, bypassing the database.
+    ///
+    /// Intended for tests: the resulting feed is static (`reload = None`) and
+    /// will not refresh from the DB.
+    // Only used by the lib's test consumers (integration + unit tests); the
+    // `cue-scheduler` binary crate never calls it.
+    #[allow(dead_code)]
+    pub fn load_from_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> ClusterFeed {
+        let clusters = ClusterFeed::filter_clusters(clusters, ignore_tags);
+        // Static test feeds have no scan loop; start fully awake (active mirrors
+        // the universe) so the producer emits every cluster.
+        let active = clusters.clone();
+        ClusterFeed {
+            clusters: Arc::new(RwLock::new(clusters)),
+            active: Arc::new(RwLock::new(active)),
+            active_notify: Arc::new(Notify::new()),
+            current_index: Arc::new(AtomicUsize::new(0)),
+            stop_flag: Arc::new(AtomicBool::new(false)),
+            stop_notify: Arc::new(Notify::new()),
+            sleep_map: Arc::new(Mutex::new(HashMap::new())),
+            last_sent_map: Arc::new(Mutex::new(HashMap::new())),
+            reload: None,
+        }
+    }
+
+    /// Loads all clusters for scheduler-managed shows and organizes them by tag type.
     ///
     /// Loads allocation clusters (one per facility+show+tag), and chunks manual/hostname tags
-    /// into groups based on configured chunk sizes. In a distributed system, this should be
-    /// scheduled and coordinated across nodes.
+    /// into groups based on configured chunk sizes. Only shows where
+    /// `b_scheduler_managed = true` are included (enforced in SQL). In a distributed
+    /// system, this should be scheduled and coordinated across nodes.
     ///
     /// # Arguments
     ///
@@ -202,23 +277,27 @@ impl ClusterFeed {
     ///
     /// # Returns
     ///
-    /// * `Ok(ClusterFeed)` - Successfully loaded cluster feed
+    /// * `Ok(Vec<Cluster>)` - Successfully loaded clusters
     /// * `Err(miette::Error)` - Failed to load clusters from database
     pub async fn load_clusters(
-        facility_id: Option<Uuid>,
+        facility_id: Option<String>,
         ignore_tags: &[String],
-        shows_filter: Option<Vec<String>>,
     ) -> Result<Vec<Cluster>> {
         let cluster_dao = ClusterDao::new().await?;
 
         // Fetch clusters for alloc and non_alloc tags
         let mut clusters_stream = cluster_dao
-            .fetch_alloc_clusters(facility_id, shows_filter.clone())
-            .chain(cluster_dao.fetch_non_alloc_clusters(facility_id, shows_filter));
+            .fetch_alloc_clusters(facility_id.clone())
+            .chain(cluster_dao.fetch_non_alloc_clusters(facility_id));
         let mut clusters = Vec::new();
-        let mut manual_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hardware_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
-        let mut hostname_tags: HashMap<(Uuid, Uuid), HashSet<Tag>> = HashMap::new();
+        // BTreeMap/BTreeSet are deliberate: their iteration order is
+        // deterministic, so chunking produces a stable set of Cluster instances
+        // for the same DB state. With HashMap/HashSet's randomized iteration,
+        // the change-gate in apply_reload_inner would see "changed" on every
+        // reload and pointlessly swap the set.
+        let mut manual_tags: BTreeMap<(Uuid, String), BTreeSet<Tag>> = BTreeMap::new();
+        let mut hardware_tags: BTreeMap<(Uuid, String), BTreeSet<Tag>> = BTreeMap::new();
+        let mut hostname_tags: BTreeMap<(Uuid, String), BTreeSet<Tag>> = BTreeMap::new();
 
         // Collect all tags
         while let Some(record) = clusters_stream.next().await {
@@ -229,17 +308,22 @@ impl ClusterFeed {
                         continue;
                     }
 
-                    let facility_id = parse_uuid(&cluster.facility_id);
+                    let facility_id = cluster.facility_id;
                     let show_id = parse_uuid(&cluster.show_id);
                     match cluster.ttype.as_str() {
-                        // Each alloc tag becomes its own cluster
+                        // Each alloc tag becomes its own cluster. Carry pk_alloc
+                        // through Tag so the matcher can snapshot the
+                        // (show, alloc) subscription burst from Redis before
+                        // host checkout (see `MatchingService::process_layer`).
                         "ALLOC" => {
+                            let alloc_id = cluster.alloc_id.as_deref().map(parse_uuid);
                             clusters.push(Cluster::single_tag(
                                 facility_id,
                                 show_id,
                                 Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Alloc,
+                                    alloc_id,
                                 },
                             ));
                         }
@@ -251,6 +335,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Manual,
+                                    alloc_id: None,
                                 });
                         }
                         "HOSTNAME" => {
@@ -260,6 +345,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::HostName,
+                                    alloc_id: None,
                                 });
                         }
                         "HARDWARE" => {
@@ -269,6 +355,7 @@ impl ClusterFeed {
                                 .insert(Tag {
                                     name: cluster.tag,
                                     ttype: TagType::Hardware,
+                                    alloc_id: None,
                                 });
                         }
                         _ => (),
@@ -281,7 +368,11 @@ impl ClusterFeed {
         // Chunk Manual tags
         for ((show_id, facility_id), tags) in manual_tags.into_iter() {
             for chunk in &tags.into_iter().chunks(CONFIG.queue.manual_tags_chunk_size) {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
@@ -291,7 +382,11 @@ impl ClusterFeed {
                 .into_iter()
                 .chunks(CONFIG.queue.hostname_tags_chunk_size)
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
@@ -302,23 +397,27 @@ impl ClusterFeed {
                 // Hardware share the same size as manual to simplify configuration
                 .chunks(CONFIG.queue.manual_tags_chunk_size)
             {
-                clusters.push(Cluster::multiple_tag(facility_id, show_id, chunk.collect()))
+                clusters.push(Cluster::multiple_tag(
+                    facility_id.clone(),
+                    show_id,
+                    chunk.collect(),
+                ))
             }
         }
 
         Ok(clusters)
     }
 
-    /// Creates a ClusterFeed from a predefined list of clusters for testing.
+    /// Removes ignored tags from each cluster, dropping clusters left empty.
     ///
     /// # Arguments
     ///
-    /// * `clusters` - List of clusters to iterate over
-    /// * `ignore_tags` - List of tag names to ignore when loading clusters
+    /// * `clusters` - Clusters to filter
+    /// * `ignore_tags` - List of tag names to strip from every cluster
     ///
     /// # Returns
     ///
-    /// * `ClusterFeed` - Feed configured to run once through the provided clusters
+    /// * `Vec<Cluster>` - Clusters with ignored tags removed
     pub fn filter_clusters(clusters: Vec<Cluster>, ignore_tags: &[String]) -> Vec<Cluster> {
         if ignore_tags.is_empty() {
             return clusters;
@@ -334,6 +433,335 @@ impl ClusterFeed {
                 }
             })
             .collect()
+    }
+
+    /// Folds awake-scan rows into the `(facility, show) -> {tag}` lookup the
+    /// awake gate consults. `pk_show` is parsed once here so the hot-path filter
+    /// compares against the cluster's already-parsed `show_id`.
+    fn build_active_map(rows: Vec<ActiveTagModel>) -> ActiveTagMap {
+        let mut map: ActiveTagMap = HashMap::new();
+        for row in rows {
+            map.entry((row.pk_facility, parse_uuid(&row.pk_show)))
+                .or_default()
+                .insert(row.tag);
+        }
+        map
+    }
+
+    /// Runs the awake-gate scan and returns its result as an [`ActiveTagMap`].
+    /// One database round-trip. Pure I/O + transform: it touches no shared feed
+    /// state and emits no metrics, so callers decide what to do with the result
+    /// (seed `active` at startup, or refresh it on a scan tick).
+    async fn scan_active_map(facility_id: Option<&str>) -> Result<ActiveTagMap> {
+        let job_dao = JobDao::new().await?;
+        let rows = job_dao
+            .scan_active_tags(facility_id)
+            .await
+            .into_diagnostic()?;
+        Ok(Self::build_active_map(rows))
+    }
+
+    /// Number of active `(facility, show, tag)` tuples in a scan result, used
+    /// for the `scheduler_active_tags` gauge. Equals the scan's row count, since
+    /// the query is `DISTINCT` and [`build_active_map`](Self::build_active_map)
+    /// folds each tuple into a per-key tag set without collisions.
+    fn active_tag_count(active_map: &ActiveTagMap) -> i64 {
+        active_map.values().map(|tags| tags.len()).sum::<usize>() as i64
+    }
+
+    /// Returns the subset of `universe` clusters that have at least one tag
+    /// present in `active` for their `(facility_id, show_id)` key.
+    ///
+    /// Results are sorted by `Cluster`'s `Ord` to keep iteration order stable
+    /// across scans. Multi-tag clusters are included if any one of their tags
+    /// matches.
+    fn filter_active(universe: &[Cluster], active: &ActiveTagMap) -> Vec<Cluster> {
+        let mut out: Vec<Cluster> = universe
+            .iter()
+            .filter(|c| {
+                active
+                    .get(&(c.facility_id.clone(), c.show_id))
+                    .is_some_and(|tags| c.tags.iter().any(|t| tags.contains(&t.name)))
+            })
+            .cloned()
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Replaces the live cluster set with `new_clusters` if it difers from the
+    /// current set, returning whether a swap happened.
+    ///
+    /// The comparison is set-based (order-insensitive), since `load_clusters`
+    /// produces clusters in nondeterministic Vec order. On an actual change the
+    /// whole set is swapped and the round-robin index is reset. Sleep and
+    /// last-sent entries for clusters that no longer exist are dropped;
+    /// survivors keep their backoff state and round-trip baseline, which are
+    /// unrelated to topology changes.
+    // The reload loop calls `apply_reload_inner` directly; this wrapper exists
+    // for unit tests, so the `cue-scheduler` binary crate never calls it.
+    #[allow(dead_code)]
+    pub fn apply_reload(&self, new_clusters: Vec<Cluster>) -> bool {
+        Self::apply_reload_inner(
+            &self.clusters,
+            &self.current_index,
+            &self.sleep_map,
+            &self.last_sent_map,
+            new_clusters,
+        )
+    }
+
+    /// Shared swap logic, operating on the feed's `Arc`-held state so the reload
+    /// loop (which can't hold `&self`) and [`apply_reload`](Self::apply_reload)
+    /// can both use it.
+    fn apply_reload_inner(
+        clusters: &Arc<RwLock<Vec<Cluster>>>,
+        current_index: &Arc<AtomicUsize>,
+        sleep_map: &Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+        last_sent_map: &Arc<Mutex<HashMap<Cluster, Instant>>>,
+        new_clusters: Vec<Cluster>,
+    ) -> bool {
+        // Change-gate: only the expensive swap/disruption happens on a real change.
+        let changed = {
+            let current = clusters.read().unwrap_or_else(|p| p.into_inner());
+            let current_set: HashSet<&Cluster> = current.iter().collect();
+            let new_set: HashSet<&Cluster> = new_clusters.iter().collect();
+            current_set != new_set
+        };
+        if !changed {
+            return false;
+        }
+
+        {
+            // Drop sleep / last-sent entries for clusters that no longer exist;
+            // preserve survivors' backoff state and round-trip baseline.
+            let new_set: HashSet<&Cluster> = new_clusters.iter().collect();
+            {
+                let mut sleep = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                sleep.retain(|k, _| new_set.contains(k));
+            }
+            {
+                let mut last_sent = last_sent_map.lock().unwrap_or_else(|p| p.into_inner());
+                last_sent.retain(|k, _| new_set.contains(k));
+            }
+        }
+
+        let new_len = new_clusters.len();
+        {
+            // Reset the index under the same write lock that swaps the Vec. The
+            // producer reads `current_index` inside the `clusters` read lock, so
+            // this serializes the swap and prevents an out-of-bounds index.
+            let mut current = clusters.write().unwrap_or_else(|p| p.into_inner());
+            *current = new_clusters;
+            current_index.store(0, Ordering::Relaxed);
+        }
+        debug!("Cluster set reloaded: {} clusters", new_len);
+        true
+    }
+
+    /// Spawns a background task that periodically reloads the cluster set from
+    /// the database, picking up `b_scheduler_managed` flips and host-tag /
+    /// subscription churn without a restart.
+    ///
+    /// No-op for feeds built from an explicit cluster list (`reload = None`).
+    /// Mirrors `ManagedShowsCache::start_refresh_loop`: skip-first-tick,
+    /// per-iteration `catch_unwind`, and keep the current set on DB error. The
+    /// loop exits when the feed's stop flag is set.
+    pub fn start_reload_loop(&self) {
+        let Some(reload) = self.reload.clone() else {
+            return;
+        };
+        let clusters = self.clusters.clone();
+        let current_index = self.current_index.clone();
+        let sleep_map = self.sleep_map.clone();
+        let last_sent_map = self.last_sent_map.clone();
+        let stop_flag = self.stop_flag.clone();
+        let stop_notify = self.stop_notify.clone();
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.queue.cluster_reload_interval);
+            // Skip the immediate first tick - build() already loaded on startup.
+            // Still race the notify so an immediate Stop doesn't block on a full
+            // interval before exit.
+            tokio::select! {
+                _ = interval.tick() => {}
+                _ = stop_notify.notified() => {
+                    debug!("Cluster reload loop stopping (feed stopped).");
+                    return;
+                }
+            }
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {}
+                    _ = stop_notify.notified() => {
+                        debug!("Cluster reload loop stopping (feed stopped).");
+                        break;
+                    }
+                }
+                if stop_flag.load(Ordering::Relaxed) {
+                    debug!("Cluster reload loop stopping (feed stopped).");
+                    break;
+                }
+                let result = AssertUnwindSafe(async {
+                    match ClusterFeed::load_clusters(
+                        reload.facility_id.clone(),
+                        &reload.ignore_tags,
+                    )
+                    .await
+                    {
+                        Ok(loaded) => {
+                            let filtered =
+                                ClusterFeed::filter_clusters(loaded, &reload.ignore_tags);
+                            Self::apply_reload_inner(
+                                &clusters,
+                                &current_index,
+                                &sleep_map,
+                                &last_sent_map,
+                                filtered,
+                            );
+                        }
+                        // Keep the current set on a transient failure - never wipe.
+                        Err(err) => warn!("Failed to reload clusters: {err}"),
+                    }
+                })
+                .catch_unwind()
+                .await;
+                if let Err(e) = result {
+                    error!("Cluster reload iteration panicked: {:?}", e);
+                }
+            }
+        });
+    }
+
+    /// Refreshes the awake set (`active`) from `active_map` and the current universe.
+    ///
+    /// Side effects:
+    /// - Removes sleep and last-sent entries for clusters that are no longer awake
+    /// - Swaps the awake set with the newly computed one
+    /// - Notifies the producer if the awake set transitioned from empty to non-empty
+    fn apply_active_inner(
+        clusters: &Arc<RwLock<Vec<Cluster>>>,
+        active: &Arc<RwLock<Vec<Cluster>>>,
+        sleep_map: &Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+        last_sent_map: &Arc<Mutex<HashMap<Cluster, Instant>>>,
+        active_notify: &Arc<Notify>,
+        active_map: &ActiveTagMap,
+    ) {
+        let active_new = {
+            let universe = clusters.read().unwrap_or_else(|p| p.into_inner());
+            Self::filter_active(&universe, active_map)
+        };
+
+        {
+            // Drop sleep / last-sent entries for clusters no longer awake.
+            let active_set: HashSet<&Cluster> = active_new.iter().collect();
+            {
+                let mut sleep = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                sleep.retain(|k, _| active_set.contains(k));
+            }
+            {
+                let mut last_sent = last_sent_map.lock().unwrap_or_else(|p| p.into_inner());
+                last_sent.retain(|k, _| active_set.contains(k));
+            }
+        }
+
+        let now_empty = active_new.is_empty();
+        let was_empty = {
+            let active_read = active.read().unwrap_or_else(|p| p.into_inner());
+            active_read.is_empty()
+        };
+        {
+            let mut active_write = active.write().unwrap_or_else(|p| p.into_inner());
+            *active_write = active_new;
+        }
+        // notify_one() stores a permit if the producer isn't currently parked on
+        // the empty-feed idle, so the wake isn't lost if it was mid-iteration.
+        if was_empty && !now_empty {
+            active_notify.notify_one();
+        }
+    }
+
+    /// Performs one awake-gate scan cycle: scan the DB for the active tag set,
+    /// publish the scan-size gauge, then refresh the awake subset of `clusters`.
+    /// Returns `Err` only on DB failure, so the scan loop can keep the previous
+    /// awake set on a transient error instead of wiping it.
+    async fn refresh_active_set(
+        facility_id: Option<&str>,
+        clusters: &Arc<RwLock<Vec<Cluster>>>,
+        active: &Arc<RwLock<Vec<Cluster>>>,
+        sleep_map: &Arc<Mutex<HashMap<Cluster, SystemTime>>>,
+        last_sent_map: &Arc<Mutex<HashMap<Cluster, Instant>>>,
+        active_notify: &Arc<Notify>,
+    ) -> Result<()> {
+        let active_map = Self::scan_active_map(facility_id).await?;
+        metrics::set_active_tags(Self::active_tag_count(&active_map));
+        Self::apply_active_inner(
+            clusters,
+            active,
+            sleep_map,
+            last_sent_map,
+            active_notify,
+            &active_map,
+        );
+        Ok(())
+    }
+
+    /// Spawns a background task that periodically recomputes the awake set
+    /// (`active`) from a single [`JobDao::scan_active_tags`] query, so clusters
+    /// with no dispatchable work are skipped instead of re-queried every backoff
+    /// window.
+    ///
+    /// No-op for feeds built from an explicit cluster list (`reload = None`).
+    /// Mirrors [`start_reload_loop`](Self::start_reload_loop): skip-first-tick
+    /// (`build` already seeded `active`), per-iteration `catch_unwind`, and keep
+    /// the current awake set on a scan error (never wipe). Exits on stop.
+    pub fn start_active_scan_loop(&self) {
+        let Some(reload) = self.reload.clone() else {
+            return;
+        };
+        let clusters = self.clusters.clone();
+        let active = self.active.clone();
+        let active_notify = self.active_notify.clone();
+        let sleep_map = self.sleep_map.clone();
+        let last_sent_map = self.last_sent_map.clone();
+        let stop_flag = self.stop_flag.clone();
+        let stop_notify = self.stop_notify.clone();
+
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(CONFIG.queue.active_scan_interval);
+            // Skip the immediate first tick - build() already seeded `active`.
+            interval.tick().await;
+
+            loop {
+                tokio::select! {
+                    _ = interval.tick() => {}
+                    _ = stop_notify.notified() => {
+                        debug!("Active scan loop stopping (feed stopped).");
+                        break;
+                    }
+                }
+                if stop_flag.load(Ordering::Relaxed) {
+                    debug!("Active scan loop stopping (feed stopped).");
+                    break;
+                }
+                let result = AssertUnwindSafe(Self::refresh_active_set(
+                    reload.facility_id.as_deref(),
+                    &clusters,
+                    &active,
+                    &sleep_map,
+                    &last_sent_map,
+                    &active_notify,
+                ))
+                .catch_unwind()
+                .await;
+                match result {
+                    Ok(Ok(())) => {}
+                    // Transient DB failure: keep the current awake set, never wipe.
+                    Ok(Err(err)) => warn!("Failed to scan active tags: {err}"),
+                    Err(e) => error!("Active scan iteration panicked: {:?}", e),
+                }
+            }
+        });
     }
 
     /// Streams clusters to a channel receiver with backpressure control.
@@ -360,124 +788,256 @@ impl ClusterFeed {
     pub async fn stream(self, sender: mpsc::Sender<Cluster>) -> mpsc::Sender<FeedMessage> {
         // Use a small channel to ensure the producer waits for items to be consumed before
         // generating more
-        let (cancel_sender, mut feed_receiver) = mpsc::channel(8);
+        let (feed_sender, mut feed_receiver) = mpsc::channel(8);
 
         let stop_flag = self.stop_flag.clone();
         let sleep_map = self.sleep_map.clone();
 
-        // Stream clusters on the caller channel
+        // Tracks the last emission time per active cluster, for round-trip
+        // histogram. Entries are dropped when a cluster is put to sleep so
+        // wake-up doesn't produce a spurious sample covering the sleep
+        // duration, and `apply_reload_inner` prunes entries for clusters
+        // that no longer exist.
+        let last_sent_map = self.last_sent_map.clone();
+        let last_sent_map_producer = last_sent_map.clone();
+
+        // The producer round-robins the awake subset (`active`); `feed` (the full
+        // universe) is read only for the by-type fan-out gauge.
+        let feed = self.clusters.clone();
+        let active_feed = self.active.clone();
+        let active_notify_producer = self.active_notify.clone();
+        let current_index_atomic = self.current_index.clone();
         tokio::spawn(async move {
-            let mut all_sleeping_rounds = 0;
-            let feed = self.clusters.clone();
-            let current_index_atomic = self.current_index.clone();
+            let mut all_sleeping_rounds: usize = 0;
+            // Cluster types observed in the previous lap's gauge sample. Used to
+            // zero out gauges for types that have since disappeared (e.g. every
+            // cluster of a type was reloaded away) - otherwise their last value
+            // would linger forever.
+            let mut prev_cluster_types: HashSet<&'static str> = HashSet::new();
 
             loop {
-                // Check stop flag
-                if stop_flag.load(Ordering::Relaxed) {
-                    warn!("Cluster received a stop message. Stopping feed.");
-                    break;
-                }
-
-                let (item, cluster_size, completed_round) = {
-                    let clusters = feed.read().unwrap_or_else(|poisoned| poisoned.into_inner());
-                    if clusters.is_empty() {
-                        break;
+                let iteration = async {
+                    // Check stop flag
+                    if stop_flag.load(Ordering::Relaxed) {
+                        warn!("Cluster received a stop message. Stopping feed.");
+                        return ControlFlow::Break(());
                     }
 
-                    let current_index = current_index_atomic.load(Ordering::Relaxed);
-                    let item = clusters[current_index].clone();
-                    let next_index = (current_index + 1) % clusters.len();
-                    let completed_round = next_index == 0; // Detect wrap-around
-                    current_index_atomic.store(next_index, Ordering::Relaxed);
-
-                    (item, clusters.len(), completed_round)
-                };
-
-                // Skip cluster if it is marked as sleeping
-                let is_sleeping = {
-                    let mut sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                    if let Some(wake_up_time) = sleep_map_lock.get(&item) {
-                        if *wake_up_time > SystemTime::now() {
-                            // Still sleeping, skip it
-                            true
+                    let snapshot = {
+                        let active = active_feed
+                            .read()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner());
+                        if active.is_empty() {
+                            None
                         } else {
-                            // Remove expired entries
-                            sleep_map_lock.remove(&item);
+                            // Clamp defensively: a concurrent scan/reload may have
+                            // shrunk the awake set since the index was last stored.
+                            let current_index =
+                                current_index_atomic.load(Ordering::Relaxed) % active.len();
+                            let item = active[current_index].clone();
+                            let next_index = (current_index + 1) % active.len();
+                            let completed_round = next_index == 0; // Detect wrap-around
+                            current_index_atomic.store(next_index, Ordering::Relaxed);
+
+                            Some((item, active.len(), completed_round))
+                        }
+                    };
+
+                    // An empty awake set means no cluster has dispatchable work
+                    // right now (or every show was flipped to Cuebot-managed).
+                    // Idle until the next scan repopulates `active` - woken
+                    // immediately by `active_notify` on an empty -> non-empty
+                    // transition, or after the poll interval as a backstop.
+                    let Some((item, cluster_size, completed_round)) = snapshot else {
+                        tokio::select! {
+                            _ = tokio::time::sleep(EMPTY_FEED_POLL_INTERVAL) => {}
+                            _ = active_notify_producer.notified() => {}
+                        }
+                        return ControlFlow::Continue(());
+                    };
+
+                    // Skip cluster if it is marked as sleeping
+                    let is_sleeping = {
+                        let mut sleep_map_lock =
+                            sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                        if let Some(wake_up_time) = sleep_map_lock.get(&item) {
+                            if *wake_up_time > SystemTime::now() {
+                                // Still sleeping, skip it
+                                true
+                            } else {
+                                // Remove expired entries
+                                sleep_map_lock.remove(&item);
+                                false
+                            }
+                        } else {
                             false
                         }
-                    } else {
-                        false
+                    };
+
+                    if !is_sleeping {
+                        if sender.send(item.clone()).await.is_err() {
+                            warn!("Cluster receiver dropped. Stopping feed.");
+                            return ControlFlow::Break(());
+                        }
+                        let now = Instant::now();
+                        // Capture the type before `item` is moved into the map.
+                        let cluster_type = item.cluster_type();
+                        let mut last_sent_lock = last_sent_map_producer
+                            .lock()
+                            .unwrap_or_else(|p| p.into_inner());
+                        if let Some(prev) = last_sent_lock.insert(item, now) {
+                            metrics::observe_cluster_round_trip(
+                                cluster_type,
+                                now.duration_since(prev),
+                            );
+                        }
+                    } else if !completed_round {
+                        // Skipped a sleeping cluster mid-round; yield so we don't starve the runtime.
+                        tokio::task::yield_now().await;
                     }
+
+                    // At end of round, add backoff sleep
+                    if completed_round {
+                        CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
+
+                        // Check if all/most clusters are sleeping
+                        let sleeping_count = {
+                            let sleep_map_lock =
+                                sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                            sleep_map_lock.len()
+                        };
+
+                        // Sample fan-out gauges once per lap (cheap relative to a
+                        // full round-robin pass). CLUSTERS_TOTAL by type is the
+                        // primary fan-out signal (read off the full universe);
+                        // CLUSTERS_ACTIVE is the awake subset the producer cycles;
+                        // the gap between them is what the awake gate suppresses.
+                        // CLUSTERS_SLEEPING shows how much of the awake set is
+                        // backed off at any instant.
+                        {
+                            let mut by_type: HashMap<&'static str, i64> = HashMap::new();
+                            {
+                                let clusters = feed.read().unwrap_or_else(|p| p.into_inner());
+                                for c in clusters.iter() {
+                                    *by_type.entry(c.cluster_type()).or_default() += 1;
+                                }
+                            }
+                            // Zero out types that were present last lap but are
+                            // gone now, so a vanished type doesn't keep reporting
+                            // its stale count.
+                            for stale_type in prev_cluster_types
+                                .difference(&by_type.keys().copied().collect::<HashSet<_>>())
+                            {
+                                metrics::set_clusters_total(stale_type, 0);
+                            }
+                            prev_cluster_types = by_type.keys().copied().collect();
+                            for (cluster_type, count) in by_type {
+                                metrics::set_clusters_total(cluster_type, count);
+                            }
+                            metrics::set_clusters_active(cluster_size as i64);
+                            metrics::set_clusters_sleeping(sleeping_count as i64);
+                        }
+                        if sleeping_count >= cluster_size {
+                            // Ensure this doesn't loop forever when there's a limit configured
+                            all_sleeping_rounds += 1;
+                            if let Some(max_empty_cycles) =
+                                CONFIG.queue.empty_job_cycles_before_quiting
+                            {
+                                if all_sleeping_rounds > max_empty_cycles {
+                                    warn!("All clusters have been sleeping for too long");
+                                    return ControlFlow::Break(());
+                                }
+                            }
+
+                            // All clusters sleeping, sleep longer
+                            tokio::time::sleep(Duration::from_secs(5)).await;
+                        } else if sleeping_count > 0 {
+                            // Some clusters sleeping, brief pause
+                            all_sleeping_rounds = 0;
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        } else {
+                            // Active work, minimal pause
+                            all_sleeping_rounds = 0;
+                            tokio::time::sleep(Duration::from_millis(10)).await;
+                        }
+                    }
+                    ControlFlow::Continue(())
                 };
 
-                if !is_sleeping && sender.send(item).await.is_err() {
-                    warn!("Cluster receiver dropped. Stopping feed.");
-                    break;
-                }
-
-                // At end of round, add backoff sleep
-                if completed_round {
-                    CLUSTER_ROUNDS.fetch_add(1, Ordering::Relaxed);
-
-                    // Check if all/most clusters are sleeping
-                    let sleeping_count = {
-                        let sleep_map_lock = sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                        sleep_map_lock.len()
-                    };
-                    if sleeping_count >= cluster_size {
-                        // Ensure this doesn't loop forever when there's a limit configured
-                        all_sleeping_rounds += 1;
-                        if let Some(max_empty_cycles) = CONFIG.queue.empty_job_cycles_before_quiting
-                        {
-                            if all_sleeping_rounds > max_empty_cycles {
-                                warn!("All clusters have been sleeping for too long");
-                                break;
-                            }
-                        }
-
-                        // All clusters sleeping, sleep longer
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                    } else if sleeping_count > 0 {
-                        // Some clusters sleeping, brief pause
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    } else {
-                        // Active work, minimal pause
-                        tokio::time::sleep(Duration::from_millis(10)).await;
+                match AssertUnwindSafe(iteration).catch_unwind().await {
+                    Ok(ControlFlow::Break(())) => break,
+                    Ok(ControlFlow::Continue(())) => {}
+                    Err(e) => {
+                        error!("Cluster feed producer iteration panicked: {:?}", e);
+                        // Back off before retrying to avoid a tight spin loop on
+                        // deterministic panics.
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
             }
         });
 
         // Process messages on the receiving end
+        let stop_flag_recv = self.stop_flag.clone();
+        let stop_notify_recv = self.stop_notify.clone();
         let sleep_map = self.sleep_map.clone();
+        let last_sent_map_receiver = last_sent_map.clone();
         tokio::spawn(async move {
-            while let Some(message) = feed_receiver.recv().await {
-                match message {
-                    FeedMessage::Sleep(cluster, duration) => {
-                        if let Some(wake_up_time) = SystemTime::now().checked_add(duration) {
-                            debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
-                            {
-                                let mut sleep_map_lock =
-                                    sleep_map.lock().unwrap_or_else(|p| p.into_inner());
-                                sleep_map_lock.insert(cluster, wake_up_time);
+            loop {
+                let iteration = async {
+                    let Some(message) = feed_receiver.recv().await else {
+                        return ControlFlow::Break(());
+                    };
+                    match message {
+                        FeedMessage::Sleep(cluster, duration) => {
+                            let requested_wake_up_time = SystemTime::now().checked_add(duration);
+                            if let Some(wake_up_time) = requested_wake_up_time {
+                                debug!("{:?} put to sleep for {}s", cluster, duration.as_secs());
+                                {
+                                    let mut last_sent_lock = last_sent_map_receiver
+                                        .lock()
+                                        .unwrap_or_else(|p| p.into_inner());
+                                    last_sent_lock.remove(&cluster);
+                                }
+                                {
+                                    let mut sleep_map_lock =
+                                        sleep_map.lock().unwrap_or_else(|p| p.into_inner());
+                                    sleep_map_lock.insert(cluster, wake_up_time);
+                                }
+                            } else {
+                                warn!(
+                                    "Sleep request ignored for {:?}. Invalid duration={}s",
+                                    cluster,
+                                    duration.as_secs()
+                                );
                             }
-                        } else {
-                            warn!(
-                                "Sleep request ignored for {:?}. Invalid duration={}s",
-                                cluster,
-                                duration.as_secs()
-                            );
+                            ControlFlow::Continue(())
+                        }
+                        FeedMessage::Stop() => {
+                            stop_flag_recv.store(true, Ordering::Relaxed);
+                            // notify_one() stores a permit if nobody's parked
+                            // yet, so the reload loop sees the wake even if it
+                            // was mid-body when Stop arrived.
+                            stop_notify_recv.notify_one();
+                            ControlFlow::Break(())
                         }
                     }
-                    FeedMessage::Stop() => {
-                        self.stop_flag.store(true, Ordering::Relaxed);
-                        break;
+                };
+
+                match AssertUnwindSafe(iteration).catch_unwind().await {
+                    Ok(ControlFlow::Break(())) => break,
+                    Ok(ControlFlow::Continue(())) => {}
+                    Err(e) => {
+                        error!("Cluster feed receiver iteration panicked: {:?}", e);
+                        // Back off before retrying to avoid a tight spin loop on
+                        // deterministic panics.
+                        tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
             }
         });
 
-        cancel_sender
+        feed_sender
     }
 }
 
@@ -489,9 +1049,9 @@ impl ClusterFeed {
 ///
 /// # Returns
 ///
-/// * `Ok(Uuid)` - The facility ID
+/// * `Ok(String)` - The facility ID (verbatim from the DB, canonical casing)
 /// * `Err(miette::Error)` - If facility not found or database error
-pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
+pub async fn get_facility_id(facility_name: &str) -> Result<String> {
     let cluster_dao = ClusterDao::new().await?;
     cluster_dao
         .get_facility_id(facility_name)
@@ -499,17 +1059,240 @@ pub async fn get_facility_id(facility_name: &str) -> Result<Uuid> {
         .into_diagnostic()
 }
 
-/// Looks up a show ID by show name.
-///
-/// # Arguments
-///
-/// * `show_name` - The name of the show
-///
-/// # Returns
-///
-/// * `Ok(Uuid)` - The show ID
-/// * `Err(miette::Error)` - If show not found or database error
-pub async fn get_show_id(show_name: &str) -> Result<Uuid> {
-    let cluster_dao = ClusterDao::new().await?;
-    cluster_dao.get_show_id(show_name).await.into_diagnostic()
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn cluster(tag: &str) -> Cluster {
+        Cluster::single_tag(
+            "facility".to_string(),
+            Uuid::nil(),
+            Tag {
+                name: tag.to_string(),
+                ttype: TagType::Alloc,
+                alloc_id: None,
+            },
+        )
+    }
+
+    fn cluster_names(feed: &ClusterFeed) -> Vec<String> {
+        let clusters = feed.clusters.read().unwrap();
+        let mut names: Vec<String> = clusters
+            .iter()
+            .flat_map(|c| c.tags.iter().map(|t| t.name.clone()))
+            .collect();
+        names.sort();
+        names
+    }
+
+    /// A genuinely diferent set is swapped in; the index resets, sleep and
+    /// last-sent entries for survivors are preserved, and entries for removed
+    /// clusters are dropped.
+    #[test]
+    fn apply_reload_swaps_on_change() {
+        let feed = ClusterFeed::load_from_clusters(vec![cluster("a"), cluster("b")], &[]);
+        // Simulate an advanced round-robin position and two sleeping clusters
+        // with last-sent baselines, one of which will survive the swap and one
+        // that will be removed.
+        feed.current_index.store(5, Ordering::Relaxed);
+        let now = SystemTime::now();
+        feed.sleep_map.lock().unwrap().insert(cluster("a"), now);
+        feed.sleep_map.lock().unwrap().insert(cluster("b"), now);
+        let baseline = Instant::now();
+        feed.last_sent_map
+            .lock()
+            .unwrap()
+            .insert(cluster("a"), baseline);
+        feed.last_sent_map
+            .lock()
+            .unwrap()
+            .insert(cluster("b"), baseline);
+
+        // "a" survives, "b" is removed, "c" is new.
+        let changed = feed.apply_reload(vec![cluster("a"), cluster("c")]);
+
+        assert!(changed);
+        assert_eq!(cluster_names(&feed), vec!["a".to_string(), "c".to_string()]);
+        assert_eq!(feed.current_index.load(Ordering::Relaxed), 0);
+        let sleep = feed.sleep_map.lock().unwrap();
+        assert_eq!(sleep.len(), 1);
+        assert!(sleep.contains_key(&cluster("a")));
+        let last_sent = feed.last_sent_map.lock().unwrap();
+        assert_eq!(last_sent.len(), 1);
+        assert!(last_sent.contains_key(&cluster("a")));
+    }
+
+    /// The same members in a diferent order are not a change: no swap, and
+    /// the existing index / sleep state is left untouched.
+    #[test]
+    fn apply_reload_is_noop_when_unchanged_ignoring_order() {
+        let feed = ClusterFeed::load_from_clusters(vec![cluster("a"), cluster("b")], &[]);
+        feed.current_index.store(1, Ordering::Relaxed);
+        feed.sleep_map
+            .lock()
+            .unwrap()
+            .insert(cluster("a"), SystemTime::now());
+
+        let changed = feed.apply_reload(vec![cluster("b"), cluster("a")]);
+
+        assert!(!changed);
+        assert_eq!(feed.current_index.load(Ordering::Relaxed), 1);
+        assert_eq!(feed.sleep_map.lock().unwrap().len(), 1);
+    }
+
+    /// Reloading to an empty set is a valid change (every show un-managed):
+    /// the feed goes empty without panicking; the producer idles on it.
+    #[test]
+    fn apply_reload_to_empty_set() {
+        let feed = ClusterFeed::load_from_clusters(vec![cluster("a")], &[]);
+
+        let changed = feed.apply_reload(vec![]);
+
+        assert!(changed);
+        assert!(feed.clusters.read().unwrap().is_empty());
+        assert_eq!(feed.current_index.load(Ordering::Relaxed), 0);
+    }
+
+    /// Builds an [`ActiveTagMap`] for the test clusters, which all share
+    /// `("facility", Uuid::nil())` (see `cluster`).
+    fn active_map(tags: &[&str]) -> ActiveTagMap {
+        let mut map = ActiveTagMap::new();
+        map.insert(
+            ("facility".to_string(), Uuid::nil()),
+            tags.iter().map(|t| t.to_string()).collect(),
+        );
+        map
+    }
+
+    /// Only clusters whose tag is active survive the filter, and the result is
+    /// sorted (deterministic round-robin slots across scans). An empty map wakes
+    /// nothing.
+    #[test]
+    fn filter_active_keeps_only_active_tags() {
+        let universe = vec![cluster("c"), cluster("a"), cluster("b")];
+
+        let active = ClusterFeed::filter_active(&universe, &active_map(&["a", "c"]));
+        let names: Vec<String> = active
+            .iter()
+            .flat_map(|c| c.tags.iter().map(|t| t.name.clone()))
+            .collect();
+        assert_eq!(names, vec!["a".to_string(), "c".to_string()]);
+
+        assert!(ClusterFeed::filter_active(&universe, &ActiveTagMap::new()).is_empty());
+    }
+
+    /// A multi-tag cluster wakes if any one of its tags is active (array-overlap
+    /// semantics), and a diferent (facility, show) key never matches.
+    #[test]
+    fn filter_active_matches_any_tag_and_scopes_by_key() {
+        let multi = Cluster::multiple_tag(
+            "facility".to_string(),
+            Uuid::nil(),
+            vec![
+                Tag {
+                    name: "x".to_string(),
+                    ttype: TagType::Manual,
+                    alloc_id: None,
+                },
+                Tag {
+                    name: "y".to_string(),
+                    ttype: TagType::Manual,
+                    alloc_id: None,
+                },
+            ],
+        );
+        let universe = vec![multi.clone()];
+
+        // Only "y" active -> still awake (any-overlap).
+        assert_eq!(
+            ClusterFeed::filter_active(&universe, &active_map(&["y"])),
+            vec![multi.clone()]
+        );
+
+        // Right tag but wrong show key -> not awake.
+        let mut wrong_key = ActiveTagMap::new();
+        wrong_key.insert(
+            ("facility".to_string(), Uuid::from_u128(1)),
+            HashSet::from(["x".to_string()]),
+        );
+        assert!(ClusterFeed::filter_active(&universe, &wrong_key).is_empty());
+    }
+
+    /// A scan swaps in the new awake set and prunes sleep / last-sent entries for
+    /// clusters that left it, while survivors keep their backoff and baseline.
+    #[test]
+    fn apply_active_swaps_and_prunes_evicted() {
+        let feed =
+            ClusterFeed::load_from_clusters(vec![cluster("a"), cluster("b"), cluster("c")], &[]);
+        let now = SystemTime::now();
+        feed.sleep_map.lock().unwrap().insert(cluster("a"), now);
+        feed.sleep_map.lock().unwrap().insert(cluster("b"), now);
+        let baseline = Instant::now();
+        feed.last_sent_map
+            .lock()
+            .unwrap()
+            .insert(cluster("a"), baseline);
+        feed.last_sent_map
+            .lock()
+            .unwrap()
+            .insert(cluster("b"), baseline);
+
+        // Scan finds only "a" active; "b" and "c" drop out of the awake set.
+        ClusterFeed::apply_active_inner(
+            &feed.clusters,
+            &feed.active,
+            &feed.sleep_map,
+            &feed.last_sent_map,
+            &feed.active_notify,
+            &active_map(&["a"]),
+        );
+
+        {
+            let active = feed.active.read().unwrap();
+            assert_eq!(*active, vec![cluster("a")]);
+        }
+        let sleep = feed.sleep_map.lock().unwrap();
+        assert!(sleep.contains_key(&cluster("a")));
+        assert!(!sleep.contains_key(&cluster("b")));
+        let last_sent = feed.last_sent_map.lock().unwrap();
+        assert!(last_sent.contains_key(&cluster("a")));
+        assert!(!last_sent.contains_key(&cluster("b")));
+    }
+
+    /// A scan that takes the awake set from empty to non-empty wakes the parked
+    /// producer via `active_notify` (permit stored, so `notified()` resolves
+    /// immediately); a scan that leaves it non-empty does not signal.
+    #[tokio::test]
+    async fn apply_active_notifies_on_empty_to_nonempty() {
+        let feed = ClusterFeed::load_from_clusters(vec![cluster("a")], &[]);
+        *feed.active.write().unwrap() = Vec::new();
+
+        ClusterFeed::apply_active_inner(
+            &feed.clusters,
+            &feed.active,
+            &feed.sleep_map,
+            &feed.last_sent_map,
+            &feed.active_notify,
+            &active_map(&["a"]),
+        );
+        tokio::time::timeout(Duration::from_millis(50), feed.active_notify.notified())
+            .await
+            .expect("empty -> non-empty must signal active_notify");
+
+        // Already non-empty -> no new permit; notified() blocks until timeout.
+        ClusterFeed::apply_active_inner(
+            &feed.clusters,
+            &feed.active,
+            &feed.sleep_map,
+            &feed.last_sent_map,
+            &feed.active_notify,
+            &active_map(&["a"]),
+        );
+        assert!(
+            tokio::time::timeout(Duration::from_millis(50), feed.active_notify.notified())
+                .await
+                .is_err(),
+            "non-empty -> non-empty must not signal"
+        );
+    }
 }

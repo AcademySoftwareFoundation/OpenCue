@@ -424,6 +424,14 @@ public interface JobManager {
     List<ThreadStats> getThreadStats(LayerInterface layer);
 
     /**
+     * Update the dispatch order for the given layer.
+     *
+     * @param layer
+     * @param order
+     */
+    void setLayerDispatchOrder(LayerInterface layer, int order);
+
+    /**
      * Update the max core value for the given layer.
      *
      * @param layer

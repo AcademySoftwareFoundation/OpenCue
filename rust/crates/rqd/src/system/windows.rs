@@ -31,7 +31,7 @@ use sysinfo::{
     DiskRefreshKind, Disks, MemoryRefreshKind, Pid, ProcessRefreshKind, ProcessStatus,
     ProcessesToUpdate, RefreshKind,
 };
-use tracing::{debug, warn};
+use tracing::{debug, info, warn};
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
 
@@ -99,27 +99,60 @@ struct SessionData {
 impl WindowsSystem {
     /// Initialize the stats collector which reads CPU and Memory information from the OS.
     pub fn init(config: &MachineConfig, cpu_initial_info: ProcessorInfoData) -> Result<Self> {
-        let identified_os = config
-            .override_real_values
-            .clone()
-            .and_then(|c| c.os)
-            .unwrap_or_else(|| "windows".to_string());
+        let overrides = config.override_real_values.clone().unwrap_or_default();
+        if config.override_real_values.is_some() {
+            info!(
+                "Applying override_real_values: cores={:?}, procs={:?}, memory_size={:?}, hostname={:?}, os={:?}, workstation_mode={:?}",
+                overrides.cores,
+                overrides.procs,
+                overrides.memory_size,
+                overrides.hostname,
+                overrides.os,
+                overrides.workstation_mode,
+            );
+        }
+
+        let identified_os = overrides.os.clone().unwrap_or_else(|| "windows".to_string());
 
         // Initialize sysinfo collector
         let sysinfo = sysinfo::System::new_with_specifics(
             RefreshKind::nothing().with_memory(MemoryRefreshKind::everything()),
         );
-        let total_memory = sysinfo.total_memory();
+        let real_total_memory = sysinfo.total_memory();
+        let total_memory = overrides
+            .memory_size
+            .map(|b| b.as_u64())
+            .unwrap_or(real_total_memory);
+        if total_memory > real_total_memory {
+            warn!(
+                "override_real_values.memory_size ({} bytes) exceeds real total memory ({} bytes); \
+                 the scheduler may dispatch frames the host cannot fit and they will OOM.",
+                total_memory, real_total_memory,
+            );
+        }
         let total_swap = sysinfo.total_swap();
+
+        let hostname = match overrides.hostname.clone() {
+            Some(h) => h,
+            None => Self::get_hostname(config.use_ip_as_hostname)?,
+        };
+        let num_sockets = overrides
+            .procs
+            .map(|p| p as u32)
+            .unwrap_or(cpu_initial_info.num_sockets);
+        let cores_per_socket = overrides
+            .cores
+            .map(|c| c as u32)
+            .unwrap_or(cpu_initial_info.cores_per_socket);
 
         Ok(Self {
             config: config.clone(),
             static_info: MachineStaticInfo {
-                hostname: Self::get_hostname(config.use_ip_as_hostname)?,
+                hostname,
                 total_memory,
                 total_swap,
-                num_sockets: cpu_initial_info.num_sockets,
-                cores_per_socket: cpu_initial_info.cores_per_socket,
+                num_sockets,
+                cores_per_socket,
                 hyperthreading_multiplier: cpu_initial_info.hyperthreading_multiplier,
                 boot_time_secs: sysinfo::System::boot_time(),
                 tags: Self::setup_tags(config),
@@ -272,8 +305,11 @@ impl WindowsSystem {
         sysinfo.refresh_memory();
 
         let hyperthreading = self.static_info.hyperthreading_multiplier.max(1);
+        let real_total = sysinfo.total_memory();
+        let real_available = sysinfo.available_memory();
+        let used = real_total.saturating_sub(real_available);
         Ok(MachineDynamicInfo {
-            available_memory: sysinfo.available_memory(),
+            available_memory: self.static_info.total_memory.saturating_sub(used),
             free_swap: sysinfo.free_swap(),
             total_temp_storage: total_space,
             free_temp_storage: available_space,
@@ -281,18 +317,46 @@ impl WindowsSystem {
         })
     }
 
-    /// Reads storage information from the temporary mount point and extracts
+    /// Reads storage information for the configured temp path and extracts
     /// the total space and available space.
+    ///
+    /// Resolves the temp path through junctions/symlinks first so the lookup
+    /// hits the real underlying volume, and picks the longest matching mount
+    /// point so a deeper mount wins over the root drive.
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
         let temp_path = std::path::Path::new(&self.config.temp_path);
+        let canonical = std::fs::canonicalize(temp_path)
+            .into_diagnostic()
+            .wrap_err_with(|| {
+                format!("Could not canonicalize temp path {}", self.config.temp_path)
+            })?;
+        // canonicalize returns a verbatim path on Windows; convert it back to
+        // a normal form so the result matches the mount points reported by
+        // sysinfo (Path::starts_with is component-based, so "\\?\C:" won't
+        // match "C:"). Two cases: \\?\UNC\server\share\... → \\server\share\...,
+        // and \\?\C:\... → C:\....
+        let canonical_str = canonical.to_string_lossy().into_owned();
+        let resolved = if let Some(unc) = canonical_str.strip_prefix(r"\\?\UNC\") {
+            std::path::PathBuf::from(format!(r"\\{unc}"))
+        } else {
+            std::path::PathBuf::from(
+                canonical_str
+                    .strip_prefix(r"\\?\")
+                    .unwrap_or(&canonical_str),
+            )
+        };
         let mut diskinfo =
             Disks::new_with_refreshed_list_specifics(DiskRefreshKind::nothing().with_storage());
-        let tmp_disk = diskinfo
-            .list_mut()
-            .iter_mut()
-            .find(|disk| temp_path.starts_with(disk.mount_point()));
-        match tmp_disk {
-            Some(disk) => {
+        let idx = diskinfo
+            .list()
+            .iter()
+            .enumerate()
+            .filter(|(_, disk)| resolved.starts_with(disk.mount_point()))
+            .max_by_key(|(_, disk)| disk.mount_point().as_os_str().len())
+            .map(|(i, _)| i);
+        match idx {
+            Some(i) => {
+                let disk = &mut diskinfo.list_mut()[i];
                 disk.refresh_specifics(DiskRefreshKind::everything());
                 Ok((disk.total_space(), disk.available_space()))
             }

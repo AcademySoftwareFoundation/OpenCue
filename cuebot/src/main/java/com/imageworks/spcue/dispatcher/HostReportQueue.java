@@ -36,6 +36,7 @@ public class HostReportQueue extends ThreadPoolExecutor {
     private QueueRejectCounter rejectCounter = new QueueRejectCounter();
     private AtomicBoolean isShutdown = new AtomicBoolean(false);
     private int queueCapacity;
+    private long shutdownDrainMs = 60000;
 
     private Cache<String, HostReportWrapper> hostMap =
             CacheBuilder.newBuilder().expireAfterWrite(1, TimeUnit.HOURS).build();
@@ -74,6 +75,10 @@ public class HostReportQueue extends ThreadPoolExecutor {
 
     public void execute(DispatchHandleHostReport newReport) {
         if (isShutdown.get()) {
+            // HostReports should never be processed when the server is shutting down.
+            // Different from other queues, host reports are safe to be dropped and processing
+            // them could lead to an explosion of new tasks at the time when we want to drain
+            // the service.
             return;
         }
         HostReportWrapper oldWrappedReport = hostMap.getIfPresent(newReport.getKey());
@@ -113,25 +118,28 @@ public class HostReportQueue extends ThreadPoolExecutor {
         return queueCapacity;
     }
 
+    public void setShutdownDrainMs(long shutdownDrainMs) {
+        this.shutdownDrainMs = shutdownDrainMs;
+    }
+
     public void shutdown() {
         if (!isShutdown.getAndSet(true)) {
             logger.info("Shutting down report pool, currently " + this.getActiveCount()
-                    + " active threads.");
-
-            final long startTime = System.currentTimeMillis();
-            while (this.getQueue().size() != 0 && this.getActiveCount() != 0) {
-                try {
-                    logger.info("report pool is waiting for " + this.getQueue().size()
-                            + " more units to complete");
-                    if (System.currentTimeMillis() - startTime > 10000) {
-                        throw new InterruptedException(
-                                "report thread pool failed to shutdown properly");
+                    + " active threads, " + this.getQueue().size() + " queued.");
+            super.shutdown();
+            try {
+                if (!super.awaitTermination(shutdownDrainMs, TimeUnit.MILLISECONDS)) {
+                    logger.warn("report pool drain timed out after " + shutdownDrainMs + "ms; "
+                            + this.getQueue().size() + " queued, " + this.getActiveCount()
+                            + " active");
+                    super.shutdownNow();
+                    if (!super.awaitTermination(5, TimeUnit.SECONDS)) {
+                        logger.warn("report pool: failed to terminate after shutdownNow");
                     }
-                    Thread.sleep(250);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                super.shutdownNow();
             }
         }
     }

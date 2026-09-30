@@ -229,6 +229,17 @@ def getParser():
         # choices=["UP", "DOWN", "REPAIR"], type=str.upper,
         help="Filter host search by hardware state, up or down.",
     )
+    filter_grp.add_argument(
+        "-lock-state",
+        action="store",
+        choices=["OPEN", "LOCKED", "NIMBY_LOCKED"],
+        help="Filter -lh output to hosts in this lock state (e.g. NIMBY_LOCKED)",
+    )
+    filter_grp.add_argument(
+        "-sort-idle",
+        action="store_true",
+        help="Sort -lh output by most idle resources first",
+    )
 
     #
     # Show
@@ -297,6 +308,17 @@ def getParser():
         help="Archive a show by creating an alias to another show. "
         "Jobs submitted to the archived show will be executed by "
         "allocations subscribed to the target show.",
+    )
+
+    show.add_argument(
+        "-scheduler-managed",
+        action="store",
+        nargs=2,
+        metavar="SHOW ON|OFF",
+        help="Set whether accounting for the given show is owned by the Rust "
+        "scheduler. When ON, Cuebot stops updating accounting tables "
+        "transactionally for this show and the Rust scheduler reconciles "
+        "them from the proc table.",
     )
     #
     # Allocation
@@ -1062,7 +1084,9 @@ def handleArgs(args):
     if args.lh:
         states = [Convert.strToHardwareState(s) for s in args.state]
         cueadmin.output.displayHosts(
-            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc)
+            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc),
+            lock_state=args.lock_state,
+            sort_idle=args.sort_idle,
         )
         return
 
@@ -1254,6 +1278,22 @@ def handleArgs(args):
             show.archive,
             target_show_name,
         )
+
+    elif args.scheduler_managed:
+        show_name, value = args.scheduler_managed
+        if value.lower() not in ("on", "off"):
+            raise ValueError(
+                "Invalid value for -scheduler-managed: %r (expected ON or OFF)" % value
+            )
+        enabled = value.lower() == "on"
+        show = opencue.api.findShow(show_name)
+        verb = "Enable" if enabled else "Disable"
+        confirm(
+            "%s scheduler-managed accounting on %s" % (verb, opencue.rep(show)),
+            args.force,
+            show.setSchedulerManaged,
+            enabled,
+        )
     #
     # Hosts are handled a bit differently than the rest
     # of the entities. To specify a host or hosts the user
@@ -1378,7 +1418,7 @@ def handleArgs(args):
             % (opencue.rep(show), opencue.rep(alloc)),
             args.force,
             show.createSubscription,
-            alloc.data,
+            alloc,
             float(args.create_sub[2]),
             float(args.create_sub[3]),
         )

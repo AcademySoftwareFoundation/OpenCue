@@ -101,7 +101,7 @@ Use `-limit` to limit the results to N logs.
 
 ### `-lh`
 
-Arguments: `[SUBSTR ...] [-state STATE] [-alloc ALLOC]`
+Arguments: `[SUBSTR ...] [-state STATE] [-alloc ALLOC] [-lock-state LOCK_STATE] [-sort-idle]`
 
 List hosts with optional name substring match.
 
@@ -146,6 +146,17 @@ Waiting frames are automatically filtered out.
 Arguments: `LIMIT`
 
 Limit the result of a proc search to N rows
+
+### `-lock-state`
+
+Arguments: `{OPEN,LOCKED,NIMBY_LOCKED}`
+
+Filter `-lh` output to hosts in this lock state (for example, `NIMBY_LOCKED`).
+
+### `-sort-idle`
+
+Sort `-lh` output by most idle resources first (idle cores, then idle
+memory) instead of by host name.
 
 ## Show Options
 

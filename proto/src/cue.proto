@@ -57,6 +57,7 @@ message SystemStats {
     int64 unbooked_procs = 33;
     int64 picked_up_cores = 34;
     int64 stranded_cores = 35;
+    int64 deferred_release_procs = 36;
 }
 
 

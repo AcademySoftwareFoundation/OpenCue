@@ -104,8 +104,17 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
                 id);
     }
 
-    private static final String INSERT_JOB_COMMENT = "INSERT INTO " + "comments " + "("
-            + "pk_comment,pk_job,str_user,str_subject,str_message" + ") VALUES (?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_JOB_COMMENT =
+            "INSERT INTO comments ("
+                + "pk_comment,"
+                + "pk_job,"
+                + "str_user,"
+                + "str_subject,"
+                + "str_message"
+            + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     public void insertComment(JobInterface job, CommentDetail comment) {
         comment.id = SqlUtil.genKeyRandom();
@@ -114,8 +123,17 @@ public class CommentDaoJdbc extends JdbcDaoSupport implements CommentDao {
         getJdbcTemplate().update("UPDATE job SET b_comment=true WHERE pk_job=?", job.getJobId());
     }
 
-    private static final String INSERT_HOST_COMMENT = "INSERT INTO " + "comments " + "("
-            + "pk_comment,pk_host,str_user,str_subject,str_message" + ") VALUES (?,?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_HOST_COMMENT =
+            "INSERT INTO comments ("
+                + "pk_comment,"
+                + "pk_host,"
+                + "str_user,"
+                + "str_subject,"
+                + "str_message"
+            + ") "
+            + "VALUES (?,?,?,?,?)";
+    // spotless:on
 
     public void insertComment(HostInterface host, CommentDetail comment) {
         comment.id = SqlUtil.genKeyRandom();

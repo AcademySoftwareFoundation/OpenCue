@@ -39,6 +39,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.CoreDetail;
@@ -87,6 +88,9 @@ public class HostReportHandlerTests extends TransactionalTest {
 
     @Resource
     CommentManager commentManager;
+
+    @Resource
+    FrameDao frameDao;
 
     private static final String HOSTNAME = "beta";
     private static final String NEW_HOSTNAME = "gamma";
@@ -391,6 +395,119 @@ public class HostReportHandlerTests extends TransactionalTest {
         FrameDetail frame = jobManager.getFrameDetail(proc.getFrameId());
         assertEquals(frame.dateLLU, new Timestamp(now / 1000 * 1000));
         assertEquals(420000, frame.maxRss);
+    }
+
+    /**
+     * Strict fencing: a reported running frame whose resource_id maps to a proc that now owns a
+     * different frame is a zombie and must be killed immediately, skipping the grace period. The
+     * proc that owns the resource_id (and its current frame) must not be touched.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStrictFencingKillsZombieWhenProcOwnsDifferentFrame() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+
+        // proc1's resource_id reports running proc2's frame. proc1 actually owns frame1, so the
+        // reported frame is demonstrably running under a stale resource. startTime is "now" to
+        // prove
+        // the kill happens within the grace window.
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId()).setFrameId(proc2.getFrameId())
+                .setResourceId(proc1.getProcId()).setStartTime(System.currentTimeMillis()).build();
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(info).build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false);
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
+
+        // The procs and their real frames are untouched.
+        assertEquals(FrameState.RUNNING, jobManager.getFrameDetail(proc1.getFrameId()).state);
+        assertEquals(FrameState.RUNNING, jobManager.getFrameDetail(proc2.getFrameId()).state);
+        assertEquals(proc1.getFrameId(),
+                hostManager.getVirtualProc(proc1.getProcId()).getFrameId());
+    }
+
+    /**
+     * A reported frame whose resource_id maps to a proc on a different frame, but whose own state
+     * is no longer RUNNING, is just a late/reordered report (e.g. proc reuse after a FrameComplete)
+     * and must not be killed.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStrictFencingSkipsKillWhenReportedFrameNotRunning() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_multiple_frames.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(3, procs.size());
+        VirtualProc proc1 = procs.get(0);
+        VirtualProc proc2 = procs.get(1);
+
+        // The reported frame (proc2's) is no longer RUNNING.
+        frameDao.updateFrameState(frameDao.getFrame(proc2.getFrameId()), FrameState.SUCCEEDED);
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc2.getJobId())
+                .setLayerId(proc2.getLayerId()).setFrameId(proc2.getFrameId())
+                .setResourceId(proc1.getProcId()).setStartTime(System.currentTimeMillis()).build();
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(info).build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(report, false);
+        assertEquals(killCount, DispatchSupport.killedOffenderProcs.get());
+    }
+
+    /**
+     * The grace period applies only when the resource_id maps to no proc (the book-&gt;first-report
+     * propagation window). Within grace the frame is kept; past grace it is killed.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGracePeriodAppliesOnlyWhenProcMissing() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        DispatchHost host = getHost(hostname);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        // resource_id maps to no proc; the reported frame is the real RUNNING frame.
+        String unknownResourceId = UUID.randomUUID().toString();
+
+        // Within grace: kept, not killed.
+        RunningFrameInfo withinGrace = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(unknownResourceId).setStartTime(System.currentTimeMillis()).build();
+        HostReport graceReport = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(withinGrace).build();
+
+        long killCount = DispatchSupport.killedOffenderProcs.get();
+        hostReportHandler.handleHostReport(graceReport, false);
+        assertEquals(killCount, DispatchSupport.killedOffenderProcs.get());
+
+        // Past grace (grace period defaults to 120s): killed.
+        RunningFrameInfo pastGrace = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(unknownResourceId)
+                .setStartTime(System.currentTimeMillis() - 130 * 1000L).build();
+        HostReport killReport = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(pastGrace).build();
+
+        hostReportHandler.handleHostReport(killReport, false);
+        assertEquals(killCount + 1, DispatchSupport.killedOffenderProcs.get());
     }
 
     @Test

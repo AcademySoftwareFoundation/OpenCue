@@ -10,16 +10,16 @@ nav_order: 999
 
 | Version | Status | Release Date | Documentation | Notes |
 |---------|---------|--------------|---------------|-------|
-| [v1.13.8]({{ site.baseurl }}/) | **Latest** | 2025 | [View →]({{ site.baseurl }}/) | Current stable release (latest) |
-| [main]({{ site.baseurl }}/) | **Development** | Continuous | [View →]({{ site.baseurl }}/) | Development branch (same as v1.13.8) |
+| [v1.19.1]({{ site.baseurl }}/) | **Latest** | 2026 | [View →]({{ site.baseurl }}/) | Current stable release (latest) |
+| [main]({{ site.baseurl }}/) | **Development** | Continuous | [View →]({{ site.baseurl }}/) | Development branch (same as v1.19.1) |
 
 ## Version Policy
 
 ### Documentation Versioning
 The documentation follows the OpenCue software versioning:
 
-- **v1.13.8**: Current OpenCue release documentation
-- **main**: Development branch (currently same as v1.13.8)
+- **v1.19.1**: Current OpenCue release documentation
+- **main**: Development branch (currently same as v1.19.1)
 - Documentation versions are aligned with OpenCue software releases
 
 ### OpenCue Software Version
@@ -29,8 +29,8 @@ Current OpenCue software version: **{{ site.opencue_version }}**
 
 📘 **Documentation Status**
 
-- **v1.13.8**: Current stable release - all documentation points here
-- **main**: Development version - currently same content as v1.13.8
+- **v1.19.1**: Current stable release - all documentation points here
+- **main**: Development version - currently same content as v1.19.1
 - Future versions will be created as new releases are made
 
 ## How to Switch Versions

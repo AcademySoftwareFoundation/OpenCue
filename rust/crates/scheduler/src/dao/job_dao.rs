@@ -44,6 +44,21 @@ pub struct JobModel {
     pub show_name: String,
 }
 
+/// One active (facility, show, tag) tuple from [`JobDao::scan_active_tags`].
+///
+/// A tag is "active" for a (facility, show) when at least one PENDING job in
+/// that facility/show has a waiting layer carrying the tag, and the show still
+/// has subscription headroom. Used to gate the cluster feed's awake set: a
+/// cluster is eligible iff one of its tags appears here under its
+/// (facility, show) key. See `cluster::ClusterFeed` and the superset argument
+/// on [`QUERY_ACTIVE_TAGS`].
+#[derive(sqlx::FromRow, Serialize, Deserialize)]
+pub struct ActiveTagModel {
+    pub pk_show: String,
+    pub pk_facility: String,
+    pub tag: String,
+}
+
 impl DispatchJob {
     /// Creates a new DispatchJob from a database model and cluster assignment.
     ///
@@ -65,49 +80,128 @@ impl DispatchJob {
 }
 
 static QUERY_PENDING_BY_SHOW_FACILITY_TAG: &str = r#"
---bookable_shows: Shows that have room in at least one of its subscriptions
-WITH bookable_shows AS (
-    SELECT
-        distinct w.pk_show,
-        sh.str_name as show_name
+-- LIVE booked-core CTEs. The job/folder/subscription caps must be gated on CURRENT
+-- usage, but the PG columns job_resource.int_cores / folder_resource.int_cores /
+-- subscription.int_cores are only materialized by the ~120s recompute loop, so they
+-- lag reality. `proc` is the transactionally-accurate source (the scheduler inserts on
+-- booking, Cuebot deletes on frame completion, compensation deletes on a failed launch),
+-- so we sum it directly. Each CTE is scoped to this show ($1) via i_proc_pkshow and
+-- mirrors the recompute aggregation (so the value equals a fresher copy of the PG
+-- column), and joins on indexed pk_host / pk_job. Gating on stale PG would otherwise
+-- (a) over-fetch jobs for caps that are full in Redis -> wasted rejections, and worse
+-- (b) FALSE-EXCLUDE: a frame completes and frees burst live, but the lagged PG column
+-- stays high for up to a cycle, dropping the show/folder/job from the fetch and starving
+-- its (esp. low-priority) jobs until the next recompute.
+WITH job_live AS (
+    -- per-job booked cores (mirrors RECOMPUTE_JOB_RESOURCE_FROM_PROC)
+    SELECT p.pk_job, COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores
+    FROM proc p
+    WHERE p.pk_show = $1
+    GROUP BY p.pk_job
+),
+folder_live AS (
+    -- per-folder booked cores/gpus (mirrors RECOMPUTE_FOLDER_RESOURCE_FROM_PROC)
+    SELECT j2.pk_folder,
+           COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores,
+           COALESCE(SUM(p.int_gpus_reserved), 0)::int  AS gpus
+    FROM proc p
+    JOIN job j2 ON j2.pk_job = p.pk_job AND j2.str_state <> 'FINISHED'
+    WHERE p.pk_show = $1
+    GROUP BY j2.pk_folder
+),
+sub_live AS (
+    -- per-alloc booked cores for this show (mirrors RECOMPUTE_SUBSCRIPTION_FROM_PROC:
+    -- proc -> host -> alloc, excluding local/desktop bookings)
+    SELECT h.pk_alloc, COALESCE(SUM(p.int_cores_reserved), 0)::int AS cores
+    FROM proc p
+    JOIN host h ON h.pk_host = p.pk_host
+    WHERE p.pk_show = $1 AND p.b_local = false
+    GROUP BY h.pk_alloc
+),
+-- bookable_shows: shows that still have room in at least one subscription (LIVE).
+bookable_shows AS (
+    SELECT DISTINCT w.pk_show, sh.str_name AS show_name
     FROM subscription s
+    -- LEFT JOIN: an alloc with no booked procs has full headroom.
+    LEFT JOIN sub_live sl ON sl.pk_alloc = s.pk_alloc
     INNER JOIN vs_waiting w ON s.pk_show = w.pk_show
     INNER JOIN show sh ON sh.pk_show = w.pk_show
     WHERE s.pk_show = $1
-        -- Burst == 0 is used to freeze a subscription
+        -- Burst == 0 is used to freeze a subscription.
         AND s.int_burst > 0
-        -- At least one core unit available
-        AND s.int_burst - s.int_cores >= $2
-        AND s.int_cores < s.int_burst
-),
-filtered_jobs AS (
-    SELECT
-        j.pk_job,
-        jr.int_priority,
-        bookable_shows.show_name
-    FROM job j
-    INNER JOIN bookable_shows on j.pk_show = bookable_shows.pk_show
-    INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
-    INNER JOIN folder f ON j.pk_folder = f.pk_folder
-    INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
-    INNER JOIN layer l ON l.pk_job = j.pk_job
-    WHERE j.str_state = 'PENDING'
-        AND j.b_paused = false
-        -- Check for room on folder resources
-        AND (fr.int_max_cores = -1 OR fr.int_cores + l.int_cores_min < fr.int_max_cores)
-        AND (fr.int_max_gpus = -1 OR fr.int_gpus + l.int_gpus_min < fr.int_max_gpus)
-        -- Match tags: jobs with at least one layer that contains the queried tag
-        AND string_to_array($3, ' | ') && string_to_array(l.str_tags, ' | ')
-        AND LOWER(j.pk_facility) = LOWER($4)
+        -- At least one core unit available, measured against LIVE usage.
+        AND s.int_burst - COALESCE(sl.cores, 0) >= $2
+        AND COALESCE(sl.cores, 0) < s.int_burst
 )
+SELECT
+    j.pk_job,
+    jr.int_priority,
+    bs.show_name
+FROM job j
+INNER JOIN bookable_shows bs ON j.pk_show = bs.pk_show
+INNER JOIN job_resource jr ON j.pk_job = jr.pk_job
+INNER JOIN folder f ON j.pk_folder = f.pk_folder
+INNER JOIN folder_resource fr ON f.pk_folder = fr.pk_folder
+-- LEFT JOIN the live CTEs: no row => 0 booked => full headroom.
+LEFT JOIN job_live jl ON jl.pk_job = j.pk_job
+LEFT JOIN folder_live fl ON fl.pk_folder = f.pk_folder
+WHERE j.str_state = 'PENDING'
+    AND j.b_paused = false
+    AND j.pk_facility = $4
+    -- Folder must have any room at all (LIVE); per-layer fit is checked below.
+    AND (fr.int_max_cores <= 0 OR COALESCE(fl.cores, 0) < fr.int_max_cores)
+    AND (fr.int_max_gpus <= 0 OR COALESCE(fl.gpus, 0) < fr.int_max_gpus)
+    -- The job must have at least one layer that matches the tag set, has waiting
+    -- frames, and fits within the folder AND job caps (both LIVE). EXISTS short-circuits
+    -- per job and avoids the cardinality blowup of joining layer + layer_stat at the
+    -- outer level.
+    AND EXISTS (
+        SELECT 1
+        FROM layer l
+        INNER JOIN layer_stat ls ON ls.pk_layer = l.pk_layer
+        WHERE l.pk_job = j.pk_job
+          AND ls.int_waiting_count > 0
+          AND string_to_array(REPLACE($3, ' ', ''), '|')
+              && string_to_array(REPLACE(l.str_tags, ' ', ''), '|')
+          AND (fr.int_max_cores <= 0 OR COALESCE(fl.cores, 0) + l.int_cores_min <= fr.int_max_cores)
+          AND (fr.int_max_gpus <= 0 OR COALESCE(fl.gpus, 0) + l.int_gpus_min <= fr.int_max_gpus)
+          AND (jr.int_max_cores <= 0 OR COALESCE(jl.cores, 0) + l.int_cores_min <= jr.int_max_cores)
+    )
+ORDER BY jr.int_priority DESC
+LIMIT $5
+"#;
+
+// Awake-gate scan. Returns the set of (facility, show, tag) tuples that *could*
+// yield a dispatchable job, so the cluster feed can keep clusters with no work
+// asleep instead of re-querying them every backoff window.
+//
+// SUPERSET INVARIANT (must never produce a false negative): every (job, layer)
+// the per-cluster query QUERY_PENDING_BY_SHOW_FACILITY_TAG would return must be
+// captured here, otherwise the owning cluster is gated to permanent sleep and
+// its jobs starve. Two rules keep this true:
+//
+// `unnest` splits each layer's pipe-joined str_tags into individual tags; the
+// feed re-applies tag-set overlap on the cluster side, matching the per-cluster
+// `&&` array-overlap semantics.
+static QUERY_ACTIVE_TAGS: &str = r#"
 SELECT DISTINCT
-    fj.pk_job,
-    fj.int_priority,
-    fj.show_name
-FROM filtered_jobs fj
-INNER JOIN layer_stat ls ON fj.pk_job = ls.pk_job
-WHERE ls.int_waiting_count > 0
-ORDER BY int_priority DESC
+    j.pk_show,
+    j.pk_facility,
+    unnest(string_to_array(REPLACE(l.str_tags, ' ', ''), '|')) AS tag
+FROM job j
+INNER JOIN show sh ON sh.pk_show = j.pk_show
+INNER JOIN layer l ON l.pk_job = j.pk_job
+INNER JOIN layer_stat ls ON ls.pk_layer = l.pk_layer
+WHERE j.str_state = 'PENDING'
+    AND j.b_paused = false
+    AND sh.b_active = true
+    AND sh.b_scheduler_managed = true
+    AND ls.int_waiting_count > 0
+    AND EXISTS (
+        SELECT 1 FROM subscription s
+        WHERE s.pk_show = j.pk_show AND s.int_burst > 0
+    )
+    AND ($1::text IS NULL OR j.pk_facility = $1)
 "#;
 
 impl JobDao {
@@ -160,7 +254,7 @@ impl JobDao {
     pub async fn query_pending_jobs_by_show_facility_and_tags(
         &self,
         show_id: Uuid,
-        facility_id: Uuid,
+        facility_id: &str,
         tags: impl Iterator<Item = String>,
     ) -> Result<Vec<JobModel>, sqlx::Error> {
         trace!(
@@ -177,10 +271,40 @@ impl JobDao {
             .bind(show_id.to_string())
             .bind(CONFIG.queue.core_multiplier as i32)
             .bind(tags_collected.join(" | ").to_string())
-            .bind(facility_id.to_string())
+            .bind(facility_id)
+            .bind(CONFIG.queue.max_jobs_per_cluster_pass)
             .fetch_all(&*self.connection_pool)
             .await;
         observe_job_query_duration(start.elapsed());
+        result
+    }
+
+    /// Scans for the set of (facility, show, tag) tuples that currently have
+    /// plausibly-dispatchable work, used to gate the cluster feed's awake set.
+    ///
+    /// This is a strict superset of what `query_pending_jobs_by_show_facility_and_tags`
+    /// would return (see [`QUERY_ACTIVE_TAGS`]): a cluster whose tag is absent
+    /// here is guaranteed to have no dispatchable job and can stay asleep. The
+    /// reverse does not hold — a returned tag may still yield a no_jobs or
+    /// saturated pass once the folder/job caps and live subscription headroom are
+    /// evaluated per-cluster, which is intentionally cheap to absorb.
+    ///
+    /// # Arguments
+    /// * `facility_id` - Optional facility filter; `None` scans every facility.
+    ///
+    /// # Returns
+    /// All active tuples (unordered). One database round-trip regardless of the
+    /// number of clusters.
+    pub async fn scan_active_tags(
+        &self,
+        facility_id: Option<&str>,
+    ) -> Result<Vec<ActiveTagModel>, sqlx::Error> {
+        let start = std::time::Instant::now();
+        let result = sqlx::query_as::<_, ActiveTagModel>(QUERY_ACTIVE_TAGS)
+            .bind(facility_id)
+            .fetch_all(&*self.connection_pool)
+            .await;
+        crate::metrics::observe_active_scan_duration(start.elapsed());
         result
     }
 }

@@ -442,6 +442,11 @@ public class JobManagerService implements JobManager {
     }
 
     @Override
+    public void setLayerDispatchOrder(LayerInterface layer, int order) {
+        layerDao.updateLayerDispatchOrder(layer, order);
+    }
+
+    @Override
     public void setLayerMinCores(LayerInterface layer, int coreUnits) {
         layerDao.updateLayerMinCores(layer, coreUnits);
     }

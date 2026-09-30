@@ -36,6 +36,7 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.ProcInterface;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.Source;
+import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.AllocationDao;
 import com.imageworks.spcue.dao.FacilityDao;
@@ -261,6 +262,12 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public int getStrandedCoreUnits(HostInterface h) {
         return hostDao.getStrandedCoreUnits(h);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public List<StrandedCoreStats> getStrandedCoreStats() {
+        return hostDao.getStrandedCoreStats();
     }
 
     @Override

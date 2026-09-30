@@ -45,6 +45,8 @@ import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.postgres.DispatchQuery;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -112,6 +114,9 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
     @Resource
     BookingDao bookingDao;
+
+    @Resource
+    ShowDao showDao;
 
     private static final String HOSTNAME = "beta";
 
@@ -303,6 +308,29 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
 
         Set<String> jobs = dispatcherDao.findDispatchJobs(host, 10);
         assertTrue(jobs.size() > 0);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFindShowsExcludesSchedulerManaged() {
+        DispatchHost host = getHost();
+
+        int beforeCount =
+                jdbcTemplate.queryForList(DispatchQuery.FIND_SHOWS, host.getAllocationId()).size();
+        assertTrue(beforeCount > 0);
+
+        try {
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), true);
+
+            int afterCount = jdbcTemplate
+                    .queryForList(DispatchQuery.FIND_SHOWS, host.getAllocationId()).size();
+            assertEquals(beforeCount - 1, afterCount);
+        } finally {
+            // ShowDao's cache lives outside the transaction; reset it so the next test
+            // sees a clean false (rollback only restores the DB, not the in-memory cache).
+            showDao.updateSchedulerManaged(adminManager.findShowEntity("pipe"), false);
+        }
     }
 
     @Test

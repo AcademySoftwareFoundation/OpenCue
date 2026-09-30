@@ -155,6 +155,8 @@ available actions. Some of the common actions include:
 *   Changing the tags on the host
 *   Changing the allocation associated with the host
 *   Locking/Unlocking the host
+*   Taking ownership of a NIMBY-locked host that is currently deeded to
+    another user (enabled only when a single NIMBY-locked host is selected)
 
 ## Managing services
 

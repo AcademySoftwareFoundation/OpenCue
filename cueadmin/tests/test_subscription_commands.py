@@ -182,7 +182,7 @@ class SubscriptionCommandTests(unittest.TestCase):
         mock_find_show.assert_called_once_with(TEST_SHOW)
         mock_find_alloc.assert_called_once_with(TEST_ALLOC)
         mock_prompt.assert_called_once()
-        show.createSubscription.assert_called_once_with(alloc.data, 100.0, 200.0)
+        show.createSubscription.assert_called_once_with(alloc, 100.0, 200.0)
 
     @mock.patch('opencue.api.findAllocation')
     @mock.patch('opencue.api.findShow')
@@ -200,7 +200,7 @@ class SubscriptionCommandTests(unittest.TestCase):
 
         mock_find_show.assert_called_once_with(TEST_SHOW)
         mock_find_alloc.assert_called_once_with(TEST_ALLOC)
-        show.createSubscription.assert_called_once_with(alloc.data, 50.0, 75.0)
+        show.createSubscription.assert_called_once_with(alloc, 50.0, 75.0)
 
     @mock.patch('cueadmin.util.promptYesNo', return_value=True)
     def test_delete_sub_deletes_subscription_with_confirmation(self, mock_prompt,
@@ -466,7 +466,7 @@ class SubscriptionCommandTests(unittest.TestCase):
                                              size, burst, '-force'])
                 cueadmin.common.handleArgs(args)
 
-                show.createSubscription.assert_called_with(alloc.data, float(size), float(burst))
+                show.createSubscription.assert_called_with(alloc, float(size), float(burst))
 
     def test_resource_calculation_accuracy_comprehensive(self, getStubMock, findSubMock):
         """Comprehensive test of resource calculation accuracy for percentage burst."""

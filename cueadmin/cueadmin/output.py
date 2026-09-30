@@ -56,11 +56,27 @@ def displayProcs(procs):
         )
 
 
-def displayHosts(hosts):
+def displayHosts(hosts, lock_state=None, sort_idle=False):
     """Displays the host information on one line each.
     @type hosts: list<Host>
     @param hosts: Hosts to display information about
+    @type lock_state: str
+    @param lock_state: if set, only show hosts in this lock state
+                       (OPEN, LOCKED or NIMBY_LOCKED)
+    @type sort_idle: bool
+    @param sort_idle: if True, sort by most idle resources first
     """
+    hosts = list(hosts)
+    if lock_state:
+        hosts = [
+            host
+            for host in hosts
+            if opencue.api.host_pb2.LockState.Name(host.data.lock_state) == lock_state
+        ]
+    if sort_idle:
+        hosts.sort(key=lambda v: (-v.data.idle_cores, -v.data.idle_memory))
+    else:
+        hosts.sort(key=lambda v: v.data.name)
     host_format = (
         "%-15s %-4s %-5s %-8s %-8s %-9s %-5s %-5s %-16s %-8s %-8s %-6s %-9s %-10s %-7s"
     )
@@ -84,7 +100,7 @@ def displayHosts(hosts):
             "Thread",
         )
     )
-    for host in sorted(hosts, key=lambda v: v.data.name):
+    for host in hosts:
         print(
             host_format
             % (

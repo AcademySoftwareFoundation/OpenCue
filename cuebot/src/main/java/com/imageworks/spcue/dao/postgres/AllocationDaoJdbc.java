@@ -50,10 +50,20 @@ public class AllocationDaoJdbc extends JdbcDaoSupport implements AllocationDao {
         }
     };
 
-    private static final String GET_ALLOCATION = "SELECT " + "alloc.pk_facility,"
-            + "alloc.pk_alloc, " + "alloc.str_name, " + "alloc.str_tag, "
-            + "facility.str_name AS facility_name " + "FROM " + "alloc, " + "facility " + "WHERE "
-            + "alloc.pk_facility = facility.pk_facility ";
+    // spotless:off
+    private static final String GET_ALLOCATION =
+            "SELECT "
+                + "alloc.pk_facility,"
+                + "alloc.pk_alloc, "
+                + "alloc.str_name, "
+                + "alloc.str_tag, "
+                + "facility.str_name AS facility_name "
+            + "FROM "
+                + "alloc, "
+                + "facility "
+            + "WHERE "
+                + "alloc.pk_facility = facility.pk_facility ";
+    // spotless:on
 
     public AllocationEntity getAllocationEntity(String id) {
         return getJdbcTemplate().queryForObject(GET_ALLOCATION + " AND pk_alloc=?", ALLOC_MAPPER,
@@ -71,8 +81,16 @@ public class AllocationDaoJdbc extends JdbcDaoSupport implements AllocationDao {
                 ALLOC_MAPPER, name);
     }
 
-    private static final String INSERT_ALLOCATION = "INSERT INTO " + "alloc " + "(" + "pk_alloc,"
-            + "pk_facility," + "str_name, " + "str_tag " + ") VALUES (?,?,?,?)";
+    // spotless:off
+    private static final String INSERT_ALLOCATION =
+            "INSERT INTO alloc ("
+                + "pk_alloc,"
+                + "pk_facility,"
+                + "str_name, "
+                + "str_tag "
+            + ") "
+            + "VALUES (?,?,?,?)";
+    // spotless:on
 
     public void insertAllocation(FacilityInterface facility, AllocationEntity detail) {
 

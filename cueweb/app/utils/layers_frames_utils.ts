@@ -1,3 +1,19 @@
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import { handleError } from "@/app/utils/notify_utils";
 
 /*****************************************************************/
@@ -48,9 +64,12 @@ export const convertMemoryToString = (kmem: number, object: string): string => {
 
 // Converts seconds to a string formatted as HH:MM:SS
 export const secondsToHHMMSS = (sec: number): string => {
-  const hours = Math.floor(sec / 3600).toString().padStart(2, "0");
-  const minutes = Math.floor((sec % 3600) / 60).toString().padStart(2, "0");
-  const seconds = (sec % 60).toString().padStart(2, "0");
+  // Floor the input so fractional inputs (e.g. (Date.now()/1000) deltas)
+  // don't bleed micro-seconds into the seconds component.
+  const total = Math.max(0, Math.floor(sec));
+  const hours = Math.floor(total / 3600).toString().padStart(2, "0");
+  const minutes = Math.floor((total % 3600) / 60).toString().padStart(2, "0");
+  const seconds = (total % 60).toString().padStart(2, "0");
 
   return `${hours}:${minutes}:${seconds}`;
 };
@@ -61,4 +80,25 @@ export const secondsToHHHMM = (sec: number): string => {
   const minutes = Math.floor((sec % 3600) / 60).toString().padStart(2, "0");
 
   return `${hours}:${minutes}`;
+};
+
+// Converts seconds to a human-readable age string (e.g., "2h 14m" or "3d 4h")
+export const secondsToHumanAge = (sec: number): string => {
+  if (sec < 0) {
+    return "0m";
+  }
+
+  const days = Math.floor(sec / 86400);
+  const hours = Math.floor((sec % 86400) / 3600);
+  const minutes = Math.floor((sec % 3600) / 60);
+
+  if (days > 0) {
+    return `${days}d ${hours}h`;
+  }
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
 };

@@ -1,63 +1,63 @@
 "use client";
 
-import { Job } from "@/app/jobs/columns";
-import ProgressBar from "./progressbar";
+/*
+ * Copyright Contributors to the OpenCue Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
-const getProgressBarSuccess = (job: Job) => {
-  const successfulFramePercent = (job.jobStats.succeededFrames / job.jobStats.totalFrames) * 100;
-  return `${successfulFramePercent}%`;
-};
-const getProgressBarRunning = (job: Job) => {
-  const runningFramePercent = (job.jobStats.runningFrames / job.jobStats.totalFrames) * 100;
-  return `${runningFramePercent}%`;
-};
-const getProgressBarWaiting = (job: Job) => {
-  const waitingFramePercent = (job.jobStats.waitingFrames / job.jobStats.totalFrames) * 100;
-  return `${waitingFramePercent}%`;
-};
-const getProgressBarDepend = (job: Job) => {
-  const dependFramePercent = (job.jobStats.dependFrames / job.jobStats.totalFrames) * 100;
-  return `${dependFramePercent}%`;
-};
-const getProgressBarDead = (job: Job) => {
-  const deadFramePercent = (job.jobStats.deadFrames / job.jobStats.totalFrames) * 100;
-  return `${deadFramePercent}%`;
-};
+
+import { Job } from "@/app/jobs/columns";
+import {
+  getJobProgressSegments,
+  getJobProgressTooltipRows,
+} from "@/app/utils/job_progress_utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import ProgressBar from "./progressbar";
 
 type JobProgressBarProps = {
   job: Job;
 };
 
 export function JobProgressBar({ job }: JobProgressBarProps) {
+  const progressSegments = getJobProgressSegments(job);
+  const tooltipRows = getJobProgressTooltipRows(job);
+
   return (
-    <ProgressBar
-      visualParts={[
-        {
-          // green portion to show % succeeded frames
-          percentage: getProgressBarSuccess(job),
-          color: "#4CC417",
-        },
-        {
-          // yellow portion to show % running frames
-          percentage: getProgressBarRunning(job),
-          color: "#F8E473",
-        },
-        {
-          // blue portion to show % waiting frames
-          percentage: getProgressBarWaiting(job),
-          color: "#ADD8E6",
-        },
-        {
-          // purple portion to show % dependent frames
-          percentage: getProgressBarDepend(job),
-          color: "#9118C4",
-        },
-        {
-          // red portion to show % dead frames
-          percentage: getProgressBarDead(job),
-          color: "tomato",
-        },
-      ]}
-    />
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div>
+            <ProgressBar visualParts={progressSegments} />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <div className="grid grid-cols-[auto_auto_auto] gap-x-3 gap-y-1">
+            {tooltipRows.map((row) => (
+              <div className="contents" key={row.label}>
+                <span>{row.label}</span>
+                <span className="text-right">{row.count}</span>
+                <span className="text-right">{row.percentage}</span>
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

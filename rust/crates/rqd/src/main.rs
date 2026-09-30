@@ -19,7 +19,10 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 #[cfg(target_os = "macos")]
 use crate::frame::manager;
-use crate::{config::CONFIG, system::machine};
+use crate::{
+    config::CONFIG,
+    system::{capabilities, machine},
+};
 
 mod config;
 mod frame;
@@ -38,6 +41,10 @@ fn main() -> miette::Result<()> {
 }
 
 async fn async_main() -> miette::Result<()> {
+    // Ensure provisioned paths (snapshots, machine temp) exist before any
+    // subsystem touches them.
+    CONFIG.setup()?;
+
     let log_level =
         tracing::Level::from_str(CONFIG.logging.level.as_str()).expect("Invalid log level");
     let log_builder = tracing_subscriber::fmt()
@@ -56,6 +63,10 @@ async fn async_main() -> miette::Result<()> {
     } else {
         log_builder.init();
     }
+
+    // Fail fast if the config requires elevated privileges the process does not hold,
+    // instead of letting every frame fail later with an opaque error.
+    capabilities::preflight(&CONFIG.runner)?;
 
     // Start a channel for communitating when machine_monitor fully started
     let (tx, rx) = oneshot::channel::<()>();

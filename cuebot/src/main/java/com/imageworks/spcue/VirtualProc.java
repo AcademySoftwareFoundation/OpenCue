@@ -28,6 +28,8 @@ public class VirtualProc extends FrameEntity implements ProcInterface {
     public String hostId;
     public String allocationId;
     public String frameId;
+    public String folderId;
+    public String deptId;
     public String hostName;
     public String os;
     public byte[] childProcesses;

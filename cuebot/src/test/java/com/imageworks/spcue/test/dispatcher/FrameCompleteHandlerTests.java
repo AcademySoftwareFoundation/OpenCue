@@ -37,6 +37,7 @@ import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
@@ -56,10 +57,17 @@ import com.imageworks.spcue.util.CueUtil;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 import org.springframework.transaction.CannotCreateTransactionException;
 
@@ -533,5 +541,105 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     public void testDependRetryExhausted() {
         // All three calls fail — depend remains unsatisfied, frame stays in DEPEND
         executeDependWithRetry(3, 1, FrameState.DEPEND);
+    }
+
+    /**
+     * Drives a frame completion through the proc-reuse branch (the job still has a WAITING frame,
+     * so it stays dispatchable) and asserts whether the scheduler-managed release path fired. When
+     * the show is scheduler-managed, the standalone scheduler owns dispatch, so Cuebot must release
+     * (unbook) the proc here instead of rebooking it on the same proc — otherwise the proc lingers
+     * with pk_frame=NULL holding reserved cores. The release is identified by the unique reason
+     * string passed to unbookProc, which makes this independent of the nondeterministic downstream
+     * dispatch.
+     *
+     * <p>
+     * isSchedulerManaged is stubbed on a spy rather than written to the DB on purpose: the real
+     * flag lives in an in-memory cache on ShowDaoJdbc that is NOT rolled back with the transaction,
+     * so a real write would leak scheduler-managed behavior into other tests sharing the Spring
+     * context.
+     */
+    private void executeProcReuseGate(boolean schedulerManaged, FrameState terminalState) {
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test_depend");
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        // The report must carry a healthy host (UP, plenty of free memory), otherwise the handler
+        // unbooks the proc early (e.g. the < 512MB low-memory check) and returns before reaching
+        // the
+        // WAITING/SUCCEEDED proc-reuse branch that the scheduler-managed gate lives in.
+        RenderHost reportHost =
+                RenderHost.newBuilder().setName(HOSTNAME).setFreeMem((int) CueUtil.GB8)
+                        .setNimbyEnabled(false).setState(HardwareState.UP).build();
+        FrameCompleteReport report = FrameCompleteReport.newBuilder().setFrame(info)
+                .setHost(reportHost).setExitStatus(0).build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, terminalState, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+
+        // The DAO beans are Spring JDK dynamic proxies (final), so they can't be spied. Wrap them
+        // in interface mocks that delegate to the real bean for everything except the one method we
+        // stub, while still recording invocations for verification.
+        ShowDao originalShowDao = frameCompleteHandler.getShowDao();
+        DispatchSupport originalDispatchSupport = frameCompleteHandler.getDispatchSupport();
+        ShowDao mockShowDao = mock(ShowDao.class, delegatesTo(originalShowDao));
+        DispatchSupport mockDispatchSupport =
+                mock(DispatchSupport.class, delegatesTo(originalDispatchSupport));
+        doReturn(schedulerManaged).when(mockShowDao).isSchedulerManaged(proc.getShowId());
+
+        frameCompleteHandler.setShowDao(mockShowDao);
+        frameCompleteHandler.setDispatchSupport(mockDispatchSupport);
+        try {
+            frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                    dispatchFrame, terminalState, frameDetail);
+        } finally {
+            frameCompleteHandler.setShowDao(originalShowDao);
+            frameCompleteHandler.setDispatchSupport(originalDispatchSupport);
+        }
+
+        verify(mockDispatchSupport, schedulerManaged ? times(1) : never())
+                .unbookProc(any(VirtualProc.class), eq("scheduler-managed show, releasing proc"));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSchedulerManagedShowReleasesProc() {
+        // Scheduler-managed, SUCCEEDED: the proc must be unbooked (released), not reused.
+        executeProcReuseGate(true, FrameState.SUCCEEDED);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNonSchedulerManagedShowReusesProc() {
+        // Control, SUCCEEDED: the scheduler-managed release branch must not fire.
+        executeProcReuseGate(false, FrameState.SUCCEEDED);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testSchedulerManagedShowReleasesProcWaiting() {
+        // Scheduler-managed, WAITING: the other side of the WAITING/SUCCEEDED gate must also
+        // release the proc.
+        executeProcReuseGate(true, FrameState.WAITING);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNonSchedulerManagedShowReusesProcWaiting() {
+        // Control, WAITING: the scheduler-managed release branch must not fire.
+        executeProcReuseGate(false, FrameState.WAITING);
     }
 }
