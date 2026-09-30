@@ -1045,7 +1045,7 @@ The **Monitor Cue** page (CueCommander &rarr; Monitor Cue in the sidebar or head
 
 ### Choose shows
 
-The page starts empty. Open the **Shows** menu and pick one or more shows (**All Shows** selects every active show, **Clear** deselects all). Your selection is remembered per browser, and the job tree loads the chosen shows' groups and jobs.
+The page starts empty. Open the **Shows** menu and pick one or more shows (**All Shows** selects every active show, **Clear** deselects all). Your selection is remembered per facility in the browser, and the job tree loads the chosen shows' groups and jobs. Switching Cuebot facilities reloads Monitor Cue against the selected facility without reusing the previous facility's show selection.
 
 ### Job columns
 
