@@ -50,6 +50,7 @@ spec_version = 1.0
 | `maxretries` | Default max retries per frame | `2` |
 | `spec_version` | OpenCue job spec version | `1.0` |
 | `user_dir` | User-specific directory | Platform-dependent |
+| `frame_tmp_dir` | Root directory the frame wrapper scripts use for the per-frame `TMPDIR` (exposed to the wrapper as `OL_FRAME_TMPDIR_ROOT`) | `/mcp` |
 
 ## Plugin Configuration
 
@@ -97,6 +98,7 @@ priority = 10
 | `OL_OS` | Target operating system |
 | `OL_TAG_OVERRIDE` | Override layer tags |
 | `OL_LAYER_RANGE` | Per-layer frame range (set during execution) |
+| `OL_FRAME_TMPDIR_ROOT` | Root directory for the frame wrapper scripts' `TMPDIR`; set on the frame from the `frame_tmp_dir` config option, defaults to `/mcp` |
 
 ### Module Loading
 
