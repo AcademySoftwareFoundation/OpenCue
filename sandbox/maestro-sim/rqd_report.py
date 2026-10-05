@@ -67,14 +67,6 @@ PSQL = spec.psql_cmd(tab=True)
 SWAP_KB = int(float(os.environ.get("SIM_SWAP_GB", "8")) * spec.GB_KB)
 # Deadlock-pressure: over-report every frame's RSS by this factor (0 = honest).
 OVERREPORT = float(os.environ.get("SIM_RSS_OVERREPORT", "0"))
-# Per-job rss pin, "token=GB[,token=GB...]": frames of jobs whose name holds
-# the token report exactly that rss, flat from frame start. Scenario knob
-# (STRANDGROW) so a test controls a layer's true appetite precisely.
-RSS_PINS = []
-for _part in os.environ.get("SIM_RSS_PIN", "").split(","):
-    if "=" in _part:
-        _tok, _gb = _part.split("=", 1)
-        RSS_PINS.append((_tok.strip(), int(float(_gb) * spec.GB_KB)))
 
 HOSTS = list(spec.all_hosts())                    # (name, cores, mem_kb)
 HOST_INFO = {n: (c, m) for n, c, m in HOSTS}
@@ -163,10 +155,7 @@ def _send_one(stub, name, cores, mem_kb, frames, now):
         dur = sim_model.duration_seconds(core_pts)
         elapsed = (now - ts_booked) if ts_booked else dur
         kb = sim_mem.rss_at(fcores, frame_id, layer_id, elapsed, dur)
-        for _tok, _pin_kb in RSS_PINS:
-            if _tok in r[3]:
-                kb = _pin_kb
-                break
+        kb = sim_mem.pinned_rss_kb(r[3]) or kb
         # DEADLOCK-pressure knob: over-report RSS by this factor so frames
         # exceed their reservations on packed hosts. Every host report then
         # fails increaseReservedMemory and runs the multi-proc balancer

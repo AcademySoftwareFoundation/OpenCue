@@ -26,25 +26,19 @@ import org.springframework.stereotype.Component;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 
 /**
- * Live per-layer memory ledger fed by every RQD host report, so the scheduler can size a layer's
- * frames from what they REALLY use, not from what the layer declared. {@link HostReportHandler}
- * records each report's running frames as they land; the scheduler reads {@link #typicalRssKb} when
- * it sizes threadable layers before placement.
- *
- * The figure is the MEDIAN of the last {@link #FRAME_WINDOW} frames' rss peaks, not a high-water:
- * one process going haywire is one sample and cannot resize the whole layer. A layer with fewer
- * than {@link #MIN_SAMPLES} frames seen reads 0, so its frames book at their ask until the farm has
- * real evidence (the production workflow: a script watches each task's rss and adjusts core usage;
- * this is that loop, inside the scheduler). Entries age out so a finished or re-scened layer does
- * not pin its old appetite forever.
+ * Per-layer rss ledger: the peaks of each layer's last {@link #FRAME_WINDOW} frames, fed by host
+ * reports (running frames) and completions (final peak, replacing the running samples). The
+ * scheduler reads the median ({@link #typicalRssKb}) to size a layer; fewer than
+ * {@link #MIN_SAMPLES} frames read 0. A layer's samples expire after {@link #EXPIRE_MS}.
  */
 @Component
 public class LayerLiveMem {
 
     static final int FRAME_WINDOW = 32;
     static final int MIN_SAMPLES = 4;
-    private static final long EXPIRE_MS = 30 * 60 * 1000L;
-    private static final int MAX_LAYERS = 100_000;
+    private static final long EXPIRE_MS = 12 * 60 * 60 * 1000L;
+    private static final long EVICT_EVERY_MS = 60 * 60 * 1000L;
+    private volatile long lastEvictMs;
 
     /** The rss peaks of one layer's most recent frames (insertion-ordered, oldest evicted). */
     static final class LayerSamples {
@@ -57,8 +51,11 @@ public class LayerLiveMem {
                 };
         volatile long atMs;
 
-        synchronized void fold(String frameId, long rssKb, long now) {
-            peakByFrame.merge(frameId, rssKb, Math::max);
+        synchronized void fold(String frameId, long rssKb, long now, boolean replace) {
+            if (replace)
+                peakByFrame.put(frameId, rssKb);
+            else
+                peakByFrame.merge(frameId, rssKb, Math::max);
             atMs = now;
         }
 
@@ -77,25 +74,38 @@ public class LayerLiveMem {
 
     private final Map<String, LayerSamples> byLayerId = new ConcurrentHashMap<>();
 
-    /** Record one host report's running frames. Never throws into the report path. */
+    /** Record one host report's running frames: their peaks so far. Never throws. */
     public void record(List<RunningFrameInfo> frames) {
         try {
-            long now = System.currentTimeMillis();
-            if (byLayerId.size() > MAX_LAYERS)
-                evictStale(now);
-            for (RunningFrameInfo f : frames) {
-                String layerId = f.getLayerId();
-                String frameId = f.getFrameId();
-                if (layerId == null || layerId.isEmpty() || frameId == null || frameId.isEmpty())
-                    continue;
-                long rss = Math.max(f.getMaxRss(), f.getRss());
-                if (rss <= 0)
-                    continue;
-                byLayerId.computeIfAbsent(layerId, k -> new LayerSamples()).fold(frameId, rss, now);
-            }
+            for (RunningFrameInfo frame : frames)
+                sample(frame, false);
         } catch (RuntimeException ignored) {
             // a malformed report must never disturb report handling
         }
+    }
+
+    /** Record a finished frame's final peak, replacing its running samples. Never throws. */
+    public void recordFinished(RunningFrameInfo frame) {
+        try {
+            sample(frame, true);
+        } catch (RuntimeException ignored) {
+            // a malformed report must never disturb report handling
+        }
+    }
+
+    private void sample(RunningFrameInfo frame, boolean replace) {
+        long now = System.currentTimeMillis();
+        if (now - lastEvictMs > EVICT_EVERY_MS) {
+            lastEvictMs = now;
+            evictStale(now);
+        }
+        String layerId = frame.getLayerId();
+        String frameId = frame.getFrameId();
+        long rss = Math.max(frame.getMaxRss(), frame.getRss());
+        if (layerId.isEmpty() || frameId.isEmpty() || rss <= 0)
+            return;
+        byLayerId.computeIfAbsent(layerId, k -> new LayerSamples()).fold(frameId, rss, now,
+                replace);
     }
 
     /**
