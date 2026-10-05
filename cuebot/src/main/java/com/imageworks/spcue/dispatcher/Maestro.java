@@ -268,8 +268,8 @@ public class Maestro extends JdbcDaoSupport {
     // count}. A pair holds one slice per slot the draw gave it this tick.
     private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
-    // effective memory KB}, read by planBookings so the commit books the same shape the
-    // Maestro scored.
+    // effective memory KB, declared memory KB}, read by planBookings so the commit books the
+    // same shape the Maestro scored, and by persistMemoryRaises at the end of the tick.
     private final Map<String, long[]> layerResize = new HashMap<>();
 
     // Layer-placements planned this tick, for the tick-breakdown log line.
@@ -1456,6 +1456,7 @@ public class Maestro extends JdbcDaoSupport {
         }
         dispatched = dispatchedNow;
 
+        persistMemoryRaises();
         sweepStaleReservationState(seenLayerIds);
         return dispatched;
     }
@@ -1666,13 +1667,13 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and booking
-     * all see the layer's real shape. Evidence is the median maxRss of the layer's recent frames
-     * ({@link LayerLiveMem}), never the declared memory.
+     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and
+     * booking all see the layer's real shape. Evidence is the median maxRss of the layer's recent
+     * frames ({@link LayerLiveMem}), never the declared memory.
      *
-     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb), never
-     * below the ask, never above the layer's max or {@code maxHostCores} (the group's largest host:
-     * a grant no host holds fits nowhere). Non-threadable layers keep their cores.
+     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb),
+     * never below the ask, never above the layer's max or {@code maxHostCores} (the group's largest
+     * host: a grant no host holds fits nowhere). Non-threadable layers keep their cores.
      *
      * No evidence: the layer keeps its ask. A 1-core threadable ask ("let the system decide") stays
      * rssProven=false, which arms the probe gate: at most {@link #PROBE_FRAMES} of its frames run
@@ -1705,10 +1706,41 @@ public class Maestro extends JdbcDaoSupport {
             }
             long memKb = Math.max(c.layerMemMin, typKb);
             if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
+                resizeOut.put(c.layerId, new long[] {cores, memKb, c.layerMemMin});
                 c.layerCoresMin = cores;
                 c.layerMemMin = memKb;
-                resizeOut.put(c.layerId, new long[] {cores, memKb});
             }
+        }
+    }
+
+    /**
+     * The memory raises among this tick's resizes, as {memKb, layerId, memKb} rows for the
+     * ratcheting layer update, ordered by layer id so concurrent writers lock rows in one order.
+     */
+    static List<Object[]> memoryRaises(Map<String, long[]> resize) {
+        List<Object[]> rows = new ArrayList<>();
+        resize.entrySet().stream().filter(e -> e.getValue()[1] > e.getValue()[2])
+                .sorted(Map.Entry.comparingByKey()).forEach(
+                        e -> rows.add(new Object[] {e.getValue()[1], e.getKey(), e.getValue()[1]}));
+        return rows;
+    }
+
+    /**
+     * Write this tick's memory raises to layer.int_mem_min, so operators see the size Maestro books
+     * at and the size outlives a Cuebot restart. Upward only: the next tick reads the raised value
+     * back as the layer's ask, so a layer is written once per growth. Never throws: a failed write
+     * only delays what the GUI shows.
+     */
+    private void persistMemoryRaises() {
+        List<Object[]> rows = memoryRaises(layerResize);
+        if (rows.isEmpty())
+            return;
+        try {
+            getJdbcTemplate().batchUpdate(
+                    "UPDATE layer SET int_mem_min = ? WHERE pk_layer = ? AND int_mem_min < ?",
+                    rows);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: persisting " + rows.size() + " layer memory raises failed: " + e);
         }
     }
 
