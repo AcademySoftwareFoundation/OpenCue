@@ -175,16 +175,18 @@ public class Maestro extends JdbcDaoSupport {
     @Autowired(required = false)
     private FarmHealth farmHealth;
 
-    // Live per-layer rss ledger (fed by host reports) that sizes the launch-time core
-    // grant; optional so the scheduler runs without it (grants simply stay off).
+    // Per-layer rss ledger that sizes the launch-time core grant; optional so the scheduler
+    // runs without it (grants simply stay off).
     @Autowired(required = false)
     private LayerLiveMem layerLiveMem;
 
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
 
-    // Max completions applied per drain transaction (bounds the stop/delete/refund lock footprint).
-    private static final int DRAIN_CHUNK = 2000;
+    // Completions per drain transaction. Each holds its procs' host rows, and every
+    // stop costs a frame_history close on the production table: 130 rows at 200 ms
+    // held every host of a tick for 27 s. Small, so no one waits long on a host.
+    private static final int DRAIN_CHUNK = 20;
 
     // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
@@ -1286,7 +1288,8 @@ public class Maestro extends JdbcDaoSupport {
             // none is set, this group's own derived one); 1-core layers with no
             // evidence yet stay unproven and get the probe gate.
             resizeFromLiveMem(candidates, layerLiveMem,
-                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup), layerResize);
+                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup),
+                    maxCoresTotalInGroup, layerResize);
         } catch (RuntimeException e) {
             long nowMs = System.currentTimeMillis();
             if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
@@ -1545,16 +1548,14 @@ public class Maestro extends JdbcDaoSupport {
             int planZeroWarnTicks) {
         LayerInterface layer = jobManager.getLayer(layerId);
         long[] resize = layerResize.get(layerId);
-        int effCores = resize != null ? (int) resize[0] : 0;
         long effMemKb = resize != null ? resize[1] : 0;
-        // No recorded slice: a single {0, 0} slice, which planHost reads as "no slice limit".
+        // No recorded slice: a single {0, 0, 0} slice, which planHost reads as "no slice limit".
         List<int[]> slices = planSliceByHostLayer.getOrDefault(hostId + "|" + layerId,
-                List.of(new int[] {0, 0}));
+                List.of(new int[] {0, 0, 0}));
         List<FrameBooking> got = new ArrayList<>();
         for (int[] slice : slices) {
-            int offset = slice[0];
-            int frameCount = slice[1];
-            got.addAll(dispatcher.planHost(host, layer, effCores, effMemKb, offset, frameCount));
+            // {offset, count, cores}: the cores are the slice's own (see submitCommit).
+            got.addAll(dispatcher.planHost(host, layer, slice[2], effMemKb, slice[0], slice[1]));
         }
         if (got.isEmpty()) {
             int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
@@ -1665,43 +1666,43 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Resize threadable candidates from the layer's observed rss BEFORE placement, so scoring, fit,
-     * caps, accounting and booking all see the layer's real shape. The size is the median rss of
-     * the layer's recent frames ({@link LayerLiveMem}), never the declared memory: declarations
-     * lie, running processes do not, and a single haywire process is one sample and cannot resize
-     * the layer. cores = round(rss / memPerCoreKb), never below the ask, never past the layer's
-     * max; memory = max(declared, rss) so packing stops trusting an under-declaration too. A layer
-     * with no evidence keeps its ask; when that ask is exactly 1 core ("let the system decide", the
-     * shape nobody sized) it stays rssProven=false, which arms the probe gate in the dispatch loop:
-     * at most {@link #PROBE_FRAMES} of its frames run until the farm has seen it (the production
-     * rss-watcher script's loop, inside the scheduler). An explicit ask of 2+ cores was sized by
-     * someone and books at full speed from frame one. A held layer that has already completed a
-     * probe's worth of frames without ever landing in a report runs too fast to sample and is
-     * released, never starved. Non-threadable layers are never resized (a single-threaded renderer
-     * cannot use the cores). The metric is the group's own memory-per-core, derived from the
-     * machines each tick, never configuration.
+     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and booking
+     * all see the layer's real shape. Evidence is the median maxRss of the layer's recent frames
+     * ({@link LayerLiveMem}), never the declared memory.
+     *
+     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb), never
+     * below the ask, never above the layer's max or {@code maxHostCores} (the group's largest host:
+     * a grant no host holds fits nowhere). Non-threadable layers keep their cores.
+     *
+     * No evidence: the layer keeps its ask. A 1-core threadable ask ("let the system decide") stays
+     * rssProven=false, which arms the probe gate: at most {@link #PROBE_FRAMES} of its frames run
+     * until the farm has seen it. A layer that completed a probe's worth of frames unsampled is too
+     * fast to sample and is released.
      */
     static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem liveMem,
-            long memPerCoreKb, Map<String, long[]> resizeOut) {
+            long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
         for (LayerCandidate c : candidates) {
-            if (liveMem == null || !c.threadable || memPerCoreKb <= 0 || c.layerCoresMin <= 0) {
+            if (liveMem == null || c.layerCoresMin <= 0) {
                 c.rssProven = true;
                 continue;
             }
+            boolean sizeCores = c.threadable && memPerCoreKb > 0;
             long typKb = liveMem.typicalRssKb(c.layerId);
             if (typKb <= 0) {
-                // No evidence. Only a 1-core ask probes: nobody sized it, so nothing
-                // about it can be trusted until the reports have seen it. A layer that
-                // completed a probe's worth of frames unsampled is too fast to sample.
-                c.rssProven = c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
+                c.rssProven =
+                        !sizeCores || c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
                 continue;
             }
             c.rssProven = true;
-            int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
-            if (c.layerCoresMax > 0 && eff > c.layerCoresMax) {
-                eff = c.layerCoresMax;
+            int cores = c.layerCoresMin;
+            if (sizeCores) {
+                int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
+                if (c.layerCoresMax > 0 && eff > c.layerCoresMax)
+                    eff = c.layerCoresMax;
+                if (eff > maxHostCores)
+                    eff = maxHostCores;
+                cores = Math.max(cores, eff);
             }
-            int cores = Math.max(c.layerCoresMin, eff);
             long memKb = Math.max(c.layerMemMin, typKb);
             if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
                 c.layerCoresMin = cores;
@@ -3249,7 +3250,7 @@ public class Maestro extends JdbcDaoSupport {
         // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
         // reached here is either its owner booking after the drain or an EASY-backfill
         // borrow. A borrow never takes ownership, so the reservation is left intact.
-        submitCommit(best.hostId, c.layerId, estFrames);
+        submitCommit(best.hostId, c.layerId, estFrames, c.layerCoresMin);
         c.placedThisTick = true;
         return estFrames;
 
@@ -3658,14 +3659,15 @@ public class Maestro extends JdbcDaoSupport {
      * Record a (host, layer) placement to commit at the end of this tick. Maestro-thread only;
      * doTick drains plannedByHost via planHost + startFramesAndProcsBatch.
      */
-    private void submitCommit(String hostId, String layerId, int estFrames) {
+    private void submitCommit(String hostId, String layerId, int estFrames, int cores) {
         // Start this slice where the layer's previous one ended, so parallel plan reads never
         // pull the same frames. A (host, layer) pair gets one slice per slot the draw gives it.
         List<int[]> slices = planSliceByHostLayer.computeIfAbsent(hostId + "|" + layerId,
                 k -> new ArrayList<>());
         if (slices.isEmpty())
             plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
-        slices.add(new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames});
+        // Cores are per slice: the grant is capped per group, and a layer may plan in several.
+        slices.add(new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames, cores});
         plannedFramesByLayer.merge(layerId, estFrames, Integer::sum);
     }
 
@@ -3985,7 +3987,7 @@ public class Maestro extends JdbcDaoSupport {
         String layerId;
         String jobId;
         String showId;
-        int layerCoresMin;
+        int layerCoresMin; // the ask, or the grant (resizeFromLiveMem)
         long layerMemMin;
         boolean threadable;
         int layerCoresMax;
