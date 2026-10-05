@@ -46,7 +46,7 @@ dependencies {
     implementation group: 'org.springframework.boot', name: 'spring-boot-starter-mail'
     implementation group: 'org.springframework', name: 'spring-context-support'
     implementation group: 'org.springframework', name: 'spring-jms'
-    implementation group: 'org.quartz-scheduler', name: 'quartz', version: '2.2.1', { exclude group: 'c3p0', module: 'c3p0' }
+    implementation group: 'org.quartz-scheduler', name: 'quartz', version: '2.3.2', { exclude group: 'c3p0', module: 'c3p0' }
     implementation group: 'org.postgresql', name: 'postgresql', version: '42.2.2'
     implementation group: 'com.google.protobuf', name: 'protobuf-java', version: "${protobufVersion}"
     implementation group: 'org.apache.logging.log4j', name: 'log4j-api', version: '2.16.0'
