@@ -1664,11 +1664,11 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Size candidates from their observed rss before placement, so scoring, fit, caps and booking
-     * all see the layer's real shape. Evidence is the median rss peak of the layer's recent frames
+     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and booking
+     * all see the layer's real shape. Evidence is the median maxRss of the layer's recent frames
      * ({@link LayerLiveMem}), never the declared memory.
      *
-     * memory = max(declared, rss). For a threadable layer, cores = round(rss / memPerCoreKb), never
+     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb), never
      * below the ask, never above the layer's max or {@code maxHostCores} (the group's largest host:
      * a grant no host holds fits nowhere). Non-threadable layers keep their cores.
      *
