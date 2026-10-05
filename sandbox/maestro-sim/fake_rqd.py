@@ -296,7 +296,8 @@ class RqdServicer(rqd_pb2_grpc.RqdInterfaceServicer):
         # rqd_report.py for the same frame). num_cores is booked core-points
         # (100 == 1 core), the key the memory map is defined on.
         fcores = max(1, rf.num_cores // sim_model.CORE_POINTS)
-        peak = sim_mem.peak_rss_kb(fcores, rf.frame_id, rf.layer_id)
+        peak = (sim_mem.pinned_rss_kb(rf.job_name)
+                or sim_mem.peak_rss_kb(fcores, rf.frame_id, rf.layer_id))
         frame = report_pb2.RunningFrameInfo(
             resource_id=rf.resource_id, job_id=rf.job_id, job_name=rf.job_name,
             frame_id=rf.frame_id, frame_name=rf.frame_name, layer_id=rf.layer_id,

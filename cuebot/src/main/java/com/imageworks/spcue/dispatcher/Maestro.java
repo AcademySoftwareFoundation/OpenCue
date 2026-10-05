@@ -127,6 +127,7 @@ public class Maestro extends JdbcDaoSupport {
     // hardware out of the box; a studio can pin its core-selling ratio instead.
     static final int PROBE_FRAMES = 8;
     static final int COMMIT_CHUNK_FRAMES = 500; // consumed by commitInChunks()
+    static final double PRIORITY_EXPONENT = 1.5; // the query's power() and lotteryWeight()
     static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
     static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
     // consumed by launchOne()
@@ -174,16 +175,18 @@ public class Maestro extends JdbcDaoSupport {
     @Autowired(required = false)
     private FarmHealth farmHealth;
 
-    // Live per-layer rss ledger (fed by host reports) that sizes the launch-time core
-    // grant; optional so the scheduler runs without it (grants simply stay off).
+    // Per-layer rss ledger that sizes the launch-time core grant; optional so the scheduler
+    // runs without it (grants simply stay off).
     @Autowired(required = false)
     private LayerLiveMem layerLiveMem;
 
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
 
-    // Max completions applied per drain transaction (bounds the stop/delete/refund lock footprint).
-    private static final int DRAIN_CHUNK = 2000;
+    // Completions per drain transaction. Each holds its procs' host rows, and every
+    // stop costs a frame_history close on the production table: 130 rows at 200 ms
+    // held every host of a tick for 27 s. Small, so no one waits long on a host.
+    private static final int DRAIN_CHUNK = 20;
 
     // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
@@ -257,13 +260,13 @@ public class Maestro extends JdbcDaoSupport {
     // Probe frames planned this tick per unproven layer.
     private final Map<String, Integer> layerProbeUsed = new HashMap<>();
 
-    // Tick-scoped frame-slice bookkeeping for same-layer multi-host planning
-    // (the relax pass): frames planned per layer this tick, and each
-    // (host|layer) plan's {starting offset, size} slice of the layer's
-    // waiting list, so the parallel plan reads pull disjoint frames and
-    // deliver exactly what the scoring accounted.
+    // Tick-scoped frame slices, so a layer planned on several hosts has its parallel plan reads
+    // pull disjoint frames and deliver exactly what the scoring accounted.
+    // layerId -> frames planned for the layer so far this tick (where its next slice starts).
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
-    private final Map<String, int[]> planSliceByHostLayer = new HashMap<>();
+    // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
+    // count}. A pair holds one slice per slot the draw gave it this tick.
+    private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
     // effective memory KB}, read by planBookings so the commit books the same shape the
     // Maestro scored.
@@ -607,7 +610,7 @@ public class Maestro extends JdbcDaoSupport {
             // low-priority layer keeps a share proportional to its priority instead of being
             // starved by a higher-priority stream. GREATEST(...,1) floors the weight for priority
             // <= 0. Reservation granting uses the same lottery weighting. See maestro.md 3.5.
-            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            + "ORDER BY power(random(), 1.0 / power(GREATEST(jr.int_priority, 1), 1.5)) DESC "
             + "LIMIT  ? ";
     // spotless:on
 
@@ -687,7 +690,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
             + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) "
-            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            + "ORDER BY power(random(), 1.0 / power(GREATEST(jr.int_priority, 1), 1.5)) DESC "
             + "LIMIT  ? ";
     // spotless:on
 
@@ -1285,7 +1288,8 @@ public class Maestro extends JdbcDaoSupport {
             // none is set, this group's own derived one); 1-core layers with no
             // evidence yet stay unproven and get the probe gate.
             resizeFromLiveMem(candidates, layerLiveMem,
-                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup), layerResize);
+                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup),
+                    maxCoresTotalInGroup, layerResize);
         } catch (RuntimeException e) {
             long nowMs = System.currentTimeMillis();
             if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
@@ -1543,10 +1547,16 @@ public class Maestro extends JdbcDaoSupport {
     private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId, String layerId,
             int planZeroWarnTicks) {
         LayerInterface layer = jobManager.getLayer(layerId);
-        long[] rz = layerResize.get(layerId);
-        int[] slice = planSliceByHostLayer.get(hostId + "|" + layerId);
-        List<FrameBooking> got = dispatcher.planHost(host, layer, rz != null ? (int) rz[0] : 0,
-                rz != null ? rz[1] : 0, slice != null ? slice[0] : 0, slice != null ? slice[1] : 0);
+        long[] resize = layerResize.get(layerId);
+        long effMemKb = resize != null ? resize[1] : 0;
+        // No recorded slice: a single {0, 0, 0} slice, which planHost reads as "no slice limit".
+        List<int[]> slices = planSliceByHostLayer.getOrDefault(hostId + "|" + layerId,
+                List.of(new int[] {0, 0, 0}));
+        List<FrameBooking> got = new ArrayList<>();
+        for (int[] slice : slices) {
+            // {offset, count, cores}: the cores are the slice's own (see submitCommit).
+            got.addAll(dispatcher.planHost(host, layer, slice[2], effMemKb, slice[0], slice[1]));
+        }
         if (got.isEmpty()) {
             int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
             if (streak % planZeroWarnTicks == 0) {
@@ -1656,43 +1666,43 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Resize threadable candidates from the layer's observed rss BEFORE placement, so scoring, fit,
-     * caps, accounting and booking all see the layer's real shape. The size is the median rss of
-     * the layer's recent frames ({@link LayerLiveMem}), never the declared memory: declarations
-     * lie, running processes do not, and a single haywire process is one sample and cannot resize
-     * the layer. cores = round(rss / memPerCoreKb), never below the ask, never past the layer's
-     * max; memory = max(declared, rss) so packing stops trusting an under-declaration too. A layer
-     * with no evidence keeps its ask; when that ask is exactly 1 core ("let the system decide", the
-     * shape nobody sized) it stays rssProven=false, which arms the probe gate in the dispatch loop:
-     * at most {@link #PROBE_FRAMES} of its frames run until the farm has seen it (the production
-     * rss-watcher script's loop, inside the scheduler). An explicit ask of 2+ cores was sized by
-     * someone and books at full speed from frame one. A held layer that has already completed a
-     * probe's worth of frames without ever landing in a report runs too fast to sample and is
-     * released, never starved. Non-threadable layers are never resized (a single-threaded renderer
-     * cannot use the cores). The metric is the group's own memory-per-core, derived from the
-     * machines each tick, never configuration.
+     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and booking
+     * all see the layer's real shape. Evidence is the median maxRss of the layer's recent frames
+     * ({@link LayerLiveMem}), never the declared memory.
+     *
+     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb), never
+     * below the ask, never above the layer's max or {@code maxHostCores} (the group's largest host:
+     * a grant no host holds fits nowhere). Non-threadable layers keep their cores.
+     *
+     * No evidence: the layer keeps its ask. A 1-core threadable ask ("let the system decide") stays
+     * rssProven=false, which arms the probe gate: at most {@link #PROBE_FRAMES} of its frames run
+     * until the farm has seen it. A layer that completed a probe's worth of frames unsampled is too
+     * fast to sample and is released.
      */
     static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem liveMem,
-            long memPerCoreKb, Map<String, long[]> resizeOut) {
+            long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
         for (LayerCandidate c : candidates) {
-            if (liveMem == null || !c.threadable || memPerCoreKb <= 0 || c.layerCoresMin <= 0) {
+            if (liveMem == null || c.layerCoresMin <= 0) {
                 c.rssProven = true;
                 continue;
             }
+            boolean sizeCores = c.threadable && memPerCoreKb > 0;
             long typKb = liveMem.typicalRssKb(c.layerId);
             if (typKb <= 0) {
-                // No evidence. Only a 1-core ask probes: nobody sized it, so nothing
-                // about it can be trusted until the reports have seen it. A layer that
-                // completed a probe's worth of frames unsampled is too fast to sample.
-                c.rssProven = c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
+                c.rssProven =
+                        !sizeCores || c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
                 continue;
             }
             c.rssProven = true;
-            int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
-            if (c.layerCoresMax > 0 && eff > c.layerCoresMax) {
-                eff = c.layerCoresMax;
+            int cores = c.layerCoresMin;
+            if (sizeCores) {
+                int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
+                if (c.layerCoresMax > 0 && eff > c.layerCoresMax)
+                    eff = c.layerCoresMax;
+                if (eff > maxHostCores)
+                    eff = maxHostCores;
+                cores = Math.max(cores, eff);
             }
-            int cores = Math.max(c.layerCoresMin, eff);
             long memKb = Math.max(c.layerMemMin, typKb);
             if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
                 c.layerCoresMin = cores;
@@ -2135,10 +2145,11 @@ public class Maestro extends JdbcDaoSupport {
      * The soft cap's yield test: whether another candidate of this group could still use host h.
      * True when some other layer has waiting frames, fits the host as it stands now, is under its
      * own per-host cap there, and is not held by its job cap, show burst or a full limit, all read
-     * against the tick-wide usage maps. The cap is a contention rule: while other work waits for a
-     * machine, no layer takes more than its share of it; with nobody else able to use the machine,
-     * holding the cap would only strand it. Candidates later in the draw count as waiting, which is
-     * the point: the yield must not run ahead of their turn.
+     * against the tick-wide usage maps. The cap is a contention rule among peers: while work of
+     * equal or higher priority waits for a machine, no layer takes more than its share of it; with
+     * nobody else able to use the machine, holding the cap would only strand it, and holding it for
+     * lower-priority work would hand that work the cores the draw gave this layer. Candidates later
+     * in the draw count as waiting, which is the point: the yield must not run ahead of their turn.
      */
     private boolean othersWant(BookableHost h, LayerCandidate c, List<LayerCandidate> candidates,
             String groupAllocId, Map<String, Integer> jobCoresUsed,
@@ -2146,6 +2157,8 @@ public class Maestro extends JdbcDaoSupport {
             Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
         for (LayerCandidate o : candidates) {
             if (o == c || o.waitingFrameCount <= 0 || !pinsAllow(o, h) || !fitsOnHost(o, h))
+                continue;
+            if (lotteryWeight(o) < lotteryWeight(c))
                 continue;
             if (hostLayerFrames.getOrDefault(h.hostId + "|" + o.layerId, 0) >= layerHostCap(h, o))
                 continue;
@@ -2759,6 +2772,7 @@ public class Maestro extends JdbcDaoSupport {
                 maxGroupHostCores = h.coresTotal;
         }
         takeTickWideRemainder(candidates, plannedFramesByLayer, seenLayerIds);
+        stampDrawWeights(candidates);
         for (LayerCandidate candidate : candidates)
             candidate.showKey = subKey(candidate.showId, groupAllocId);
 
@@ -2775,9 +2789,8 @@ public class Maestro extends JdbcDaoSupport {
         }
         while (!active.isEmpty()) {
             LayerCandidate head = stampTiers(active, showCoresUsed);
-            long weightSum = headWeight(active, head);
-            int idx = drawSlot(active, head,
-                    (long) (ThreadLocalRandom.current().nextDouble() * weightSum));
+            double weightSum = headWeight(active, head);
+            int idx = drawSlot(active, head, ThreadLocalRandom.current().nextDouble() * weightSum);
             LayerCandidate drawn = active.get(idx);
             int got = placeOnce(drawn, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
                     folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
@@ -2885,24 +2898,39 @@ public class Maestro extends JdbcDaoSupport {
         return dispatched;
     }
 
-    /** The draw weight of a candidate: its job priority, floored at 1 like the query's GREATEST. */
-    private static long lotteryWeight(LayerCandidate c) {
-        return Math.max(1, c.priority);
+    /**
+     * The weight of a job in the placement draw, computed from its priority. The higher the weight,
+     * the larger the share of this tick's slots the job wins.
+     *
+     * Each slot goes to a candidate picked at random, with odds proportional to its weight: a
+     * higher priority wins more slots, but a lower one still gets some. The weight is the priority
+     * raised to PRIORITY_EXPONENT, with priorities below 1 counted as 1 (like the candidate query's
+     * GREATEST). The exponent decides how much a priority gap is worth. For two jobs competing for
+     * the same slots, priority 80 against 30, the higher job wins 73% of slots with a linear weight
+     * (80 vs 30), 81% with the 1.5 exponent (716 vs 164), and all of them under legacy's job walk,
+     * until it runs out of frames.
+     *
+     * Equal priorities split slots evenly. The weight is per job; stampDrawWeights splits it among
+     * the job's layers.
+     */
+    static double lotteryWeight(LayerCandidate candidate) {
+        return Math.pow(Math.max(1, candidate.priority), PRIORITY_EXPONENT);
     }
 
     /**
      * The winner of one slot among the candidates of {@code head}'s tier (see stampTiers): their
-     * lotteryWeight bands laid end to end in list order, ticket in [0, headWeight). The last of
-     * them absorbs any rounding, so a draw never falls outside the tier.
+     * drawWeight bands (see headWeight) laid end to end in list order, ticket in [0, headWeight).
+     * The last of them absorbs any rounding, so a draw never falls outside the tier.
      */
-    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, long ticket) {
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, double ticket) {
         int lastInTier = 0;
         for (int index = 0; index < active.size(); index++) {
             LayerCandidate candidate = active.get(index);
             if (candidate.tier > head.tier)
                 continue;
             lastInTier = index;
-            if ((ticket -= lotteryWeight(candidate)) < 0)
+            ticket -= candidate.drawWeight;
+            if (ticket < 0)
                 return index;
         }
         return lastInTier;
@@ -2924,14 +2952,27 @@ public class Maestro extends JdbcDaoSupport {
         return head;
     }
 
-    /** The lottery weight of {@code head}'s tier: the range drawSlot draws from. */
-    static long headWeight(List<LayerCandidate> active, LayerCandidate head) {
-        long weightSum = 0;
+    /** The draw weight of {@code head}'s tier: the range drawSlot draws from. */
+    static double headWeight(List<LayerCandidate> active, LayerCandidate head) {
+        double weightSum = 0;
         for (LayerCandidate candidate : active) {
             if (candidate.tier <= head.tier)
-                weightSum += lotteryWeight(candidate);
+                weightSum += candidate.drawWeight;
         }
         return weightSum;
+    }
+
+    /**
+     * Stamp each candidate's draw weight, once per group. Priority is a job's, so a job's weight is
+     * split evenly among its layers in the group: an eight-layer job draws as one job, not as
+     * eight.
+     */
+    static void stampDrawWeights(List<LayerCandidate> candidates) {
+        Map<String, Integer> layersOfJob = new HashMap<>();
+        for (LayerCandidate c : candidates)
+            layersOfJob.merge(c.jobId, 1, Integer::sum);
+        for (LayerCandidate c : candidates)
+            c.drawWeight = lotteryWeight(c) / layersOfJob.get(c.jobId);
     }
 
     /**
@@ -3073,10 +3114,6 @@ public class Maestro extends JdbcDaoSupport {
             // Per-host layer cap: a host already holding its share of
             // this layer takes no more of it; the flood spills to the
             // next host instead of blanketing this one.
-            // One plan per (host, layer) per tick; a pair already
-            // planned takes its next slice next tick.
-            if (planSliceByHostLayer.containsKey(h.hostId + "|" + c.layerId))
-                continue;
             // SOFT per-host layer cap: prefer hosts under the cap, so
             // a flood spreads instead of blanketing one machine. But a
             // fitting host blocked ONLY by the cap is remembered: if
@@ -3213,7 +3250,7 @@ public class Maestro extends JdbcDaoSupport {
         // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
         // reached here is either its owner booking after the drain or an EASY-backfill
         // borrow. A borrow never takes ownership, so the reservation is left intact.
-        submitCommit(best.hostId, c.layerId, estFrames);
+        submitCommit(best.hostId, c.layerId, estFrames, c.layerCoresMin);
         c.placedThisTick = true;
         return estFrames;
 
@@ -3622,12 +3659,15 @@ public class Maestro extends JdbcDaoSupport {
      * Record a (host, layer) placement to commit at the end of this tick. Maestro-thread only;
      * doTick drains plannedByHost via planHost + startFramesAndProcsBatch.
      */
-    private void submitCommit(String hostId, String layerId, int estFrames) {
-        plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
-        // Slice bookkeeping: this plan starts where the layer's earlier plans
-        // this tick end, so parallel plan reads pull disjoint frames.
-        planSliceByHostLayer.put(hostId + "|" + layerId,
-                new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames});
+    private void submitCommit(String hostId, String layerId, int estFrames, int cores) {
+        // Start this slice where the layer's previous one ended, so parallel plan reads never
+        // pull the same frames. A (host, layer) pair gets one slice per slot the draw gives it.
+        List<int[]> slices = planSliceByHostLayer.computeIfAbsent(hostId + "|" + layerId,
+                k -> new ArrayList<>());
+        if (slices.isEmpty())
+            plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
+        // Cores are per slice: the grant is capped per group, and a layer may plan in several.
+        slices.add(new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames, cores});
         plannedFramesByLayer.merge(layerId, estFrames, Integer::sum);
     }
 
@@ -3947,13 +3987,14 @@ public class Maestro extends JdbcDaoSupport {
         String layerId;
         String jobId;
         String showId;
-        int layerCoresMin;
+        int layerCoresMin; // the ask, or the grant (resizeFromLiveMem)
         long layerMemMin;
         boolean threadable;
         int layerCoresMax;
         int layerGpusMin;
         long layerGpuMemMin;
         int priority;
+        double drawWeight; // stamped by stampDrawWeights(), consumed by drawSlot()
         // True when rss sizing does not gate this layer: not threadable, feature off,
         // or the ledger has evidence (and the layer was resized from it).
         boolean rssProven;

@@ -17,6 +17,7 @@ package com.imageworks.spcue.dispatcher;
 import java.lang.reflect.Field;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -504,8 +505,8 @@ public class MaestroTests {
         LayerLiveMem mem = new LayerLiveMem();
         int i = 0;
         for (long kb : rssKbs) {
-            mem.record(Arrays.asList(RunningFrameInfo.newBuilder().setLayerId(layerId)
-                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build()));
+            mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId(layerId)
+                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build());
         }
         return mem;
     }
@@ -521,7 +522,7 @@ public class MaestroTests {
 
     private static Map<String, long[]> resize(Maestro.LayerCandidate c, LayerLiveMem mem) {
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, out);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, Integer.MAX_VALUE, out);
         return out;
     }
 
@@ -561,7 +562,7 @@ public class MaestroTests {
     }
 
     @Test
-    public void resizeNeverTouchesNonThreadable() {
+    public void resizeNeverTouchesNonThreadableCores() {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, g18);
         resize(c, seen("ctrl", g18, g18, g18, g18));
@@ -590,8 +591,8 @@ public class MaestroTests {
         long g18 = 18L * CueUtil.GB;
         LayerLiveMem mem = seen("hog", g18, g18, g18, g18);
         // The same frame reporting a lower rss later must not add a new sample.
-        mem.record(Arrays.asList(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
-                .setMaxRss(1L * CueUtil.GB).build()));
+        mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
+                .setMaxRss(1L * CueUtil.GB).build());
         assertEquals(g18, mem.typicalRssKb("hog"));
         assertEquals(0, mem.typicalRssKb("never-seen"));
     }
@@ -625,7 +626,8 @@ public class MaestroTests {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, g18);
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric, out);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric,
+                Integer.MAX_VALUE, out);
         assertEquals(500, c.layerCoresMin);
     }
 
@@ -791,27 +793,58 @@ public class MaestroTests {
     private static Maestro.LayerCandidate candidate(String layerId, int priority, int waiting) {
         Maestro.LayerCandidate c = new Maestro.LayerCandidate();
         c.layerId = layerId;
+        c.jobId = "job-" + layerId;
         c.priority = priority;
         c.waitingFrameCount = waiting;
         return c;
     }
 
     @Test
-    public void aSlotGoesToTheCandidateWhoseWeightBandHoldsTheDraw() {
-        // Bands laid end to end in list order: [0,100) [100,400) [400,401); a
-        // priority of zero weighs one, like the query's GREATEST, and a draw
-        // past the last band stays on the last candidate.
-        // Candidates without show fields all share tier 0, so any of them heads it.
-        List<Maestro.LayerCandidate> active =
-                Arrays.asList(candidate("a", 100, 1), candidate("b", 300, 1), candidate("c", 0, 1));
+    public void priorityWeighsAsItsPowerOfOneAndAHalf() {
+        assertEquals(1.0, Maestro.lotteryWeight(candidate("a", 0, 1)), 1e-9);
+        assertEquals(1.0, Maestro.lotteryWeight(candidate("a", 1, 1)), 1e-9);
+        assertEquals(8.0, Maestro.lotteryWeight(candidate("a", 4, 1)), 1e-9);
+        assertEquals(1000.0, Maestro.lotteryWeight(candidate("a", 100, 1)), 1e-9);
+    }
+
+    @Test
+    public void aJobsLayersShareItsWeight() {
+        // Priority is a job's: a one-layer job at 16 (weight 64) against an
+        // eight-layer job at 4 (weight 8) draws 64 to 8, not 64 to 64. Bands:
+        // [0,64) then eight of 1.
+        List<Maestro.LayerCandidate> active = new ArrayList<>();
+        active.add(candidate("hi", 16, 1));
+        for (int i = 0; i < 8; i++) {
+            Maestro.LayerCandidate c = candidate("lo" + i, 4, 1);
+            c.jobId = "lo";
+            active.add(c);
+        }
+        Maestro.stampDrawWeights(active);
         Maestro.LayerCandidate head = active.get(0);
-        assertEquals(401, Maestro.headWeight(active, head));
+        assertEquals(72.0, Maestro.headWeight(active, head), 1e-9);
+        assertEquals(0, Maestro.drawSlot(active, head, 63.9));
+        assertEquals(1, Maestro.drawSlot(active, head, 64));
+        assertEquals(2, Maestro.drawSlot(active, head, 65));
+        assertEquals(8, Maestro.drawSlot(active, head, 71.9));
+    }
+
+    @Test
+    public void aSlotGoesToTheCandidateWhoseWeightBandHoldsTheDraw() {
+        // Weights 8, 27, 1 (priorities 4, 9, 0: a priority of zero weighs one,
+        // like the query's GREATEST). Bands laid end to end in list order:
+        // [0,8) [8,35) [35,36); a draw past the last band stays on the last
+        // candidate.
+        List<Maestro.LayerCandidate> active =
+                Arrays.asList(candidate("a", 4, 1), candidate("b", 9, 1), candidate("c", 0, 1));
+        Maestro.stampDrawWeights(active);
+        Maestro.LayerCandidate head = active.get(0);
+        assertEquals(36.0, Maestro.headWeight(active, head), 1e-9);
         assertEquals(0, Maestro.drawSlot(active, head, 0));
-        assertEquals(0, Maestro.drawSlot(active, head, 99));
-        assertEquals(1, Maestro.drawSlot(active, head, 100));
-        assertEquals(1, Maestro.drawSlot(active, head, 399));
-        assertEquals(2, Maestro.drawSlot(active, head, 400));
-        assertEquals(2, Maestro.drawSlot(active, head, 1000));
+        assertEquals(0, Maestro.drawSlot(active, head, 7.9));
+        assertEquals(1, Maestro.drawSlot(active, head, 8));
+        assertEquals(1, Maestro.drawSlot(active, head, 34.9));
+        assertEquals(2, Maestro.drawSlot(active, head, 35));
+        assertEquals(2, Maestro.drawSlot(active, head, 100));
     }
 
     @Test
@@ -865,9 +898,11 @@ public class MaestroTests {
         // draw goes to B, even against A's far higher priority.
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 1000),
                 showCandidate("b", "B", 300, 60, 1));
+        Maestro.stampDrawWeights(active);
         Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
         assertSame(active.get(1), head);
-        assertEquals("the draw ranges over B's weight only", 1, Maestro.headWeight(active, head));
+        assertEquals("the draw ranges over B's weight only", 1, Maestro.headWeight(active, head),
+                1e-9);
         for (long ticket = 0; ticket < 1000; ticket++)
             assertEquals(1, Maestro.drawSlot(active, head, ticket));
     }
@@ -876,13 +911,14 @@ public class MaestroTests {
     public void insideTheLowestTierPriorityDecides() {
         // Two layers of B share its tier: the lottery splits by priority.
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 80, 50),
-                showCandidate("b1", "B", 300, 60, 100), showCandidate("b2", "B", 300, 60, 300));
+                showCandidate("b1", "B", 300, 60, 4), showCandidate("b2", "B", 300, 60, 9));
+        Maestro.stampDrawWeights(active);
         Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
-        assertEquals(400, Maestro.headWeight(active, head));
+        assertEquals(35, Maestro.headWeight(active, head), 1e-9);
         assertEquals(1, Maestro.drawSlot(active, head, 0));
-        assertEquals(1, Maestro.drawSlot(active, head, 99));
-        assertEquals(2, Maestro.drawSlot(active, head, 100));
-        assertEquals(2, Maestro.drawSlot(active, head, 399));
+        assertEquals(1, Maestro.drawSlot(active, head, 7.9));
+        assertEquals(2, Maestro.drawSlot(active, head, 8));
+        assertEquals(2, Maestro.drawSlot(active, head, 34.9));
     }
 
     @Test
@@ -891,9 +927,45 @@ public class MaestroTests {
         Map<String, Integer> used = new HashMap<>();
         List<Maestro.LayerCandidate> active = Arrays.asList(showCandidate("a", "A", 100, 50, 1),
                 showCandidate("b", "B", 100, 20, 1));
+        Maestro.stampDrawWeights(active);
         assertEquals(1, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
         used.put("B\talloc", 70);
         assertEquals(0, Maestro.drawSlot(active, Maestro.stampTiers(active, used), 0));
+    }
+
+    private static Maestro.LayerCandidate other() {
+        Maestro.LayerCandidate o = layer(CORE, GB, 0, 0);
+        o.layerId = "other";
+        o.jobId = "otherJob";
+        o.rssProven = true;
+        return o;
+    }
+
+    /** Whether some candidate other than c could still use h, as the soft cap asks it. */
+    private static boolean othersWant(Maestro s, Maestro.BookableHost h, Maestro.LayerCandidate c,
+            Maestro.LayerCandidate o) throws Exception {
+        Method m = null;
+        for (Method x : Maestro.class.getDeclaredMethods())
+            if (x.getName().equals("othersWant"))
+                m = x;
+        m.setAccessible(true);
+        return (Boolean) m.invoke(s, h, c, Arrays.asList(c, o), "alloc", new HashMap<>(),
+                new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>());
+    }
+
+    @Test
+    public void theSoftCapYieldsToWantersOfLowerPriorityOnly() throws Exception {
+        // The cap spreads a layer among its peers; work the draw ranks below
+        // it does not hold the host against it.
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        Maestro.LayerCandidate o = other();
+        Maestro s = new Maestro();
+        o.priority = c.priority;
+        assertTrue(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
+        o.priority = c.priority + 1;
+        assertTrue(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
+        o.priority = c.priority - 1;
+        assertFalse(othersWant(s, freeHost(16 * CORE, 32 * GB, 0, 0), c, o));
     }
 
     @Test
@@ -902,8 +974,9 @@ public class MaestroTests {
         List<Maestro.LayerCandidate> active = new ArrayList<>(Arrays
                 .asList(showCandidate("a", "A", 100, 80, 1), showCandidate("b", "B", 300, 60, 1)));
         active.remove(1);
+        Maestro.stampDrawWeights(active);
         Maestro.LayerCandidate head = Maestro.stampTiers(active, new HashMap<>());
-        assertEquals(1, Maestro.headWeight(active, head));
+        assertEquals(1, Maestro.headWeight(active, head), 1e-9);
         assertEquals(0, Maestro.drawSlot(active, head, 0));
     }
 
@@ -1351,4 +1424,77 @@ public class MaestroTests {
             pool.shutdownNow();
         }
     }
+
+    // ---- the grant and the ledger ------------------------------------------
+
+    @Test
+    public void aNonThreadableLayerSizesItsMemoryOnly() {
+        long g6 = 6L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("single", false, 100, 0, 2L * CueUtil.GB);
+        Map<String, long[]> out = resize(c, seen("single", g6, g6, g6, g6));
+        assertEquals(100, c.layerCoresMin);
+        assertEquals(g6, c.layerMemMin);
+        assertEquals(g6, out.get("single")[1]);
+    }
+
+    @Test
+    public void aCompletionReplacesTheFramesRunningSamples() {
+        // Four frames ran at 20G; retried after a scene fix they finish at 4G.
+        long g20 = 20L * CueUtil.GB;
+        long g4 = 4L * CueUtil.GB;
+        LayerLiveMem mem = new LayerLiveMem();
+        List<RunningFrameInfo> running = new ArrayList<>();
+        for (int i = 0; i < 4; i++)
+            running.add(RunningFrameInfo.newBuilder().setLayerId("retry").setFrameId("f" + i)
+                    .setMaxRss(g20).build());
+        mem.record(running);
+        assertEquals(g20, mem.typicalRssKb("retry"));
+        for (RunningFrameInfo frame : running)
+            mem.recordFinished(frame.toBuilder().setMaxRss(g4).build());
+        assertEquals(g4, mem.typicalRssKb("retry"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aSliceIsPlannedAtItsOwnCores() throws Exception {
+        Maestro s = new Maestro();
+        set(s, "env", new MockEnvironment());
+        ExecutorService pool = Executors.newFixedThreadPool(1);
+        set(s, "readPool", pool);
+        try {
+            HostManager hosts = mock(HostManager.class);
+            when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
+            JobManager jobs = mock(JobManager.class);
+            LayerInterface layer = mock(LayerInterface.class);
+            when(jobs.getLayer("wide")).thenReturn(layer);
+            Dispatcher dispatcher = mock(Dispatcher.class);
+            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(), eq(0), eq(5)))
+                    .thenReturn(Arrays.asList(bookingOn("host1")));
+            s.setHostManager(hosts);
+            s.setJobManager(jobs);
+            s.setDispatcher(dispatcher);
+            ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
+                    new ArrayList<>(Arrays.asList("wide")));
+            ((Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer"))
+                    .put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 1600})));
+            assertEquals(1, s.planBookings().size());
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+
+    @Test
+    public void theGrantNeverExceedsTheLargestHost() {
+        Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
+        c.layerId = "big";
+        c.threadable = true;
+        // 200G at 4G per core asks 50 cores; the largest host has 16.
+        LayerLiveMem mem = seen("big", 200 * GB, 200 * GB, 200 * GB, 200 * GB);
+        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, 4 * GB, 16 * CORE, new HashMap<>());
+        assertEquals(16 * CORE, c.layerCoresMin);
+        assertEquals(200 * GB, c.layerMemMin);
+    }
+
+
 }
