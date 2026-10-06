@@ -584,6 +584,12 @@ Under Maestro the legacy report path no longer raises a managed layer's
 memory ask to the largest rss any one frame reported: the median sizes the
 layer, and only repeated OOMs raise it (`OomMemoryTracker`), so one outlier never
 sets every remaining frame's memory and strands the cores beside them.
+When the median raises a layer's memory, Maestro writes it to the layer's
+minimum memory at the end of the tick, so CueGUI shows the size frames book
+at and the size survives a Cuebot restart. The write only ever raises the
+value. The next tick reads it back as the layer's ask, so each increase is
+written once. The core grant is not written back: a 1-core ask has to stay
+"let the system decide".
 
 Verified by the `STRANDGROW` scenario: an 18G 1-core flood must show a probe
 of ~8 ask-sized frames, later launches at the derived share (500 points on

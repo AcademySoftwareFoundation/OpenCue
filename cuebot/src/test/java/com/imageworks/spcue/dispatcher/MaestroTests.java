@@ -52,6 +52,7 @@ import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.util.CueUtil;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -640,6 +641,42 @@ public class MaestroTests {
         resize(c, new LayerLiveMem());
         assertEquals(100, c.layerCoresMin);
         assertTrue(c.rssProven);
+    }
+
+    @Test
+    public void memoryRaisesAreSelectedForPersistence() {
+        long g2 = 2L * CueUtil.GB;
+        long g4 = 4L * CueUtil.GB;
+        long g18 = 18L * CueUtil.GB;
+        Map<String, long[]> out = new java.util.HashMap<>();
+        // Under-declared, non-threadable: memory raised, cores kept.
+        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("b-ctrl", false, 100, 0, g4)),
+                seen("b-ctrl", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
+        // Threadable and over-declared: only cores grow, nothing to persist.
+        Maestro.resizeFromLiveMem(
+                Arrays.asList(grantLayer("c-wide", true, 100, 0, 20L * CueUtil.GB)),
+                seen("c-wide", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
+        // Under-declared threadable: both grow.
+        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("a-hog", true, 100, 0, g2)),
+                seen("a-hog", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
+        assertEquals(g4, out.get("b-ctrl")[2]);
+        assertEquals(3, out.size());
+
+        List<Object[]> rows = Maestro.memoryRaises(out);
+        assertEquals(2, rows.size());
+        // Ordered by layer id, shaped for "SET int_mem_min=? WHERE pk_layer=? AND int_mem_min<?".
+        assertArrayEquals(new Object[] {g18, "a-hog", g18}, rows.get(0));
+        assertArrayEquals(new Object[] {g18, "b-ctrl", g18}, rows.get(1));
+    }
+
+    @Test
+    public void noMemoryRaiseOnceTheLayerCarriesIt() {
+        // The tick after a raise reads the persisted value back as the ask: no new write.
+        long g18 = 18L * CueUtil.GB;
+        Map<String, long[]> out = new java.util.HashMap<>();
+        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("ctrl", false, 100, 0, g18)),
+                seen("ctrl", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
+        assertTrue(Maestro.memoryRaises(out).isEmpty());
     }
 
     // ---- subscription identity --------------------------------------------
