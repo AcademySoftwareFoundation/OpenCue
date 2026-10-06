@@ -2596,6 +2596,7 @@ public class Maestro extends JdbcDaoSupport {
                 FarmHealth.HostHealth hh = health.get(h.hostName.toLowerCase());
                 if (hh == null)
                     continue;
+                stats.busyCorePoints += hh.busyCorePoints;
                 String shape = (h.coresTotal / 100) + "c/"
                         + Math.round(h.memTotal / (1024.0 * 1024.0)) + "g";
                 stats.healthByGroup.computeIfAbsent(groupLabel, x -> new MaestroMetrics.HealthAgg())

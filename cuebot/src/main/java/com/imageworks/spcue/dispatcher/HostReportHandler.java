@@ -187,7 +187,7 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         if (farmHealth != null)
-            farmHealth.record(report.getHost());
+            farmHealth.record(report.getHost(), report.getFramesList());
         if (layerLiveMem != null)
             layerLiveMem.record(report.getFramesList());
         try {
