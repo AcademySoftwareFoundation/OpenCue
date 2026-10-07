@@ -554,12 +554,62 @@ public class MaestroTests {
 
     @Test
     public void resizeWaitsForEnoughSamples() {
-        // Three frames seen (under MIN_SAMPLES): no resize, probe gate armed.
+        // Three 18G frames seen (under MIN_SAMPLES) of a layer declaring 2G: the
+        // ask still sizes to 1 core, so no resize and the probe gate is armed.
         long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("young", true, 100, 0, g18);
+        Maestro.LayerCandidate c = grantLayer("young", true, 100, 0, 2L * CueUtil.GB);
         resize(c, seen("young", g18, g18, g18));
         assertEquals(100, c.layerCoresMin);
         assertFalse(c.rssProven);
+    }
+
+    @Test
+    public void coldLayerSizesItsCoresFromItsMemoryAsk() {
+        // No evidence yet (or a Cuebot restart emptied the ledger): an 18G ask
+        // books 5 cores from frame one instead of stranding cores at 1, and it
+        // is not probe-gated. Memory is untouched, so nothing is persisted.
+        long g18 = 18L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("cold", true, 100, 0, g18);
+        Map<String, long[]> out = resize(c, new LayerLiveMem());
+        assertEquals(500, c.layerCoresMin);
+        assertEquals(g18, c.layerMemMin);
+        assertTrue(c.rssProven);
+        assertArrayEquals(new long[] {500, g18, g18}, out.get("cold"));
+        assertTrue(Maestro.memoryRaises(out).isEmpty());
+    }
+
+    @Test
+    public void coldSizingKeepsTheLayerAndHostCaps() {
+        long g18 = 18L * CueUtil.GB;
+        Maestro.LayerCandidate capped = grantLayer("capped", true, 100, 200, g18);
+        resize(capped, new LayerLiveMem());
+        assertEquals(200, capped.layerCoresMin);
+
+        Maestro.LayerCandidate big = grantLayer("big", true, 100, 0, 200L * CueUtil.GB);
+        Maestro.resizeFromLiveMem(Arrays.asList(big), new LayerLiveMem(), MPC, 1600,
+                new java.util.HashMap<>());
+        assertEquals(1600, big.layerCoresMin);
+    }
+
+    @Test
+    public void coldSizingLeavesNonThreadableLayersAlone() {
+        Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, 18L * CueUtil.GB);
+        assertTrue(resize(c, new LayerLiveMem()).isEmpty());
+        assertEquals(100, c.layerCoresMin);
+        assertTrue(c.rssProven);
+    }
+
+    @Test
+    public void evidenceOverridesAnOverDeclaredAsk() {
+        // Declares 32G, really uses 2G: once the farm has seen it, cores follow
+        // the rss (1 core) while memory never drops below the declaration.
+        long g2 = 2L * CueUtil.GB;
+        long g32 = 32L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("fat", true, 100, 0, g32);
+        resize(c, seen("fat", g2, g2, g2, g2));
+        assertEquals(100, c.layerCoresMin);
+        assertEquals(g32, c.layerMemMin);
+        assertTrue(c.rssProven);
     }
 
     @Test
@@ -599,9 +649,9 @@ public class MaestroTests {
     }
 
     @Test
-    public void oneCoreAskIsGatedRegardlessOfDeclaredMemory() {
-        // cores=1 means "let the system decide": with no evidence the layer
-        // probes, whatever its declaration claims (declarations are untrusted).
+    public void oneCoreAskWithinOneCoresShareIsGated() {
+        // cores=1 means "let the system decide": with no evidence and an ask that
+        // sizes to 1 core (2G at 4G per core), the layer probes.
         Maestro.LayerCandidate c = grantLayer("comp", true, 100, 0, 2L * CueUtil.GB);
         resize(c, new LayerLiveMem());
         assertEquals(100, c.layerCoresMin);
@@ -612,7 +662,7 @@ public class MaestroTests {
     public void explicitAskAboveOneBooksAtFullSpeed() {
         // Someone sized this layer (2 cores): never gated, corrected later
         // only upward when evidence arrives.
-        Maestro.LayerCandidate c = grantLayer("sized", true, 200, 0, 18L * CueUtil.GB);
+        Maestro.LayerCandidate c = grantLayer("sized", true, 200, 0, 4L * CueUtil.GB);
         resize(c, new LayerLiveMem());
         assertEquals(200, c.layerCoresMin);
         assertTrue(c.rssProven);
@@ -634,9 +684,9 @@ public class MaestroTests {
 
     @Test
     public void fastLayerIsReleasedAfterProbeCompletions() {
-        // Memory-heavy but its frames complete faster than the report cycle:
-        // a probe's worth of successes with no samples releases the hold.
-        Maestro.LayerCandidate c = grantLayer("fast", true, 100, 0, 18L * CueUtil.GB);
+        // Its frames complete faster than the report cycle: a probe's worth of
+        // successes with no samples releases the hold.
+        Maestro.LayerCandidate c = grantLayer("fast", true, 100, 0, 2L * CueUtil.GB);
         c.frameSuccessCount = 8;
         resize(c, new LayerLiveMem());
         assertEquals(100, c.layerCoresMin);
