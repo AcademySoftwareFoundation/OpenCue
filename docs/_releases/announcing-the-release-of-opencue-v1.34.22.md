@@ -1,12 +1,12 @@
 ---
 layout: default
-title: "v1.34.20 release"
+title: "v1.34.22 release"
 date: 2026-10-07
 ---
 
-# Announcing the release of OpenCue v1.34.20
+# Announcing the release of OpenCue v1.34.22
 
-## OpenCue v1.34.20 release notes
+## OpenCue v1.34.22 release notes
 
 ### October 7, 2026
 
@@ -36,8 +36,8 @@ This release introduces Maestro, a new scheduling solution built into Cuebot tha
 ## Major Features
 
 - **Maestro, a new scheduling solution**  
-  Maestro is a scheduler built into Cuebot that takes over dispatch per show. It adds host pinning, subscription fairness between shows, job priority, batched completion handling, and layer sizing from host reports and frame completions. Its rollout mode lets you move shows over gradually. Maestro replaces the standalone Rust scheduler, which has been removed.  
-  ([#2489](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2489)), ([#2533](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2533)), ([#2554](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2554)), ([#2557](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2557)), ([#2563](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2563)), ([#2574](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2574)), ([#2576](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2576)), ([#2577](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2577)), ([#2578](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2578)), ([#2583](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2583))
+  Maestro is a scheduler built into Cuebot that takes over dispatch per show. It adds host pinning, subscription fairness between shows, job priority, batched completion handling, and layer sizing from host reports and frame completions, with cold layers sized from their memory request. Its rollout mode lets you move shows over gradually. Maestro replaces the standalone Rust scheduler, which has been removed.  
+  ([#2489](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2489)), ([#2533](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2533)), ([#2554](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2554)), ([#2557](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2557)), ([#2563](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2563)), ([#2574](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2574)), ([#2576](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2576)), ([#2577](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2577)), ([#2578](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2578)), ([#2583](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2583)), ([#2585](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2585))
 
 - **OpenCueWeb: full CueGUI and CueCommander parity**  
   OpenCueWeb (formerly CueWeb) now covers the job, layer, and frame workflows of Cuetopia and the admin pages of CueCommander: hosts, shows, allocations, subscriptions, limits, services, stuck frames, redirect, and Monitor Cue. It also adds a CueSubmit job-submission UI, job dependency graphs, a plugin system, multi-facility routing, group-based authorization, an audit log, usage metrics, and an optional Loki backend for frame logs.  
@@ -270,3 +270,7 @@ This release introduces Maestro, a new scheduling solution built into Cuebot tha
 - Maestro: drain completions twenty at a time [#2577](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2577)
 - Maestro: size a layer from reports and completions [#2578](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2578)
 - [cuebot] Maestro: persist layer memory raises to the database [#2583](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2583)
+- [cuebot] Maestro: size cold layers' cores from their memory ask [#2585](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2585)
+- [ci] Don't fail pipelines on missing rest-gateway/cueweb Docker Hub repos [#2586](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2586)
+- [docs] Update documentation version to 1.34.20 and add release notes [#2597](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2597)
+- [ci] Resolve release tags to master in the version scripts [#2598](https://github.com/AcademySoftwareFoundation/OpenCue/pull/2598)
