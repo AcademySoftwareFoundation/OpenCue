@@ -94,7 +94,7 @@
     "jsonwebtoken": "^9.0.2",
     "postcss": "^8",
     "prettier": "^3.2.5",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^4.3.3",
     "ts-jest": "^29.2.5",
     "ts-jest-mock-import-meta": "^1.2.0",
     "typescript": "^5.6.2"
