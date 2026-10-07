@@ -550,9 +550,8 @@ so a retried frame is sampled afresh. An OOM kill is recorded too, a lower
 bound of the layer's appetite. A layer's samples are kept for 12 hours, long
 enough to outlast its longest frames. The
 layer's size is the MEDIAN of those peaks over at least 4 sampled frames:
-declarations are never trusted for cores, and a single haywire process is
-one sample and cannot resize a layer (the leaker itself stays the OOM
-machinery's problem).
+a single haywire process is one sample and cannot resize a layer (the leaker
+itself stays the OOM machinery's problem).
 Before placement, a threadable layer with evidence is resized to
 `round(rss / the group's own memory-per-core)` cores and `max(declared, rss)`
 memory, so the placement score, the fit check, every cap and the booking all
@@ -566,15 +565,25 @@ never change (a single-threaded renderer cannot use the cores). The resize
 figure rides into `planHost`, so the commit books exactly the shape
 Maestro scored: no divergence.
 
+Before any rss evidence exists, the layer's memory ask stands in for it: a
+threadable layer is sized to `round(memory ask / memory-per-core)` cores, with
+the same bounds. A layer that declares 18G books 5 cores from its first
+frame, the same balanced shape the legacy dispatcher's `getCoreSpan` gives it,
+and after a Cuebot restart (which empties the ledger) a layer books at the
+memory Maestro persisted for it instead of falling back to its core ask.
+
 The contract for artists and service defaults: setting cores to 1 on a
-threadable layer means "let the system decide". Such a layer, before any rss
-evidence exists, runs at most 8 probe frames (about one report cycle) while
-the farm looks at what they really use; then every later launch books at its
-true size. An explicit ask of 2 or more cores was sized by a person and books
-at full speed from frame one, corrected only upward. A held layer that
-completes a probe's worth of frames without ever landing in a report runs
-too fast to sample and is released, never starved. Cuebot restarts empty the
-ledger; active layers repopulate it within one report cycle.
+threadable layer means "let the system decide". Such a layer, while it has no
+rss evidence and its memory ask still sizes to 1 core, runs at most 8 probe
+frames (about one report cycle) while the farm looks at what they really use;
+then every later launch books at its true size. A memory ask above one core's
+share releases the probe: the frames already hold that memory, so leaving the
+cores beside them idle would strand them. An explicit ask of 2 or more cores
+was sized by a person and books at full speed from frame one, corrected only
+upward. A held layer that completes a probe's worth of frames without ever
+landing in a report runs too fast to sample and is released, never starved.
+Cuebot restarts empty the ledger; active layers repopulate it within one
+report cycle.
 
 **The grant never exceeds the group's largest host**, since a grant no host
 holds fits nowhere; a frame that needs more memory than the largest host has
@@ -591,10 +600,11 @@ value. The next tick reads it back as the layer's ask, so each increase is
 written once. The core grant is not written back: a 1-core ask has to stay
 "let the system decide".
 
-Verified by the `STRANDGROW` scenario: an 18G 1-core flood must show a probe
-of ~8 ask-sized frames, later launches at the derived share (500 points on
-the sim farm), an untouched non-threadable control, and the cores back at
-work. The pre-feature disease (every frame at 1 core, ~10% core utilisation
+Verified by the `STRANDGROW` scenario: an 18G 1-core flood that declares only
+2G must show a probe of ~8 ask-sized frames, later launches at the derived
+share (500 points on the sim farm), an untouched non-threadable control, and
+the cores back at work. A second layer that honestly declares 18G must book
+at 500 points from its first frame, with no probe. The pre-feature disease (every frame at 1 core, ~10% core utilisation
 on a memory-full farm) was demonstrated fail-first against the unmodified
 scheduler.
 

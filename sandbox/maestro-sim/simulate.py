@@ -1952,10 +1952,11 @@ def run_verify():
         # waitlist reason.
         ("PIN", ["--hosts", "3,4,10", "--tags", "4", "--pin-test", str(D)]),
         # STRANDGROW: 1-core layers whose frames REALLY hold 18G of rss (the
-        # fake RQD pins their reported rss; declarations are not trusted). The
+        # fake RQD pins their reported rss). The flood declares only 2G: its
         # first wave books at the ask (no evidence yet), then the scheduler
         # must grow every later launch to the metric share (4G/core -> 500
-        # points) so hosts do not sit memory-full with idle cores. A
+        # points) so hosts do not sit memory-full with idle cores. A layer
+        # declaring the real 18G books at 500 from frame one. A
         # non-threadable control with the same rss must stay at 100 points.
         # Fail-first: without the grant the flood stays at the ask and
         # strands ~80% of the farm's cores.

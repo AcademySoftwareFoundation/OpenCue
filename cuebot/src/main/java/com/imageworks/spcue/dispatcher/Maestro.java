@@ -115,12 +115,13 @@ public class Maestro extends JdbcDaoSupport {
     private volatile double layerHostMaxFrac = 0.25;
 
     // Rss-driven sizing (no configuration, works out of the box; see maestro.md 3.9).
-    // cores=1 on a threadable layer means "let the system decide": such a layer probes at
-    // PROBE_FRAMES running frames while the farm has no rss evidence for it, then every
-    // later launch books round(median rss / the group's own memory-per-core) cores with
-    // its true memory, so scoring, fit, caps and booking all see the real shape. An
-    // explicit ask of 2+ cores books at full speed from frame one and is only ever
-    // corrected upward. The metric derives from the machines themselves, never a config
+    // A threadable layer books round(memory / the group's own memory-per-core) cores: its
+    // median rss once the farm has seen it, its memory ask until then. cores=1 means "let
+    // the system decide": a layer whose ask still sizes to 1 core probes at PROBE_FRAMES
+    // running frames while the farm has no rss evidence for it, then every later launch
+    // books at its true shape, so scoring, fit, caps and booking all see it. An explicit
+    // ask of 2+ cores books at full speed from frame one and is only ever corrected
+    // upward. The metric derives from the machines themselves, never a config
     // constant. Probe size is deliberately a constant, not a property. The one exposed
     // parameter is the memory-per-core ratio (maestro.mem_per_core, KB): 0 (the
     // default, shipped) derives it from each group's own hosts, so sizing follows the
@@ -1669,16 +1670,18 @@ public class Maestro extends JdbcDaoSupport {
     /**
      * Size candidates from their observed maxRss before placement, so scoring, fit, caps and
      * booking all see the layer's real shape. Evidence is the median maxRss of the layer's recent
-     * frames ({@link LayerLiveMem}), never the declared memory.
+     * frames ({@link LayerLiveMem}).
      *
      * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb),
      * never below the ask, never above the layer's max or {@code maxHostCores} (the group's largest
      * host: a grant no host holds fits nowhere). Non-threadable layers keep their cores.
      *
-     * No evidence: the layer keeps its ask. A 1-core threadable ask ("let the system decide") stays
-     * rssProven=false, which arms the probe gate: at most {@link #PROBE_FRAMES} of its frames run
-     * until the farm has seen it. A layer that completed a probe's worth of frames unsampled is too
-     * fast to sample and is released.
+     * No evidence: a threadable layer's cores are sized the same way from its memory ask (declared,
+     * or a raise persisted by an earlier tick), so a cold or post-restart layer books a balanced
+     * shape instead of stranding cores beside its memory. A layer that still sizes to a 1-core ask
+     * ("let the system decide") stays rssProven=false, which arms the probe gate: at most
+     * {@link #PROBE_FRAMES} of its frames run until the farm has seen it. A layer that completed a
+     * probe's worth of frames unsampled is too fast to sample and is released.
      */
     static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem liveMem,
             long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
@@ -1689,21 +1692,11 @@ public class Maestro extends JdbcDaoSupport {
             }
             boolean sizeCores = c.threadable && memPerCoreKb > 0;
             long typKb = liveMem.typicalRssKb(c.layerId);
-            if (typKb <= 0) {
-                c.rssProven =
-                        !sizeCores || c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
-                continue;
-            }
-            c.rssProven = true;
             int cores = c.layerCoresMin;
-            if (sizeCores) {
-                int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
-                if (c.layerCoresMax > 0 && eff > c.layerCoresMax)
-                    eff = c.layerCoresMax;
-                if (eff > maxHostCores)
-                    eff = maxHostCores;
-                cores = Math.max(cores, eff);
-            }
+            if (sizeCores)
+                cores = coreGrant(c, typKb > 0 ? typKb : c.layerMemMin, memPerCoreKb, maxHostCores);
+            c.rssProven =
+                    typKb > 0 || !sizeCores || cores != 100 || c.frameSuccessCount >= PROBE_FRAMES;
             long memKb = Math.max(c.layerMemMin, typKb);
             if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
                 resizeOut.put(c.layerId, new long[] {cores, memKb, c.layerMemMin});
@@ -1711,6 +1704,19 @@ public class Maestro extends JdbcDaoSupport {
                 c.layerMemMin = memKb;
             }
         }
+    }
+
+    /**
+     * round(memKb / memPerCoreKb) cores, never below the ask, capped by the layer's and host's max.
+     */
+    private static int coreGrant(LayerCandidate c, long memKb, long memPerCoreKb,
+            int maxHostCores) {
+        int eff = (int) Math.round(memKb / (double) memPerCoreKb) * 100;
+        if (c.layerCoresMax > 0 && eff > c.layerCoresMax)
+            eff = c.layerCoresMax;
+        if (eff > maxHostCores)
+            eff = maxHostCores;
+        return Math.max(c.layerCoresMin, eff);
     }
 
     /**
