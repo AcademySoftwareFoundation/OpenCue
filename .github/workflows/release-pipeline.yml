@@ -197,9 +197,20 @@ jobs:
     # needs: preflight
     runs-on: ubuntu-22.04
     environment: release
+    # The rest-gateway and cueweb Docker Hub repositories do not exist yet and
+    # CI cannot create them, so their release must not fail the pipeline.
+    # Drop the optional flag once the repositories are created.
+    continue-on-error: ${{ matrix.optional }}
     strategy:
+      fail-fast: false
       matrix:
-        component: [cuebot, rqd, rest-gateway, cueweb]
+        component: [cuebot, rqd]
+        optional: [false]
+        include:
+          - component: rest-gateway
+            optional: true
+          - component: cueweb
+            optional: true
 
     name: Release ${{ matrix.component }} Docker image
     steps:
