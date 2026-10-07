@@ -1668,40 +1668,50 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Size candidates from their observed maxRss before placement, so scoring, fit, caps and
-     * booking all see the layer's real shape. Evidence is the median maxRss of the layer's recent
-     * frames ({@link LayerLiveMem}).
+     * Sets each candidate's cores and memory to what its frames really need, before placement.
+     * Scoring, fit checks, caps and booking then all use the same size.
      *
-     * memory = max(declared, maxRss). For a threadable layer, cores = round(maxRss / memPerCoreKb),
-     * never below the ask, never above the layer's max or {@code maxHostCores} (the group's largest
-     * host: a grant no host holds fits nowhere). Non-threadable layers keep their cores.
+     * Memory: the larger of the layer's ask and its typical rss, which is the median peak of its
+     * recent frames ({@link LayerLiveMem}).
      *
-     * No evidence: a threadable layer's cores are sized the same way from its memory ask (declared,
-     * or a raise persisted by an earlier tick), so a cold or post-restart layer books a balanced
-     * shape instead of stranding cores beside its memory. A layer that still sizes to a 1-core ask
-     * ("let the system decide") stays rssProven=false, which arms the probe gate: at most
-     * {@link #PROBE_FRAMES} of its frames run until the farm has seen it. A layer that completed a
-     * probe's worth of frames unsampled is too fast to sample and is released.
+     * Cores, for threadable layers only: {@code round(memory / memPerCoreKb)}, where memory is the
+     * typical rss or, while the layer has no rss samples yet, its memory ask. The result is never
+     * below the layer's core ask and never above its max cores or {@code maxHostCores} (the largest
+     * host in the group). Non-threadable layers keep their cores.
+     *
+     * Probe gate: a layer without rss samples whose size is still 1 core is marked unproven
+     * ({@code rssProven = false}), so at most {@link #PROBE_FRAMES} of its frames run until its rss
+     * is known. A layer that already finished that many frames is released, since its frames end
+     * too fast to be sampled.
+     *
+     * Changed sizes go into {@code resizeOut} as {cores, memory, previous memory}.
      */
-    static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem liveMem,
+    static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem rssLedger,
             long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
-        for (LayerCandidate c : candidates) {
-            if (liveMem == null || c.layerCoresMin <= 0) {
-                c.rssProven = true;
+        for (LayerCandidate layer : candidates) {
+            if (rssLedger == null || layer.layerCoresMin <= 0) {
+                layer.rssProven = true;
                 continue;
             }
-            boolean sizeCores = c.threadable && memPerCoreKb > 0;
-            long typKb = liveMem.typicalRssKb(c.layerId);
-            int cores = c.layerCoresMin;
-            if (sizeCores)
-                cores = coreGrant(c, typKb > 0 ? typKb : c.layerMemMin, memPerCoreKb, maxHostCores);
-            c.rssProven =
-                    typKb > 0 || !sizeCores || cores != 100 || c.frameSuccessCount >= PROBE_FRAMES;
-            long memKb = Math.max(c.layerMemMin, typKb);
-            if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
-                resizeOut.put(c.layerId, new long[] {cores, memKb, c.layerMemMin});
-                c.layerCoresMin = cores;
-                c.layerMemMin = memKb;
+            long typicalRssKb = rssLedger.typicalRssKb(layer.layerId);
+            boolean hasRssSamples = typicalRssKb > 0;
+            boolean coresFollowMemory = layer.threadable && memPerCoreKb > 0;
+
+            int newCores = layer.layerCoresMin;
+            if (coresFollowMemory) {
+                long sizingMemKb = hasRssSamples ? typicalRssKb : layer.layerMemMin;
+                newCores = coresForMemory(layer, sizingMemKb, memPerCoreKb, maxHostCores);
+            }
+            long newMemKb = Math.max(layer.layerMemMin, typicalRssKb);
+
+            boolean probeReleased = layer.frameSuccessCount >= PROBE_FRAMES;
+            layer.rssProven = hasRssSamples || !coresFollowMemory
+                    || newCores != CORE_POINTS_PER_CORE || probeReleased;
+
+            if (newCores != layer.layerCoresMin || newMemKb != layer.layerMemMin) {
+                resizeOut.put(layer.layerId, new long[] {newCores, newMemKb, layer.layerMemMin});
+                layer.layerCoresMin = newCores;
+                layer.layerMemMin = newMemKb;
             }
         }
     }
@@ -1709,14 +1719,14 @@ public class Maestro extends JdbcDaoSupport {
     /**
      * round(memKb / memPerCoreKb) cores, never below the ask, capped by the layer's and host's max.
      */
-    private static int coreGrant(LayerCandidate c, long memKb, long memPerCoreKb,
+    private static int coresForMemory(LayerCandidate layer, long memKb, long memPerCoreKb,
             int maxHostCores) {
-        int eff = (int) Math.round(memKb / (double) memPerCoreKb) * 100;
-        if (c.layerCoresMax > 0 && eff > c.layerCoresMax)
-            eff = c.layerCoresMax;
-        if (eff > maxHostCores)
-            eff = maxHostCores;
-        return Math.max(c.layerCoresMin, eff);
+        int cores = (int) Math.round(memKb / (double) memPerCoreKb) * CORE_POINTS_PER_CORE;
+        if (layer.layerCoresMax > 0 && cores > layer.layerCoresMax)
+            cores = layer.layerCoresMax;
+        if (cores > maxHostCores)
+            cores = maxHostCores;
+        return Math.max(layer.layerCoresMin, cores);
     }
 
     /**
