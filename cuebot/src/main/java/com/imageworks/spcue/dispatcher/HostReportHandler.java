@@ -32,6 +32,7 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -106,10 +107,12 @@ public class HostReportHandler {
     @Autowired(required = false)
     private FarmHealth farmHealth;
 
-    // Live per-layer rss ledger for the scheduler's launch-time core grant; optional
-    // so report handling never depends on it.
+    // Per-layer rss ledger for the scheduler's core grant; optional so report handling
+    // never depends on it.
     @Autowired(required = false)
     private LayerLiveMem layerLiveMem;
+
+    private ShowDao showDao;
 
     // Reconcile idle resources roughly every 10 minutes per host.
     // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
@@ -334,9 +337,13 @@ public class HostReportHandler {
 
             // When Maestro owns the whole facility it owns dispatch:
             // suppress the legacy per-host BookingQueue enqueue so the two paths
-            // never both run. In 'managed' (per-show) mode the legacy dispatcher
-            // still runs for non-managed shows (its query already excludes
-            // b_scheduler_managed shows), so we do NOT suppress it globally there.
+            // never both run. Short of that the legacy dispatcher still books, and
+            // the split is enforced per show in SQL rather than by this Cuebot's
+            // maestro.enabled: every legacy job-selection query (FIND_SHOWS for the
+            // all-shows path, FIND_JOBS_BY_SHOW/BY_GROUP for the preferred-show and
+            // redirect paths below) excludes b_scheduler_managed shows. That has to
+            // hold on Cuebots running with Maestro off too, since during a rollout
+            // one Cuebot plans and the rest report and forward to it.
             boolean bookingOff =
                     env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
                             || MaestroMode.facility(env);
@@ -362,7 +369,9 @@ public class HostReportHandler {
                 }
 
                 /*
-                 * Check if the host prefers a show. If it does , dispatch to that show first.
+                 * Check if the host prefers a show. If it does , dispatch to that show first. A
+                 * Maestro-managed preferred show yields no jobs here (the by-show query excludes
+                 * it) and DispatchBookHost falls through to the remaining, Cuebot-owned work.
                  */
                 if (hostManager.isPreferShow(host)) {
                     bookingQueue.execute(new DispatchBookHost(host,
@@ -907,8 +916,10 @@ public class HostReportHandler {
      * @param rFrames
      */
     private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
+        Map<String, String> showOfLayer = new HashMap<>();
         for (RunningFrameInfo rf : rFrames) {
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
+            showOfLayer.put(frame.getLayerId(), frame.getShowId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame, rf.getRss(), rf.getMaxRss(),
                     rf.getPss(), rf.getMaxPss(), rf.getLluTime());
@@ -920,7 +931,7 @@ public class HostReportHandler {
         }
 
         updateJobMemoryUsage(rFrames);
-        updateLayerMemoryUsage(rFrames);
+        updateLayerMemoryUsage(rFrames, showOfLayer);
     }
 
     /**
@@ -965,7 +976,8 @@ public class HostReportHandler {
      *
      * @param frames
      */
-    private void updateLayerMemoryUsage(List<RunningFrameInfo> frames) {
+    private void updateLayerMemoryUsage(List<RunningFrameInfo> frames,
+            Map<String, String> showOfLayer) {
         final Map<LayerEntity, Long> layers = new HashMap<LayerEntity, Long>(frames.size());
         final Map<LayerEntity, Long> layersPss = new HashMap<LayerEntity, Long>(frames.size());
 
@@ -988,9 +1000,12 @@ public class HostReportHandler {
             }
         }
 
-        /* Attempt to update the max RSS value for the job **/
+        /* Attempt to update the max RSS value for the layer **/
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
-            layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
+            // A managed show's layers are sized by Maestro (LayerLiveMem), not ratcheted here.
+            String showId = showOfLayer.get(set.getKey().getLayerId());
+            if (showId == null || !MaestroMode.schedules(env, showDao, showId))
+                layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
         }
 
@@ -1160,6 +1175,10 @@ public class HostReportHandler {
 
     public void setBookingQueue(BookingQueue bookingQueue) {
         this.bookingQueue = bookingQueue;
+    }
+
+    public void setShowDao(ShowDao showDao) {
+        this.showDao = showDao;
     }
 
     public ThreadPoolExecutor getReportQueue() {

@@ -30,7 +30,9 @@ public class CueServerInterceptor implements ServerInterceptor {
                     super.onHalfClose();
                 } catch (RqdRetryReportException e) {
                     // Map to UNAVAILABLE so RQD's RetryOnRpcErrorClientInterceptor retries
-                    // the report against the next cuebot instance.
+                    // the report: up to four attempts on the same channel with backoff
+                    // (rqd/rqd/rqnetwork.py); a balancer in front may route a retry to
+                    // another cuebot, RQD itself does not.
                     logger.warn("Cuebot shutting down - asking RQD to retry: " + e.getMessage());
                     serverCall.close(Status.UNAVAILABLE.withCause(e).withDescription(
                             "cuebot shutting down: " + e.getMessage()), new Metadata());

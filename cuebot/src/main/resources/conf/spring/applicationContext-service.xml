@@ -52,6 +52,12 @@
     <constructor-arg index="4" type="int">
       <value>${grpc.rqd_task_deadline}</value>
     </constructor-arg>
+    <constructor-arg index="5" type="int">
+      <value>${grpc.rqd_launch_breaker_failures:2}</value>
+    </constructor-arg>
+    <constructor-arg index="6" type="int">
+      <value>${grpc.rqd_launch_breaker_cooldown_s:60}</value>
+    </constructor-arg>
   </bean>
 
   <bean id="launchQueue" class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
@@ -404,6 +410,13 @@
     <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
     <property name="limitRuleCache" ref="limitRuleCache" />
+    <property name="completionForwarder" ref="maestroCompletionForwarder" />
+  </bean>
+
+  <bean id="maestroCompletionForwarder" class="com.imageworks.spcue.dispatcher.MaestroCompletionForwarder" destroy-method="shutdown">
+    <property name="hostManager" ref="hostManager" />
+    <property name="showDao" ref="showDao" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
   </bean>
 
   <bean id="limitRuleCache" class="com.imageworks.spcue.dispatcher.LimitRuleCache">
@@ -422,6 +435,7 @@
     <property name="bookingManager" ref="bookingManager" />
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
+    <property name="showDao" ref="showDao" />
     <property name="killQueue" ref="killQueue"/>
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />

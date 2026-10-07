@@ -136,6 +136,9 @@ public class CoreUnitDispatcher implements Dispatcher {
 
     private List<VirtualProc> dispatchJobs(DispatchHost host, Set<String> jobs) {
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
+        if (isLaunchBreakerOpen(host)) {
+            return procs;
+        }
 
         try {
             for (String jobid : jobs) {
@@ -258,6 +261,9 @@ public class CoreUnitDispatcher implements Dispatcher {
             java.util.function.Supplier<List<DispatchFrame>> frameQuery) {
 
         List<VirtualProc> procs = new ArrayList<VirtualProc>();
+        if (isLaunchBreakerOpen(host)) {
+            return procs;
+        }
 
         if (host.strandedCores == 0 && dispatchSupport.isShowAtOrOverBurst(job, host)) {
             return procs;
@@ -402,6 +408,15 @@ public class CoreUnitDispatcher implements Dispatcher {
             if (effMemKb > frame.getMinMemory()) {
                 frame.setMinMemory(effMemKb);
             }
+            // A frame that OOMed carries its own memory bump. Fit and reserve
+            // at that size here, so the commit's capacity gate sees the sum
+            // the plan reserved and never drops the host for a bump it did
+            // not know about.
+            long baseMemKb = frame.getMinMemory();
+            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(frame.getFrameId());
+            if (bump > frame.getMinMemory()) {
+                frame.setMinMemory(bump);
+            }
 
             VirtualProc proc;
             try {
@@ -421,8 +436,17 @@ public class CoreUnitDispatcher implements Dispatcher {
             }
 
             if (host.idleCores < host.handleNegativeCoresRequirement(frame.minCores)
-                    || host.idleMemory < frame.getMinMemory() || host.idleGpus < frame.minGpus
-                    || host.idleGpuMemory < frame.minGpuMemory) {
+                    || host.idleGpus < frame.minGpus || host.idleGpuMemory < frame.minGpuMemory) {
+                break;
+            }
+            if (host.idleMemory < frame.getMinMemory()) {
+                // A layer's frames are uniform except for a per-frame OOM bump.
+                // When only the bump fails to fit, the bumped frame costs
+                // itself and waits for a roomier host; the rest of the slice
+                // the planner accounted is still delivered.
+                if (host.idleMemory >= baseMemKb) {
+                    continue;
+                }
                 break;
             }
 
@@ -438,7 +462,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                 break;
             } else if (bookings.size() >= bookMax) {
                 break;
-            } else if (bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+            } else if (planLimit <= 0
+                    && bookings.size() >= getIntProperty("dispatcher.host_frame_dispatch_max")) {
+                // The per-call cap belongs to the legacy trickle. A planner
+                // slice is already sized and charged; deliver all of it.
                 break;
             }
         }
@@ -524,10 +551,21 @@ public class CoreUnitDispatcher implements Dispatcher {
             RqdLaunchUnknownOutcomeException e) {
         DispatchSupport.bookingErrors.incrementAndGet();
         logger.warn("launch outcome unknown booking proc " + proc + " on frame " + frame.getName()
-                + ", resolving before any release, " + e);
-        boolean released = dispatchSupport.resolveUnknownLaunchOutcome(proc, frame);
-        logger.info("launch outcome resolution for " + frame.getName() + " on " + proc.getName()
-                + ": booking " + (released ? "released" : "kept"));
+                + ", keeping the booking until resolved, " + e);
+        dispatchSupport.resolveUnknownLaunchOutcomeAsync(proc, frame);
+    }
+
+    /**
+     * A host whose launch breaker is open (its recent launches ended with unknown outcomes) is not
+     * offered work: booking it would cost another RPC deadline and, most likely, another
+     * confirmation. See {@link com.imageworks.spcue.rqd.HostLaunchBreaker}.
+     */
+    private boolean isLaunchBreakerOpen(DispatchHost host) {
+        if (rqdClient != null && rqdClient.isLaunchBreakerOpen(host.getName())) {
+            logger.info("skipping " + host.getName() + ", its launch breaker is open");
+            return true;
+        }
+        return false;
     }
 
     private abstract class DispatchFrameTemplate {

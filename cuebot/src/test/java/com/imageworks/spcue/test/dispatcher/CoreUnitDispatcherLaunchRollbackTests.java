@@ -21,6 +21,7 @@ import org.junit.Test;
 import org.springframework.mock.env.MockEnvironment;
 
 import com.imageworks.spcue.DispatchFrame;
+import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dispatcher.CoreUnitDispatcher;
@@ -29,7 +30,9 @@ import com.imageworks.spcue.dispatcher.DispatcherException;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 
+import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
@@ -43,9 +46,9 @@ import static org.mockito.Mockito.when;
  * Tests for the launch-failure rollback in {@link CoreUnitDispatcher}'s DispatchFrameTemplate, the
  * path used by production dispatching: a launch whose outcome is unknown (the RPC failed but the
  * frame may be running on the host) must be routed through
- * {@link DispatchSupport#resolveUnknownLaunchOutcome} instead of the legacy release-first rollback,
- * which frees the frame for re-dispatch while the render may still be alive (double-booking). A
- * launch failure that proves the frame did not start keeps the legacy rollback.
+ * {@link DispatchSupport#resolveUnknownLaunchOutcomeAsync} instead of the legacy release-first
+ * rollback, which frees the frame for re-dispatch while the render may still be alive
+ * (double-booking). A launch failure that proves the frame did not start keeps the legacy rollback.
  */
 public class CoreUnitDispatcherLaunchRollbackTests {
 
@@ -90,6 +93,22 @@ public class CoreUnitDispatcherLaunchRollbackTests {
     }
 
     @Test
+    public void dispatchHostSkipsAHostWhoseLaunchBreakerIsOpen() {
+        DispatchHost host = new DispatchHost();
+        host.name = "test-host";
+        when(rqdClient.isLaunchBreakerOpen("test-host")).thenReturn(true);
+
+        assertTrue(dispatcher.dispatchHost(host, job).isEmpty());
+
+        // Nothing is queried or booked on the host: no frame query, no burst check, no start.
+        verify(dispatchSupport, never()).findNextDispatchFrames(any(JobDetail.class),
+                any(DispatchHost.class), anyInt());
+        verify(dispatchSupport, never()).startFrameAndProc(any(VirtualProc.class),
+                any(DispatchFrame.class));
+        verify(dispatchSupport, never()).runFrame(any(VirtualProc.class), any(DispatchFrame.class));
+    }
+
+    @Test
     public void dispatchProcToJobResolvesUnknownLaunchOutcomeWithoutReleasing() {
         doThrow(new RqdLaunchUnknownOutcomeException("deadline expired", null))
                 .when(dispatchSupport).runFrame(proc, frame);
@@ -98,7 +117,7 @@ public class CoreUnitDispatcherLaunchRollbackTests {
         // returns normally.
         dispatcher.dispatchProcToJob(proc, job);
 
-        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcome(proc, frame);
+        verify(dispatchSupport, times(1)).resolveUnknownLaunchOutcomeAsync(proc, frame);
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
         verify(dispatchSupport, never()).clearFrame(any(DispatchFrame.class));
@@ -114,7 +133,7 @@ public class CoreUnitDispatcherLaunchRollbackTests {
 
         dispatcher.dispatchProcToJob(proc, job);
 
-        verify(dispatchSupport, never()).resolveUnknownLaunchOutcome(any(VirtualProc.class),
+        verify(dispatchSupport, never()).resolveUnknownLaunchOutcomeAsync(any(VirtualProc.class),
                 any(DispatchFrame.class));
         verify(dispatchSupport, times(1)).unbookProc(proc);
         verify(dispatchSupport, times(1)).clearFrame(frame);

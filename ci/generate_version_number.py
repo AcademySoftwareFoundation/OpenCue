@@ -41,6 +41,7 @@ root directory of your Git clone and run this script:
 This step is already performed automatically within our CI pipelines.
 """
 
+import os
 import pathlib
 import re
 import subprocess
@@ -111,6 +112,11 @@ def get_full_version(versionType="") -> str:
     # Remove all whitespace to match the original shell script's `sed 's/[[:space:]]//g'`.
     version_file_content = version_in_path.read_text(encoding="utf-8")
     version_major_minor = "".join(version_file_content.split())
+
+    version_patch = os.environ.get("VERSION_PATCH")
+    if version_patch:
+        return f"{version_major_minor}.{version_patch}"
+
     current_branch = get_current_branch()
 
     last_version_commit = run_command(

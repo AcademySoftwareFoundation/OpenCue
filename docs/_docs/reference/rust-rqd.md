@@ -533,5 +533,5 @@ Planned enhancements include:
 
 - [Rust RQD README](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/rust/README.md)
 - [Architecture Overview](https://github.com/AcademySoftwareFoundation/OpenCue/blob/master/rust/OVERVIEW.md)
-- [OpenCue Documentation](/OpenCue/docs/)
+- [OpenCue Documentation](/docs/)
 - [Rust Programming Language](https://www.rust-lang.org/)
