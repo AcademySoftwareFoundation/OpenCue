@@ -326,6 +326,8 @@
 
   <bean id="historicalSupport" class="com.imageworks.spcue.service.HistoricalSupport">
     <property name="historicalManager" ref="historicalManager" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="frameDrainBatchSize" value="${history.frame_drain_batch_size:5000}" />
   </bean>
 
   <bean id="serviceManager" class="com.imageworks.spcue.service.ServiceManagerService">
@@ -713,6 +715,19 @@
     <property name="repeatInterval" value="${maintenance.orphaned_frame_check_interval_ms:60000}" />
   </bean>
 
+  <bean id="frameHistoryDrain" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="historicalSupport" />
+    <property name="targetMethod" value="drainFrameHistory" />
+    <property name="concurrent" value="false" />
+  </bean>
+
+  <bean id="frameHistoryDrainTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="frameHistoryDrain" />
+    <property name="startDelay" value="30000" />
+    <!-- frame_history lags by up to this interval (history.frame_drain_interval_ms) -->
+    <property name="repeatInterval" value="${history.frame_drain_interval_ms:300000}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -734,6 +749,7 @@
         <ref bean="orphanedFrameCheckTrigger" />
         <ref bean="maestroTrigger" />
         <ref bean="limitUsageRecalculationTrigger" />
+        <ref bean="frameHistoryDrainTrigger" />
       </list>
     </property>
   </bean>

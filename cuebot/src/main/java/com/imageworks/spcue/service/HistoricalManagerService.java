@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.HistoricalJobTransferException;
 import com.imageworks.spcue.JobInterface;
 import com.imageworks.spcue.dao.HistoricalDao;
+import com.imageworks.spcue.dao.HistoricalDao.FrameHistoryBacklog;
+import com.imageworks.spcue.dao.HistoricalDao.FrameHistoryDrain;
 
 @Transactional
 public class HistoricalManagerService implements HistoricalManager {
@@ -48,6 +50,16 @@ public class HistoricalManagerService implements HistoricalManager {
             throw new HistoricalJobTransferException(
                     "failed to transfer job " + job.getName() + " to historical table");
         }
+    }
+
+    @Transactional
+    public FrameHistoryDrain drainFrameHistory(int limit, boolean safe) {
+        return historicalDao.drainFrameHistory(limit, safe);
+    }
+
+    @Transactional(readOnly = true)
+    public FrameHistoryBacklog getFrameHistoryBacklog() {
+        return historicalDao.getFrameHistoryBacklog();
     }
 
     public HistoricalDao getHistoricalDao() {
