@@ -57,8 +57,8 @@ import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.postgres.DispatchQuery;
@@ -66,7 +66,6 @@ import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
-import com.imageworks.spcue.service.JobManager;
 
 /**
  * Single-threaded Maestro: one Cuebot holds a Postgres advisory lock and plans each tick while the
@@ -185,6 +184,12 @@ public class Maestro extends JdbcDaoSupport {
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
 
+    // Wall time of the latest drain, for the tick's phase split (doTick).
+    private long lastDrainMs = 0;
+
+    // A tick longer than this is logged at WARN with its phase breakdown.
+    static final long SLOW_TICK_WARN_MS = 10_000;
+
     // Completions per drain transaction. Each holds its procs' host rows, and every
     // stop costs a frame_history close on the production table: 130 rows at 200 ms
     // held every host of a tick for 27 s. Small, so no one waits long on a host.
@@ -195,9 +200,6 @@ public class Maestro extends JdbcDaoSupport {
 
     // Resolves a host id to a DispatchHost for the plan reads (planBookings).
     private HostManager hostManager;
-
-    // Resolves a layer id to a LayerInterface for the plan reads (planBookings).
-    private JobManager jobManager;
 
     // Kills the frame whose post-commit launch failed (by frame id); see launchCommitted.
     private RqdClient rqdClient;
@@ -285,8 +287,9 @@ public class Maestro extends JdbcDaoSupport {
     // see startSchedulerPoolsIfNeeded and launchOne.
     private volatile ThreadPoolExecutor launchPool;
 
-    // Pool for the plan phase: per-host plan reads (planHost) run in parallel, one task per host
-    // (serial within a host so the capacity decrement is correct). Commit is still single/batched.
+    // Pool for the plan phase (planBookings), two rounds: one frame read per planned layer, then
+    // one in-memory plan task per host (serial within a host so the capacity decrement is
+    // correct). Commit is still single/batched.
     private volatile ExecutorService readPool;
 
     // Max frames one commit books per layer, also the plan pull size (property
@@ -846,6 +849,7 @@ public class Maestro extends JdbcDaoSupport {
      * the host's booking odometer; a lost one is handled as stale. Returns the number drained.
      */
     int drainResolvedCompletions() {
+        lastDrainMs = 0;
         if (frameCompleteHandler == null)
             return 0;
         List<QueuedFrameCompletion> resolved = MaestroCompletionQueue.drain();
@@ -893,6 +897,7 @@ public class Maestro extends JdbcDaoSupport {
             }
         }
         long tDrain = System.currentTimeMillis() - tDrain0;
+        lastDrainMs = tDrain;
         if (tDrain > 1000) {
             logger.info("Maestro drain: " + drained + " completions in " + tDrain + "ms");
         }
@@ -1389,6 +1394,7 @@ public class Maestro extends JdbcDaoSupport {
         long tStart = System.currentTimeMillis();
         MaestroMetrics.TickStats stats = new MaestroMetrics.TickStats();
         lastTickStats = stats;
+        stats.phaseMs.put("drain", lastDrainMs);
         resetTickOutputs();
         try {
             dispatchSupport.sweepOrphanedProcs(10);
@@ -1419,6 +1425,8 @@ public class Maestro extends JdbcDaoSupport {
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
         readPinnedCandidates(groups, hostById);
+        long tSnapshot = System.currentTimeMillis();
+        stats.phaseMs.put("snapshot", tSnapshot - tStart);
 
         // 3. PLAN each host-spec group in priority order.
         int dispatched = 0;
@@ -1430,12 +1438,14 @@ public class Maestro extends JdbcDaoSupport {
 
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
+        stats.phaseMs.put("place", tPlan - tSnapshot);
         List<FrameBooking> planned = planBookings();
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
         planned = trimOverFolderCeiling(planned, folderMaxCp, folderRunSeed, jobFolderCap);
         planned = trimOverLimitBudgets(planned, limitBudgets, layerLimits);
         long tRead = System.currentTimeMillis();
+        stats.phaseMs.put("read", tRead - tPlan);
         tickPlanned = planned.size();
 
         // 4b. COMMIT the survivors and their resource accounting in host-aligned chunks, each
@@ -1447,6 +1457,7 @@ public class Maestro extends JdbcDaoSupport {
         // undo that.
         List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
+        stats.phaseMs.put("commit", tCommit - tRead);
         recordCommitted(committed, stats);
         // Read live usage AFTER this tick's bookings landed. Reading at tick start
         // would sample the post-drain trough, where a fast-completing farm reads as
@@ -1462,11 +1473,18 @@ public class Maestro extends JdbcDaoSupport {
         }
         int dispatchedNow = committed.size();
         long tFlush = System.currentTimeMillis();
-        if (tFlush - tStart > 1000) {
-            logger.info("Maestro tick breakdown: place=" + (tPlan - tStart) + "ms, read="
-                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, flush+launch="
-                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow);
+        stats.phaseMs.put("usage", tFlush - tCommit);
+        long tTick = tFlush - tStart;
+        if (tTick > 1000) {
+            String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
+                    + "ms, place=" + (tPlan - tSnapshot) + "ms, read=" + (tRead - tPlan)
+                    + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage=" + (tFlush - tCommit)
+                    + "ms | placements=" + lastPlacements + " planned=" + planned.size()
+                    + " committed=" + dispatchedNow;
+            logger.info("Maestro tick breakdown: " + breakdown);
+            // Production runs at WARN, so a slow tick carries its own breakdown there.
+            if (tTick > SLOW_TICK_WARN_MS)
+                logger.warn("Maestro slow tick: " + tTick + "ms | " + breakdown);
         }
         dispatched = dispatchedNow;
 
@@ -1554,23 +1572,24 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * The plan read of one (host, layer) slice: the frames planHost books for the layer on the host
-     * at the rss resize Maestro scored with ({cores, memKb}; absent = the layer's own ask), from
-     * the slice's offset and for its size. A layer that plans but yields zero bookable frames for
+     * The plan of one (host, layer) pairing: each of its slices, cut from the layer's once-per-tick
+     * read by offset and size, handed to planHost at the rss resize Maestro scored with ({cores,
+     * memKb}; absent = the layer's own ask). A layer that plans but yields zero bookable frames for
      * plan_zero_warn_ticks ticks in a row is warned.
      */
-    private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId, String layerId,
-            int planZeroWarnTicks) {
-        LayerInterface layer = jobManager.getLayer(layerId);
+    private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId,
+            PlannedLayer planned, int planZeroWarnTicks) {
+        String layerId = planned.layerId;
         long[] resize = layerResize.get(layerId);
         long effMemKb = resize != null ? resize[1] : 0;
-        // No recorded slice: a single {0, 0, 0} slice, which planHost reads as "no slice limit".
+        // No recorded slice: the whole read, at the layer's own cores.
         List<int[]> slices = planSliceByHostLayer.getOrDefault(hostId + "|" + layerId,
-                List.of(new int[] {0, 0, 0}));
+                List.of(new int[] {0, planned.frames.size(), 0}));
         List<FrameBooking> got = new ArrayList<>();
         for (int[] slice : slices) {
             // {offset, count, cores}: the cores are the slice's own (see submitCommit).
-            got.addAll(dispatcher.planHost(host, layer, slice[2], effMemKb, slice[0], slice[1]));
+            got.addAll(dispatcher.planHost(host, slice[2], effMemKb,
+                    planned.slice(slice[0], slice[1])));
         }
         if (got.isEmpty()) {
             int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
@@ -1604,17 +1623,20 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Read each planned placement's next frames and build procs in memory (no DB writes),
-     * parallelized across hosts on the bounded read pool, the dominant tick cost as the farm fills.
-     * One task per host (not one thread), run at maestro.read_pool_size concurrency: a host is
-     * booked serially within its task because planHost decrements that host's idle fields as it
-     * books, so a later layer sees what an earlier one took, and two tasks on one host would
+     * Read each planned placement's next frames and build procs in memory (no DB writes), on the
+     * bounded read pool at maestro.read_pool_size concurrency. Two rounds. First one read per
+     * planned layer: its next frames in dispatch order, as many as the placements accounted for it
+     * across every host (plannedFramesByLayer), so a layer placed on three hundred hosts costs one
+     * query, not three hundred window scans of its waiting list. Then one task per host (not one
+     * thread) that hands each (host, layer) slice its disjoint sub-list of that read to planHost. A
+     * host is planned serially within its task because planHost decrements that host's idle fields
+     * as it books, so a later layer sees what an earlier one took, and two tasks on one host would
      * double-book it; different hosts run concurrently. A layer that plans but yields zero bookable
      * frames for plan_zero_warn_ticks ticks in a row is warned (a commit-time gate Maestro does not
      * model is silently rejecting it, which would otherwise starve in silence). Returns the planned
-     * bookings, or null if the wait was interrupted (the caller then aborts the tick before
-     * committing). A host task or a layer slice that throws costs its own bookings only; the
-     * failures are counted and reported once per tick (reportPlanFailures).
+     * bookings, or null if a wait was interrupted (the caller then aborts the tick before
+     * committing). A layer read, a host task or a layer slice that throws costs its own bookings
+     * only; the failures are counted and reported once per tick (reportPlanFailures).
      */
     List<FrameBooking> planBookings() {
         int planZeroWarnTicks = env.getProperty("maestro.plan_zero_warn_ticks", Integer.class, 40);
@@ -1624,9 +1646,17 @@ public class Maestro extends JdbcDaoSupport {
             lastPlacements += ls.size();
             plannedLayerIds.addAll(ls);
         }
-        List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
         AtomicInteger failedLayers = new AtomicInteger();
         AtomicReference<String> firstCause = new AtomicReference<>();
+
+        Map<String, PlannedLayer> layers =
+                readPlannedLayers(plannedLayerIds, failedLayers, firstCause);
+        if (layers == null) {
+            plannedByHost.clear();
+            return null;
+        }
+
+        List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
         for (Map.Entry<String, List<String>> e : plannedByHost.entrySet()) {
             final String hostId = e.getKey();
             final List<String> layerIds = e.getValue();
@@ -1641,11 +1671,14 @@ public class Maestro extends JdbcDaoSupport {
                     return out;
                 }
                 for (String layerId : layerIds) {
-                    // One layer is one unit: a layer deleted mid-tick costs its
-                    // own slice, never the host's other layers; the failure is
-                    // counted and reported once per tick, below.
+                    // One layer is one unit: a layer whose read failed (deleted
+                    // mid-tick) costs its own slices on every host, never the
+                    // host's other layers; the failure was counted once, above.
+                    PlannedLayer planned = layers.get(layerId);
+                    if (planned == null)
+                        continue;
                     try {
-                        out.addAll(planLayerOnHost(host, hostId, layerId, planZeroWarnTicks));
+                        out.addAll(planLayerOnHost(host, hostId, planned, planZeroWarnTicks));
                     } catch (RuntimeException ex) {
                         failedLayers.incrementAndGet();
                         firstCause.compareAndSet(null, "layer " + layerId + " on host "
@@ -1678,6 +1711,65 @@ public class Maestro extends JdbcDaoSupport {
         // layers not planned this tick so the map tracks live pathologies, not vanished work.
         planZeroStreak.keySet().retainAll(plannedLayerIds);
         return planned;
+    }
+
+    /**
+     * A planned layer's once-per-tick read: its next waiting frames in dispatch order, as many as
+     * every placement of it this tick accounted for. Each (host, layer) slice takes a disjoint
+     * sub-list by its offset (submitCommit), so parallel host tasks never share a frame.
+     */
+    static final class PlannedLayer {
+        final String layerId;
+        final List<DispatchFrame> frames;
+
+        PlannedLayer(String layerId, List<DispatchFrame> frames) {
+            this.layerId = layerId;
+            this.frames = frames;
+        }
+
+        /** The slice [offset, offset + count), clipped to the frames the read returned. */
+        List<DispatchFrame> slice(int offset, int count) {
+            int from = Math.min(Math.max(offset, 0), frames.size());
+            int to = Math.min(from + Math.max(count, 0), frames.size());
+            return frames.subList(from, to);
+        }
+    }
+
+    /**
+     * Round one of planBookings: read each planned layer's frames by id, one task per layer on the
+     * read pool (the frame rows carry everything planHost needs, so no layer lookup). A layer whose
+     * read throws is left out (its slices plan nothing) and counted once. Returns null if the wait
+     * was interrupted.
+     */
+    private Map<String, PlannedLayer> readPlannedLayers(Set<String> layerIds,
+            AtomicInteger failedLayers, AtomicReference<String> firstCause) {
+        List<Callable<PlannedLayer>> reads = new ArrayList<>(layerIds.size());
+        for (String layerId : layerIds) {
+            reads.add(() -> {
+                int wanted = plannedFramesByLayer.getOrDefault(layerId, 0);
+                List<DispatchFrame> frames =
+                        wanted > 0 ? dispatchSupport.findNextDispatchFrames(layerId, wanted)
+                                : Collections.emptyList();
+                return new PlannedLayer(layerId, frames);
+            });
+        }
+        Map<String, PlannedLayer> out = new HashMap<>();
+        try {
+            for (Future<PlannedLayer> f : readPool.invokeAll(reads)) {
+                try {
+                    PlannedLayer p = f.get();
+                    out.put(p.layerId, p);
+                } catch (ExecutionException ee) {
+                    failedLayers.incrementAndGet();
+                    firstCause.compareAndSet(null, "layer read: "
+                            + (ee.getCause() != null ? ee.getCause().toString() : ee.toString()));
+                }
+            }
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            return null;
+        }
+        return out;
     }
 
     /**
@@ -4203,10 +4295,6 @@ public class Maestro extends JdbcDaoSupport {
 
     public void setHostManager(HostManager m) {
         this.hostManager = m;
-    }
-
-    public void setJobManager(JobManager m) {
-        this.jobManager = m;
     }
 
     public void setRqdClient(RqdClient r) {

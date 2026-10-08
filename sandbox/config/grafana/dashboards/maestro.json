@@ -599,6 +599,48 @@
       ]
     },
     {
+      "type": "timeseries",
+      "title": "Maestro tick phases (p95)",
+      "description": "p95 wall-clock of each phase of the leader's tick. drain: queued completions applied; snapshot: hosts, procs and pins read; place: candidate queries and scoring; read: plan reads and trims; commit: chunked bookings; usage: live usage and farm-health reads. A tail in the tick histogram shows here as the phase that grew.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_phase_seconds_bucket[5m])) by (le, phase))",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
       "type": "text",
       "title": "",
       "transparent": true,
@@ -606,7 +648,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 38
       },
       "options": {
         "mode": "html",
@@ -622,7 +664,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -718,7 +760,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -779,7 +821,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -839,7 +881,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -903,7 +945,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -971,7 +1013,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -1035,7 +1077,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {

@@ -542,32 +542,14 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return frames;
     }
 
-    // The same layer query over a slice: rows (offset, offset+limit] of the
-    // dispatchable-frame ranking, so parallel same-layer plans on different
-    // hosts pull disjoint frames.
-    private static final String FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_SLICE =
-            FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST.replace("WHERE LINENUM <= :frameLimit",
-                    "WHERE LINENUM > :frameOffset AND LINENUM <= :frameLimit");
-
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
-            int limit, int offset) {
-        if (offset <= 0 || host.isLocalDispatch) {
-            return findNextDispatchFrames(layer, host, limit);
-        }
+    public List<DispatchFrame> findNextDispatchFrames(String layerId, int limit) {
         long lastTime = System.currentTimeMillis();
         List<DispatchFrame> frames = getNamedJdbcTemplate().query(
-                q(FIND_DISPATCH_FRAME_BY_LAYER_AND_HOST_SLICE),
-                new MapSqlParameterSource().addValue("hostName", host.getName())
-                        .addValue("coresAvailable", host.idleCores)
-                        .addValue("memoryAvailable", host.idleMemory)
-                        .addValue("threadMode", threadMode(host.threadMode))
-                        .addValue("gpusAvailable", host.idleGpus)
-                        .addValue("gpuMemoryAvailable", host.idleGpuMemory)
-                        .addValue("layerId", layer.getLayerId()).addValue("frameOffset", offset)
-                        .addValue("frameLimit", offset + limit),
+                FIND_DISPATCH_FRAMES_BY_LAYER, new MapSqlParameterSource()
+                        .addValue("layerId", layerId).addValue("frameLimit", limit),
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
-        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer and host query",
+        prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer query",
                 System.currentTimeMillis() - lastTime);
         return frames;
     }
