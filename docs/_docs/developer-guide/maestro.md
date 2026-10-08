@@ -554,81 +554,54 @@ bookings minus drained completions started empty on every leader change and
 never subtracted procs released outside the drain (kills, retries, lost hosts,
 failed launches), so it climbed over time.
 
-### 3.9 Rss-driven layer sizing (cores=1 means "let the system decide")
+### 3.9 Memory-driven layer sizing (cores=1 means "let the system decide")
 
 The production disease: a layer whose frames really hold 18G but book 1 core.
 A few frames exhaust a host's memory and the rest of its cores sit idle but
-unbookable. PSTs used to fix it by hand, watching each task's rss and editing
-the layer mid-job; this feature is that loop inside the scheduler. It has no
-configuration beyond one policy ratio: constants live in the code, and the
-metric either derives from the farm or is pinned by `maestro.mem_per_core`.
+unbookable. PSTs used to fix it with `cue-layer-man`, a script that read each
+layer's largest frame rss and set its cores from a memory table; this is that
+loop inside the scheduler, with the same input.
 
-Every RQD host report and every successful frame completion feeds
-`LayerLiveMem`, an in-memory ledger of each layer's recent per-frame rss
-peaks (last 32 frames, no SQL). A host report carries a running frame's
-peak so far, so a layer is sized while its first frames still climb; a
-completion carries the frame's final peak and replaces its running samples,
-so a retried frame is sampled afresh. An OOM kill is recorded too, a lower
-bound of the layer's appetite. A layer's samples are kept for 12 hours, long
-enough to outlast its longest frames. The
-layer's size is the MEDIAN of those peaks over at least 4 sampled frames:
-a single haywire process is one sample and cannot resize a layer (the leaker
-itself stays the OOM machinery's problem).
-Before placement, a threadable layer with evidence is resized to
-`round(rss / the group's own memory-per-core)` cores and `max(declared, rss)`
-memory, so the placement score, the fit check, every cap and the booking all
-see the layer's real shape. The metric defaults to self-derivation: each
-tick, each host group's own memory-per-core (total memory over total cores),
-so an 18G layer sizes to 5 cores on a 3.5G-per-core farm and follows the
-hardware when the farm changes. Setting `maestro.mem_per_core` (KB per
-core) pins a studio-wide ratio instead. Bounds:
-never below the ask, never past the layer's max cores, non-threadable layers
-never change (a single-threaded renderer cannot use the cores). The resize
-figure rides into `planHost`, so the commit books exactly the shape
-Maestro scored: no divergence.
+A layer's memory is the larger of its ask (`int_mem_min`) and the largest rss
+any of its frames has reported (`layer_mem.int_max_rss`). Every RQD host
+report raises both: the legacy ratchet lifts the ask to the largest rss seen,
+for managed shows too, so the figure is persistent, visible in CueGUI and
+survives a Cuebot restart. Before placement, a threadable layer is sized to
+`round(memory / memory-per-core)` cores, never below its ask, never past its
+max cores or the group's largest host (a grant no host holds fits nowhere).
+Non-threadable layers keep their cores. A layer tagged `manual` keeps its ask,
+as under `cue-layer-man`. The metric defaults to each host group's own
+memory-per-core (total memory over total cores), so an 18G layer sizes to 5
+cores on a 3.5G-per-core farm and follows the hardware; `maestro.mem_per_core`
+(KB per core) pins a studio-wide ratio instead. The size rides into
+`planHost`, so the commit books exactly the shape Maestro scored.
 
-Before any rss evidence exists, the layer's memory ask stands in for it: a
-threadable layer is sized to `round(memory ask / memory-per-core)` cores, with
-the same bounds. A layer that declares 18G books 5 cores from its first
-frame, the same balanced shape the legacy dispatcher's `getCoreSpan` gives it,
-and after a Cuebot restart (which empties the ledger) a layer books at the
-memory Maestro persisted for it instead of falling back to its core ask.
+So a layer that declares 18G books 5 cores from its first frame, the shape the
+legacy dispatcher's `getCoreSpan` gives it. A layer that declares 2G and uses
+18G books its first frames at the ask; the first host report raises its
+memory, and every later launch and every restart books at 5 cores. One frame
+is enough: the input is the maximum, as it was for `cue-layer-man` and for
+the legacy ratchet.
 
 The contract for artists and service defaults: setting cores to 1 on a
-threadable layer means "let the system decide". Such a layer, while it has no
-rss evidence and its memory ask still sizes to 1 core, runs at most 8 probe
-frames (about one report cycle) while the farm looks at what they really use;
-then every later launch books at its true size. A memory ask above one core's
-share releases the probe: the frames already hold that memory, so leaving the
-cores beside them idle would strand them. An explicit ask of 2 or more cores
-was sized by a person and books at full speed from frame one, corrected only
-upward. A held layer that completes a probe's worth of frames without ever
-landing in a report runs too fast to sample and is released, never starved.
-Cuebot restarts empty the ledger; active layers repopulate it within one
-report cycle.
-
-**The grant never exceeds the group's largest host**, since a grant no host
-holds fits nowhere; a frame that needs more memory than the largest host has
-per core takes the whole host and no more. A non-threadable layer keeps its
-cores but its memory is sized the same way.
-Under Maestro the legacy report path no longer raises a managed layer's
-memory ask to the largest rss any one frame reported: the median sizes the
-layer, and only repeated OOMs raise it (`OomMemoryTracker`), so one outlier never
-sets every remaining frame's memory and strands the cores beside them.
-When the median raises a layer's memory, Maestro writes it to the layer's
-minimum memory at the end of the tick, so CueGUI shows the size frames book
-at and the size survives a Cuebot restart. The write only ever raises the
-value. The next tick reads it back as the layer's ask, so each increase is
-written once. The core grant is not written back: a 1-core ask has to stay
-"let the system decide".
+threadable layer means "let the system decide". Such a layer, while no frame
+has reported yet and its memory ask still sizes to 1 core, runs at most 8
+probe frames (about one report cycle) while the farm looks at what they
+really use; the first report releases it at its real size. A memory ask above
+one core's share releases the probe too: the frames already hold that memory,
+so leaving the cores beside them idle would strand them. An explicit ask of 2
+or more cores was sized by a person and books at full speed from frame one,
+corrected only upward. A held layer that completes a probe's worth of frames
+without ever landing in a report runs too fast to sample and is released,
+never starved.
 
 Verified by the `STRANDGROW` scenario: an 18G 1-core flood that declares only
 2G must show a probe of ~8 ask-sized frames, later launches at the derived
 share (500 points on the sim farm), an untouched non-threadable control, and
 the cores back at work. A second layer that honestly declares 18G must book
-at 500 points from its first frame, with no probe. The pre-feature disease (every frame at 1 core, ~10% core utilisation
-on a memory-full farm) was demonstrated fail-first against the unmodified
-scheduler.
+at 500 points from its first frame, with no probe. The pre-feature disease
+(every frame at 1 core, ~10% core utilisation on a memory-full farm) was
+demonstrated fail-first against the unmodified scheduler.
 
 ### 3.10 Pins (machine lists and local renders)
 

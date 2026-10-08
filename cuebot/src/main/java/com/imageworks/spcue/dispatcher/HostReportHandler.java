@@ -32,7 +32,6 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.LayerDao;
-import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
 import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.dispatcher.commands.DispatchHandleHostReport;
@@ -106,13 +105,6 @@ public class HostReportHandler {
     // so report handling never depends on it.
     @Autowired(required = false)
     private FarmHealth farmHealth;
-
-    // Per-layer rss ledger for the scheduler's core grant; optional so report handling
-    // never depends on it.
-    @Autowired(required = false)
-    private LayerLiveMem layerLiveMem;
-
-    private ShowDao showDao;
 
     // Reconcile idle resources roughly every 10 minutes per host.
     // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
@@ -188,8 +180,6 @@ public class HostReportHandler {
         long startTime = System.currentTimeMillis();
         if (farmHealth != null)
             farmHealth.record(report.getHost(), report.getFramesList());
-        if (layerLiveMem != null)
-            layerLiveMem.record(report.getFramesList());
         try {
             // Record Prometheus metric for host report
             if (prometheusMetrics != null) {
@@ -916,10 +906,8 @@ public class HostReportHandler {
      * @param rFrames
      */
     private void updateMemoryUsageAndLluTime(List<RunningFrameInfo> rFrames) {
-        Map<String, String> showOfLayer = new HashMap<>();
         for (RunningFrameInfo rf : rFrames) {
             FrameInterface frame = jobManager.getFrame(rf.getFrameId());
-            showOfLayer.put(frame.getLayerId(), frame.getShowId());
 
             dispatchSupport.updateFrameMemoryUsageAndLluTime(frame, rf.getRss(), rf.getMaxRss(),
                     rf.getPss(), rf.getMaxPss(), rf.getLluTime());
@@ -931,7 +919,7 @@ public class HostReportHandler {
         }
 
         updateJobMemoryUsage(rFrames);
-        updateLayerMemoryUsage(rFrames, showOfLayer);
+        updateLayerMemoryUsage(rFrames);
     }
 
     /**
@@ -976,8 +964,7 @@ public class HostReportHandler {
      *
      * @param frames
      */
-    private void updateLayerMemoryUsage(List<RunningFrameInfo> frames,
-            Map<String, String> showOfLayer) {
+    private void updateLayerMemoryUsage(List<RunningFrameInfo> frames) {
         final Map<LayerEntity, Long> layers = new HashMap<LayerEntity, Long>(frames.size());
         final Map<LayerEntity, Long> layersPss = new HashMap<LayerEntity, Long>(frames.size());
 
@@ -1002,10 +989,7 @@ public class HostReportHandler {
 
         /* Attempt to update the max RSS value for the layer **/
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
-            // A managed show's layers are sized by Maestro (LayerLiveMem), not ratcheted here.
-            String showId = showOfLayer.get(set.getKey().getLayerId());
-            if (showId == null || !MaestroMode.schedules(env, showDao, showId))
-                layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
+            layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
         }
 
@@ -1175,10 +1159,6 @@ public class HostReportHandler {
 
     public void setBookingQueue(BookingQueue bookingQueue) {
         this.bookingQueue = bookingQueue;
-    }
-
-    public void setShowDao(ShowDao showDao) {
-        this.showDao = showDao;
     }
 
     public ThreadPoolExecutor getReportQueue() {
