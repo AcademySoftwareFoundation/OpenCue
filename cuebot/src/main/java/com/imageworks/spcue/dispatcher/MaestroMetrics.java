@@ -88,6 +88,18 @@ public class MaestroMetrics {
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host").register();
 
+    // The tick's wall-clock split by phase, so a regression names the phase that grew
+    // instead of a tail to grep logs for: drain (queued completions applied), snapshot
+    // (hosts, procs, pins read), place (candidate queries and in-memory scoring), read
+    // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
+    // live show-usage and farm-health reads).
+    private static final Histogram tickPhaseDuration =
+            Histogram.build().name("cue_maestro_tick_phase_seconds")
+                    .help("Maestro tick wall-clock per phase in seconds: drain, snapshot, "
+                            + "place, read, commit, usage")
+                    .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
+                    .labelNames("env", "cuebot_host", "phase").register();
+
     // The waitlist: waiting frames on the last tick's candidate layers, split by why
     // they cannot run. Every waiting frame the tick weighed lands in exactly one
     // bucket, so the panel's blocked shares are each bucket over the sum, and all
@@ -223,6 +235,8 @@ public class MaestroMetrics {
             incReason("no work", s.noWork);
             incReason("query error", s.queryError);
             tickDuration.labels(env, host).observe(s.tickDurationMs / 1000.0);
+            for (Map.Entry<String, Long> e : s.phaseMs.entrySet())
+                tickPhaseDuration.labels(env, host, e.getKey()).observe(e.getValue() / 1000.0);
             // Cores per show: SET from this tick's live read, then zero any show
             // that was present last tick but has no procs now, so a drained show
             // drops to 0 instead of pinning its last value.
@@ -299,6 +313,7 @@ public class MaestroMetrics {
         public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
+        public final Map<String, Long> phaseMs = new HashMap<>();
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();
         public final Map<String, Long> bookedFramesByLocality = new HashMap<>();

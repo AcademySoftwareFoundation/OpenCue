@@ -451,7 +451,6 @@
     <property name="dispatcher"  ref="dispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="hostManager" ref="hostManager" />
-    <property name="jobManager"  ref="jobManager" />
     <property name="rqdClient"   ref="rqdClient" />
     <property name="frameCompleteHandler" ref="frameCompleteHandler" />
     <property name="maestroMetrics" ref="maestroMetrics" />
