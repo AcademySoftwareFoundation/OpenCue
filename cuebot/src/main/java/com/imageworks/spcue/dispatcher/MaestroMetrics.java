@@ -69,10 +69,10 @@ public class MaestroMetrics {
             .help("Total whole cores in the farm in the most recent scheduler tick")
             .labelNames("env", "cuebot_host").register();
 
-    // Cores in use per show, SET each tick from a live sum of the procs (never
-    // accumulated), so it tracks the farm and cannot drift above it.
+    // Cores in use per show, SET each tick from a sum over the proc table (never
+    // accumulated), so it survives a leader change and cannot drift.
     private static final Gauge showCores = Gauge.build().name("cue_maestro_show_cores")
-            .help("Whole cores in use per show, summed live from the procs each tick")
+            .help("Whole cores in use per show, summed from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
     // Frames booked per show; rate() = throughput.
@@ -94,11 +94,11 @@ public class MaestroMetrics {
     // zero means everything flows. Loop-only by design (no extra query): a job the
     // candidate query filters out at its cap shows up only on the ticks churn
     // re-admits it.
-    // Frames on procs right now, from the live ledger (booked minus drained). The
-    // denominator that turns the waitlist's blocked counts into a share of ALL
+    // Frames on procs right now for the shows Maestro plans, read from the proc
+    // table each tick. The denominator that turns the waitlist's blocked counts into a share of ALL
     // frames the farm handles, so a small blocked slice reads small on the panel.
     private static final Gauge runningFrames = Gauge.build().name("cue_maestro_running_frames")
-            .help("Frames on procs right now, from the live booking/drain ledger")
+            .help("Frames on procs right now for the shows Maestro plans")
             .labelNames("env", "cuebot_host").register();
 
     // Farm health from the live report ledger, sliced two ways: by='group' is the

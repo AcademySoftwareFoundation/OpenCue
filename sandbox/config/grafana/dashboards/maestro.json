@@ -191,7 +191,7 @@
     {
       "type": "timeseries",
       "title": "Utilisation",
-      "description": "Cores running as a share of the whole farm, from the live show_cores ledger (no SQL: plus on the batch commit, minus on the drain). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand. Waiting frames (right axis) is the waitlist the tick weighed: the waiting frames of the layers Maestro considered, all reasons, so demand and usage read together.",
+      "description": "Cores running as a share of the whole farm, from show_cores (summed from the proc table each tick). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand. Waiting frames (right axis) is the waitlist the tick weighed: the waiting frames of the layers Maestro considered, all reasons, so demand and usage read together.",
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
