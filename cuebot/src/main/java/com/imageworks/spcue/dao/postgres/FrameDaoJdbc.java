@@ -885,11 +885,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
     }
 
     // spotless:off
+    // A WAITING -> WAITING update (e.g. retrying an already waiting frame) keeps ts_updated,
+    // since the dispatch query reads it as the start of the wait for time-to-book.
     private static final String UPDATE_FRAME_STATE =
             "UPDATE frame "
             + "SET "
                 + "str_state = ?, "
-                + "ts_updated = current_timestamp, "
+                + "ts_updated = CASE WHEN str_state = 'WAITING' AND str_state = ? "
+                    + "THEN ts_updated ELSE current_timestamp END, "
                 + "int_version = int_version + 1 "
             + "WHERE pk_frame = ? "
             + "AND int_version = ? ";
@@ -897,8 +900,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
 
     @Override
     public boolean updateFrameState(FrameInterface frame, FrameState state) {
-        if (getJdbcTemplate().update(UPDATE_FRAME_STATE, state.toString(), frame.getFrameId(),
-                frame.getVersion()) == 1) {
+        if (getJdbcTemplate().update(UPDATE_FRAME_STATE, state.toString(), state.toString(),
+                frame.getFrameId(), frame.getVersion()) == 1) {
             logger.info("The frame " + frame + " state changed to " + state.toString());
             return true;
         }

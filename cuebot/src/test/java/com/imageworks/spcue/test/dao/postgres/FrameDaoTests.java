@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.dao.postgres;
 
 import java.io.File;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -75,6 +76,7 @@ import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
@@ -257,6 +259,29 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
         assertEquals(FrameState.RUNNING.toString(), jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?", String.class, f.getFrameId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateFrameStateWaitingKeepsTsUpdated() {
+        JobDetail job = launchJob();
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1_preprocess");
+        jdbcTemplate.update("UPDATE frame SET ts_updated = timestamp '2000-01-01 00:00:00' "
+                + "WHERE pk_frame=?", f.getFrameId());
+        String tsQuery = "SELECT ts_updated FROM frame WHERE pk_frame=?";
+        Timestamp waitingSince =
+                jdbcTemplate.queryForObject(tsQuery, Timestamp.class, f.getFrameId());
+
+        assertTrue(
+                frameDao.updateFrameState(frameDao.getFrame(f.getFrameId()), FrameState.WAITING));
+        assertEquals(waitingSince,
+                jdbcTemplate.queryForObject(tsQuery, Timestamp.class, f.getFrameId()));
+
+        assertTrue(
+                frameDao.updateFrameState(frameDao.getFrame(f.getFrameId()), FrameState.RUNNING));
+        assertNotEquals(waitingSince,
+                jdbcTemplate.queryForObject(tsQuery, Timestamp.class, f.getFrameId()));
     }
 
     @Test
