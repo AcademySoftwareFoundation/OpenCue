@@ -397,8 +397,12 @@ def _serialize(launcher, use_pycuerun):
                 limit = Et.SubElement(limits, "limit")
                 limit.text = limit_name
 
+        layer_envs = dict(layer.get_envs())
+        layer_envs.setdefault(
+            "OL_FRAME_TMPDIR_ROOT",
+            outline.config.get("outline", "frame_tmp_dir", fallback="/mcp"))
         layer_env = Et.SubElement(spec_layer, "env")
-        for env_k, env_v in layer.get_envs().items():
+        for env_k, env_v in layer_envs.items():
             pair = Et.SubElement(layer_env, "key", {"name": "{}".format(env_k)})
             pair.text = env_v
 
