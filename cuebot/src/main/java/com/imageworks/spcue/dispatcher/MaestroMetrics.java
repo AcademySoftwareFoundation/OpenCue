@@ -101,6 +101,12 @@ public class MaestroMetrics {
             .help("Frames on procs right now for the shows Maestro plans")
             .labelNames("env", "cuebot_host").register();
 
+    // Cores the running frames really use (their pcpu from the host reports), against
+    // cue_maestro_show_cores, the cores they hold.
+    private static final Gauge farmBusyCores = Gauge.build().name("cue_maestro_farm_cores_busy")
+            .help("Whole cores the running frames really use, summed from the host reports")
+            .labelNames("env", "cuebot_host").register();
+
     // Farm health from the live report ledger, sliced two ways: by='group' is the
     // host-spec group (normalized tags|os), by='hwtype' the hardware shape (e.g.
     // 128c/112g). Swap is a fraction of capacity so it reads as a percent; a host
@@ -210,6 +216,7 @@ public class MaestroMetrics {
             groupsByState.labels(env, host, "inactive").set((double) s.noWork);
             farmCores.labels(env, host).set(s.farmCores);
             runningFrames.labels(env, host).set(s.runningFrames);
+            farmBusyCores.labels(env, host).set(s.busyCorePoints / 100.0);
             farmStrandedCores.labels(env, host).set(s.strandedCores);
             incReason("booked", s.booked);
             incReason("no fit", s.noFit);
@@ -289,6 +296,7 @@ public class MaestroMetrics {
         public int noWork;
         public int queryError;
         public long runningFrames;
+        public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
         public final Map<String, Double> coresByShow = new HashMap<>();

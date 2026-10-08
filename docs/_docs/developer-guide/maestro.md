@@ -518,6 +518,16 @@ static capped job stays off the panel), and when the same layer is weighed in
 several groups the last group's verdict wins. A `limit` share while cores sit
 idle is the fingerprint of a drifted `job_resource.int_cores` counter.
 
+`cue_maestro_farm_cores_busy` is the cores the running frames really use,
+summed from each frame's `pcpu` in the host reports. The `CPU Utilisation`
+line of the utilisation panel plots it as a share of the farm's cores
+(`cue_maestro_farm_cores_total`), beside `Core Utilisation` (cores held, same
+denominator): the gap between the two lines is cores booked but left idle by
+their frames. `Core Utilisation` can briefly read above 100% on a full farm:
+`show_cores` counts every held proc, while the farm total counts only UP, OPEN
+hosts, so procs still draining off a locked or down host overshoot until they
+finish.
+
 The `no fit` bucket counts frames; its physical counterpart counts cores:
 `cue_farm_health_stranded_cores` is the whole cores idle after planning that
 no still-waiting candidate can buy (on every such host each candidate is

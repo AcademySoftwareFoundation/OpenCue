@@ -217,7 +217,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "utilisation"
+              "options": "Core Utilisation"
             },
             "properties": [
               {
@@ -267,6 +267,25 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Utilisation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
           }
         ]
       },
@@ -282,13 +301,18 @@
       "targets": [
         {
           "expr": "sum(cue_maestro_show_cores) / scalar(max(cue_maestro_farm_cores_total)) * 100",
-          "legendFormat": "utilisation",
+          "legendFormat": "Core Utilisation",
           "refId": "A"
         },
         {
           "expr": "sum(cue_maestro_waiting_frames)",
           "legendFormat": "waiting frames",
           "refId": "B"
+        },
+        {
+          "expr": "sum(cue_maestro_farm_cores_busy) / scalar(max(cue_maestro_farm_cores_total)) * 100",
+          "legendFormat": "CPU Utilisation",
+          "refId": "C"
         }
       ]
     },
