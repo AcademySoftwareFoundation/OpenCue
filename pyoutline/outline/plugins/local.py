@@ -26,7 +26,6 @@ import logging
 from socket import gethostname
 import subprocess
 
-import opencue
 from outline import event
 
 
@@ -90,15 +89,19 @@ def setup_local_threads(option, opt, value, parser, *args, **kwargs):
 
 def deed_local_machine():
     """Deed the local machine to the current user."""
-
-    user = os.environ.get("USER")
-    show = opencue.api.findShow(os.environ.get("SHOW", "pipe"))
     try:
-        owner = opencue.api.getOwner(user)
-    except opencue.CueException:
-        owner = show.createOwner(user)
+        # pylint: disable=import-outside-toplevel
+        import opencue
+        user = os.environ.get("USER")
+        show = opencue.api.findShow(os.environ.get("SHOW", "pipe"))
+        try:
+            owner = opencue.api.getOwner(user)
+        except opencue.CueException:
+            owner = show.createOwner(user)
 
-    owner.takeOwnership(gethostname())
+        owner.takeOwnership(gethostname())
+    except ModuleNotFoundError:
+        print("ModuleNotFoundError: opencue not found, skipping deed_local_machine")
 
 
 def setup_local_cores(e):

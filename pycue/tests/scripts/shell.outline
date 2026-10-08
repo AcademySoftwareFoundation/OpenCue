@@ -1,0 +1,11 @@
+
+from outline.modules.shell import Shell
+
+Shell("cmd", command=["ps","aux"], test1=1, test2=2)
+
+
+
+
+
+
+

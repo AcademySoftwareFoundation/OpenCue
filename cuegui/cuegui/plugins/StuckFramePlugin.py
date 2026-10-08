@@ -16,13 +16,6 @@
 """Plugin for managing stuck frames."""
 
 
-from __future__ import print_function
-from __future__ import division
-from __future__ import absolute_import
-
-from builtins import str
-from builtins import map
-from future.utils import iteritems
 import datetime
 import getpass
 import os
@@ -1676,14 +1669,14 @@ class CoreUpWindow(QtWidgets.QDialog):
         """Setup the initial dialog box layout."""
         # Create initial layout
         build_times = {}
-        for job, layers in iteritems(self.jobs):
+        for job, layers in self.jobs.items():
             build_times[job] = self.dj.getBuildTimes(job, layers)
         layout = QtWidgets.QVBoxLayout()
         self.setLayout(layout)
 
         self.listWidget = QtWidgets.QListWidget(self)
         self._layers = {}
-        for job, layers in iteritems(self.jobs):
+        for job, layers in self.jobs.items():
             for layer in layers:
                 self._layers[layer.name()] = (job, layer)
                 layer_label = layer.name()

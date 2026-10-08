@@ -8,6 +8,7 @@ Subpackages
 
     opencue_proto
     opencue.wrappers
+    outline_backend_cue
 
 Module contents
 ---------------

@@ -11,16 +11,3 @@
 #  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
-
-"""CueNIMBY - System tray application for OpenCue NIMBY control."""
-
-try:
-    from importlib.metadata import PackageNotFoundError, version
-except ImportError:
-    # Python 3.7 fallback
-    from importlib_metadata import PackageNotFoundError, version
-
-try:
-    __version__ = version("opencue_cuenimby")
-except PackageNotFoundError:
-    __version__ = "0.0.0+unknown"

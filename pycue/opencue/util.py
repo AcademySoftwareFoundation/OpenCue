@@ -20,7 +20,6 @@ from __future__ import division
 
 from builtins import str
 import functools
-import future.utils
 import logging
 import os
 import time
@@ -52,12 +51,11 @@ def grpcExceptionParser(grpcFunc):
                         logger.warning(exception.retryMsg)
                         time.sleep(exception.retryBackoff)
                     else:
-                        future.utils.raise_with_traceback(
-                            exception(exception.failMsg.format(details=details)))
+                        raise exception(exception.failMsg.format(details=details)) from exc
                 else:
-                    future.utils.raise_with_traceback(opencue.exception.CueException(
+                    raise opencue.exception.CueException(
                         "Encountered a server error. {code} : {details}".format(
-                            code=code, details=details)))
+                            code=code, details=details)) from exc
 
     return functools.wraps(grpcFunc)(_decorator)
 
