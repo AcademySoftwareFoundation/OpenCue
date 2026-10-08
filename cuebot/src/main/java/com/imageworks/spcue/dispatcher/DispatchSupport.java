@@ -260,6 +260,17 @@ public interface DispatchSupport {
     boolean resolveUnknownLaunchOutcome(VirtualProc proc, DispatchFrame frame);
 
     /**
+     * Hands {@link #resolveUnknownLaunchOutcome} to a dedicated confirmation pool and returns at
+     * once. The booking stays intact (proc booked, frame RUNNING) until the resolution runs, which
+     * is the fail-closed state either way, so the dispatching thread does not have to spend up to
+     * two RPC deadlines plus a poll interval re-probing a host that just failed to answer in time.
+     *
+     * @param proc the proc created for the failed dispatch
+     * @param frame the frame the launch was for
+     */
+    void resolveUnknownLaunchOutcomeAsync(VirtualProc proc, DispatchFrame frame);
+
+    /**
      * Unbooks a proc with no message
      *
      * @param proc
@@ -447,6 +458,13 @@ public interface DispatchSupport {
      * @param exitStatus
      */
     void updateUsageCounters(FrameInterface frame, int exitStatus);
+
+    /**
+     * The batched form of updateUsageCounters for the post-complete worker: reads each frame's
+     * resource usage, then files the show, job and layer counters with one JDBC round trip per
+     * statement for the whole batch instead of four to six per frame.
+     */
+    void updateUsageCountersBatch(java.util.List<QueuedFrameCompletion> batch);
 
     /**
      * Sets a frame to running if there is a proc with the frame.

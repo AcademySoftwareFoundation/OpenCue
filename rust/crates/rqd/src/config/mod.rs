@@ -146,6 +146,12 @@ pub struct MachineConfig {
     /// is in place to bring rqd back up, e.g. a container restart policy — otherwise a
     /// restart request just shuts the host down.
     pub allow_unsupervised_restart: bool,
+    /// Read `/proc/<pid>/smaps_rollup` for every monitored process on each monitor cycle to
+    /// report PSS alongside RSS. The kernel walks the whole page table of the process to
+    /// produce it, so on hosts running large renders the read costs hundreds of milliseconds per
+    /// process per cycle and can push the cycle past `monitor_interval`. Off by default; when
+    /// disabled, PSS is reported as RSS.
+    pub collect_pss: bool,
 }
 
 impl Default for MachineConfig {
@@ -173,6 +179,7 @@ impl Default for MachineConfig {
             nimby_display_xauthority_path: "/home/{username}/Xauthority".to_string(),
             memory_oom_margin_percentage: 96,
             allow_unsupervised_restart: false,
+            collect_pss: false,
         }
     }
 }
@@ -188,6 +195,11 @@ mod tests {
     #[test]
     fn machine_config_defaults_to_unlocked_nimby_startup() {
         assert!(!MachineConfig::default().nimby_lock_by_default);
+    }
+
+    #[test]
+    fn machine_config_defaults_to_pss_collection_off() {
+        assert!(!MachineConfig::default().collect_pss);
     }
 
     #[test]

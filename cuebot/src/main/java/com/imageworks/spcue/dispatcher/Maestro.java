@@ -43,12 +43,15 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -57,17 +60,20 @@ import org.springframework.transaction.support.TransactionTemplate;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.postgres.DispatchQuery;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.rqd.RqdClient;
+import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.service.JobManager;
 
 /**
  * Single-threaded Maestro: one Cuebot holds a Postgres advisory lock and plans each tick while the
  * rest idle as warm standbys. Placement is serial so decisions never race; only the per-host plan
- * reads fan out on a pool, and every booking for a tick commits in one batched transaction.
- * Persistent reservations hold hosts for blocked wide layers until enough cores free up.
+ * reads fan out on a pool, and a tick's bookings commit in host-aligned chunks, each its own
+ * transaction, launched as they land. Persistent reservations hold hosts for blocked wide layers
+ * until enough cores free up.
  *
  * Gated by maestro.enabled (default false). See docs/_docs/developer-guide/maestro.md for the full
  * model.
@@ -110,17 +116,27 @@ public class Maestro extends JdbcDaoSupport {
     private volatile double layerHostMaxFrac = 0.25;
 
     // Rss-driven sizing (no configuration, works out of the box; see maestro.md 3.9).
-    // cores=1 on a threadable layer means "let the system decide": such a layer probes at
-    // PROBE_FRAMES running frames while the farm has no rss evidence for it, then every
-    // later launch books round(median rss / the group's own memory-per-core) cores with
-    // its true memory, so scoring, fit, caps and booking all see the real shape. An
-    // explicit ask of 2+ cores books at full speed from frame one and is only ever
-    // corrected upward. The metric derives from the machines themselves, never a config
+    // A threadable layer books round(memory / the group's own memory-per-core) cores: its
+    // median rss once the farm has seen it, its memory ask until then. cores=1 means "let
+    // the system decide": a layer whose ask still sizes to 1 core probes at PROBE_FRAMES
+    // running frames while the farm has no rss evidence for it, then every later launch
+    // books at its true shape, so scoring, fit, caps and booking all see it. An explicit
+    // ask of 2+ cores books at full speed from frame one and is only ever corrected
+    // upward. The metric derives from the machines themselves, never a config
     // constant. Probe size is deliberately a constant, not a property. The one exposed
     // parameter is the memory-per-core ratio (maestro.mem_per_core, KB): 0 (the
     // default, shipped) derives it from each group's own hosts, so sizing follows the
     // hardware out of the box; a studio can pin its core-selling ratio instead.
     static final int PROBE_FRAMES = 8;
+    static final int COMMIT_CHUNK_FRAMES = 500; // consumed by commitInChunks()
+    static final double PRIORITY_EXPONENT = 1.5; // the query's power() and lotteryWeight()
+    static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
+    static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
+    // consumed by launchOne()
+    static final long LAUNCH_MAX_AGE_MS = ProcDao.ORPHAN_AGE_SECONDS * 1000L / 2;
+    // Consecutive failed liveness probes before leaderAlive() gives the lock up. A single
+    // isValid(1) timeout on a loaded server must not demote a leader that still holds the lock.
+    static final int LEADER_PROBE_STRIKES = 2;
     private volatile long memPerCoreKb = 0;
 
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
@@ -161,16 +177,18 @@ public class Maestro extends JdbcDaoSupport {
     @Autowired(required = false)
     private FarmHealth farmHealth;
 
-    // Live per-layer rss ledger (fed by host reports) that sizes the launch-time core
-    // grant; optional so the scheduler runs without it (grants simply stay off).
+    // Per-layer rss ledger that sizes the launch-time core grant; optional so the scheduler
+    // runs without it (grants simply stay off).
     @Autowired(required = false)
     private LayerLiveMem layerLiveMem;
 
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
 
-    // Max completions applied per drain transaction (bounds the stop/delete/refund lock footprint).
-    private static final int DRAIN_CHUNK = 2000;
+    // Completions per drain transaction. Each holds its procs' host rows, and every
+    // stop costs a frame_history close on the production table: 130 rows at 200 ms
+    // held every host of a tick for 27 s. Small, so no one waits long on a host.
+    private static final int DRAIN_CHUNK = 20;
 
     // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
@@ -190,6 +208,10 @@ public class Maestro extends JdbcDaoSupport {
     // This Cuebot's planning-leadership lock connection, or null when standby. Sticky and raw (not
     // pooled, so Hikari cannot reap it and drop the lock). See maestro.md for the failover model.
     private volatile Connection leaderConn = null;
+    // consumed by ensureLeadership() and leaderAlive()
+    private volatile boolean shuttingDown = false;
+    // Consecutive leaderAlive() probe misses; tick thread only. See LEADER_PROBE_STRIKES.
+    private int leaderProbeMisses = 0;
 
     // Live host reservations, persistent across ticks: host id -> claiming (layer, priority).
     // Maestro-thread only (single-writer); empty after failover. See maestro.md for the model.
@@ -202,9 +224,6 @@ public class Maestro extends JdbcDaoSupport {
     // Per-tick placements to commit, host id -> layer ids. Maestro-thread only; cleared each tick.
     private final Map<String, List<String>> plannedByHost = new LinkedHashMap<>();
 
-    // Layers already placed this tick, across all groups: stops a permissive layer being re-planned
-    // per group (the copies would race for the same frames). Keyed on placement, not candidacy.
-    private final Set<String> placedLayerIds = new HashSet<>();
 
     // Tick-scoped planning scratch (Maestro-thread only, reset each tick by clearTickScratch). Held
     // as fields so the phase methods share them without threading a dozen parameters.
@@ -221,6 +240,8 @@ public class Maestro extends JdbcDaoSupport {
     // True once this tick's limit budgets are loaded; reset by clearTickScratch.
     /* package for tests */ boolean limitBudgetsResolved = false;
     private final Set<String> seenLayerIds = new HashSet<>();
+    // consumed by planGroup()
+    private final Map<HostSpecKey, List<LayerCandidate>> pinnedByGroup = new HashMap<>();
     private final List<ReservationRequest> reservationReqs = new ArrayList<>();
     // Waitlist tally: the last outcome seen for each candidate layer that still had waiting
     // frames, and that count. tallyWaitlist folds them into the tick stats and the stat line.
@@ -241,16 +262,16 @@ public class Maestro extends JdbcDaoSupport {
     // Probe frames planned this tick per unproven layer.
     private final Map<String, Integer> layerProbeUsed = new HashMap<>();
 
-    // Tick-scoped frame-slice bookkeeping for same-layer multi-host planning
-    // (the relax pass): frames planned per layer this tick, and each
-    // (host|layer) plan's {starting offset, size} slice of the layer's
-    // waiting list, so the parallel plan reads pull disjoint frames and
-    // deliver exactly what the scoring accounted.
+    // Tick-scoped frame slices, so a layer planned on several hosts has its parallel plan reads
+    // pull disjoint frames and deliver exactly what the scoring accounted.
+    // layerId -> frames planned for the layer so far this tick (where its next slice starts).
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
-    private final Map<String, int[]> planSliceByHostLayer = new HashMap<>();
+    // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
+    // count}. A pair holds one slice per slot the draw gave it this tick.
+    private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
     // Layers resized from rss evidence this tick: layerId -> {effective core points,
-    // effective memory KB}, read by planBookings so the commit books the same shape the
-    // Maestro scored.
+    // effective memory KB, declared memory KB}, read by planBookings so the commit books the
+    // same shape the Maestro scored, and by persistMemoryRaises at the end of the tick.
     private final Map<String, long[]> layerResize = new HashMap<>();
 
     // Layer-placements planned this tick, for the tick-breakdown log line.
@@ -260,14 +281,9 @@ public class Maestro extends JdbcDaoSupport {
     // signature of a Maestro-vs-dispatch eligibility mismatch. Warns at plan_zero_warn_ticks.
     private final Map<String, Integer> planZeroStreak = new ConcurrentHashMap<>();
 
-    // Small bounded pool for post-commit RQD launches (one gRPC per frame); a full queue drops
-    // the launch (launchDropped) rather than blocking Maestro.
-    private volatile ExecutorService launchPool;
-
-    // Launches dropped because the launch queue was full; the frame is RUNNING in the DB, reconcile
-    // recovers it.
-    private final java.util.concurrent.atomic.AtomicLong launchDropped =
-            new java.util.concurrent.atomic.AtomicLong(0);
+    // Fixed pool over an unbounded queue for the post-commit RQD launches (one gRPC per frame);
+    // see startSchedulerPoolsIfNeeded and launchOne.
+    private volatile ThreadPoolExecutor launchPool;
 
     // Pool for the plan phase: per-host plan reads (planHost) run in parallel, one task per host
     // (serial within a host so the capacity decrement is correct). Commit is still single/batched.
@@ -323,6 +339,7 @@ public class Maestro extends JdbcDaoSupport {
     private long summaryMaxTickMs = 0; // slowest single tick in the window
     private int summaryLockLost = 0; // attempts another Cuebot held the lock
     private long summaryPlanned = 0; // frames the plan phase produced
+    private int summaryPlanFailures = 0; // consumed by maybeLogStat()
     private int summaryGranted = 0; // new reservations granted
     private int summaryBackfilled = 0; // frames placed onto a reserved host
     private long summaryBackfilledCores = 0; // core-points placed via EASY backfill
@@ -330,7 +347,6 @@ public class Maestro extends JdbcDaoSupport {
     private long summaryLicenseBooked = 0; // frames booked against a license pool
     private long summaryLicenseHeld = 0; // candidates held back by a license pool
     private long summaryLicenseTrimmed = 0; // planned frames a pool could not cover
-    private long summaryLaunchDroppedAt = 0; // launchDropped count at window start
     private final java.util.concurrent.atomic.AtomicInteger summarySkipped =
             new java.util.concurrent.atomic.AtomicInteger(0);
     // Farm fill for the stat line, captured in snapshotFarmFill (stage 1) before placement
@@ -411,22 +427,21 @@ public class Maestro extends JdbcDaoSupport {
         // 5 minutes; lower it for a live incident, raise it to quiet the log.
         statIntervalMs =
                 1000L * env.getProperty("maestro.stat_interval_seconds", Integer.class, 300);
-        // Bounded pool so launches never run on the tick thread (a slow RQD sink would stall the
-        // tick). On a full queue we drop the launch and count it: the frame is already running in
-        // the DB, so RQD report reconciliation recovers it, and the tick never waits on RQD.
-        int launchQueueSize = env.getProperty("maestro.launch_queue_size", Integer.class, 16384);
+        // A fixed pool so launches never run on the tick thread (a slow RQD sink would stall the
+        // tick), over an UNBOUNDED queue: a committed booking is always launched. A tick may
+        // commit a whole cold farm at once, and a dropped launch leaves a frame RUNNING in the
+        // DB with no process behind it until the orphan sweep finds it minutes later; a slow
+        // sink now shows as launch latency, never as lost work. The handler below can only fire
+        // when the pool is shutting down.
         ThreadPoolExecutor pool = new ThreadPoolExecutor(launchSize, launchSize, 0L,
-                TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(launchQueueSize), r -> {
+                TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>(), r -> {
                     Thread t = new Thread(r);
                     t.setName("Maestro-launch-" + t.getId());
                     t.setDaemon(true);
                     return t;
                 }, (r, ex) -> {
-                    long n = launchDropped.incrementAndGet();
-                    if (n % 1000 == 1) {
-                        logger.warn("Maestro: launch queue full, dropping launch"
-                                + " (total dropped=" + n + "); RQD reconciliation will recover");
-                    }
+                    logger.warn("Maestro: launch rejected, pool shutting down;"
+                            + " RQD reconciliation will recover");
                 });
         launchPool = pool;
         // Read pool for the parallel plan phase. Reads are DB-bound (they block
@@ -476,6 +491,22 @@ public class Maestro extends JdbcDaoSupport {
     // spotless:on
 
     /**
+     * Cores (core points) and frames on procs per show, limited to the shows Maestro plans: every
+     * show in facility mode (the bound flag), else only the b_scheduler_managed ones.
+     */
+    // spotless:off
+    private static final String SELECT_LIVE_SHOW_USAGE =
+            "SELECT "
+            + "  sh.str_name AS show_name, "
+            + "  SUM(p.int_cores_reserved) AS cores, "
+            + "  COUNT(*) AS frames "
+            + "FROM proc p "
+            + "JOIN show sh ON sh.pk_show = p.pk_show "
+            + "WHERE (? OR sh.b_scheduler_managed = true) "
+            + "GROUP BY sh.str_name";
+    // spotless:on
+
+    /**
      * Candidate layers for a host spec group. One query per group. Filters: - job PENDING and
      * unpaused - tag regex match against the group's normalized tag string - OS match (or any if
      * the job is OS-agnostic) - job under int_max_cores - show under subscription burst on this
@@ -503,6 +534,7 @@ public class Maestro extends JdbcDaoSupport {
             + "  jr.int_max_cores   AS job_max_cores, "
             + "  sub.int_cores      AS show_cores_in_use, "
             + "  sub.int_burst      AS show_burst, "
+            + "  sub.int_size       AS show_size, "
             + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
             + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
@@ -596,7 +628,87 @@ public class Maestro extends JdbcDaoSupport {
             // low-priority layer keeps a share proportional to its priority instead of being
             // starved by a higher-priority stream. GREATEST(...,1) floors the weight for priority
             // <= 0. Reservation granting uses the same lottery weighting. See maestro.md 3.5.
-            + "ORDER BY power(random(), 1.0 / GREATEST(jr.int_priority, 1)) DESC "
+            + "ORDER BY power(random(), 1.0 / power(GREATEST(jr.int_priority, 1), 1.5)) DESC "
+            + "LIMIT  ? ";
+    // spotless:on
+
+    // Pinned layers: the same row as the group query, one per (layer, named
+    // host), for the waiting layers whose tags are not all host-spec tags.
+    // The host join carries the group query's per-host predicates, so a
+    // named host that is down, locked, in another facility or OS, or too
+    // small yields no row; a layer none of whose names resolves yields one
+    // row with a null host. Binds: thread mode ALL, the spec tags (csv,
+    // lower case), the facility-mode flag, the row limit.
+    // spotless:off
+    private static final String SELECT_PINNED_CANDIDATES =
+            "SELECT "
+            + "  l.pk_layer, "
+            + "  l.pk_job, "
+            + "  j.pk_show, "
+            + "  l.int_cores_min, "
+            + "  l.int_mem_min, "
+            + "  l.b_threadable, "
+            + "  l.int_cores_max, "
+            + "  l.int_gpus_min, "
+            + "  l.int_gpu_mem_min, "
+            + "  jr.int_priority, "
+            + "  jr.int_cores       AS job_cores_in_use, "
+            + "  jr.int_max_cores   AS job_max_cores, "
+            + "  COALESCE(sub.int_cores, 0) AS show_cores_in_use, "
+            + "  COALESCE(sub.int_burst, 0) AS show_burst, "
+            + "  COALESCE(sub.int_size, 0)  AS show_size, "
+            + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
+            + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
+            + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
+            + "  (SELECT string_agg(ll.pk_limit_record, ',') "
+            + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
+            + "  j.pk_folder AS folder_id, "
+            + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
+            + "  COALESCE(fu.folder_cores, 0)   AS folder_running, "
+            + "  h.pk_host AS pin_host, "
+            + "  l.str_tags "
+            + "FROM   layer l "
+            + "JOIN   job j           ON j.pk_job  = l.pk_job "
+            + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
+            + "JOIN   show sh         ON sh.pk_show = j.pk_show "
+            + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
+            + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
+            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
+            + "LEFT JOIN ("
+            + "    SELECT j2.pk_folder, "
+            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
+            + "    FROM   job j2 "
+            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
+            + "                               AND fr2.int_max_cores <> -1 "
+            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
+            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
+            + "    WHERE  j2.str_state = 'PENDING' "
+            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
+            + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
+            + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
+            + "       ON lower(h.str_name) = "
+            + "          ANY(string_to_array(lower(replace(l.str_tags, ' ', '')), '|')) "
+            + "      AND hs.str_state = 'UP' "
+            + "      AND h.str_lock_state = 'OPEN' "
+            + "      AND j.pk_facility = a.pk_facility "
+            + "      AND (j.str_os IS NULL OR j.str_os = '' "
+            + "           OR j.str_os = ANY(string_to_array(hs.str_os, ','))) "
+            + "      AND (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) "
+            + "          >= (CASE WHEN h.int_thread_mode = ? THEN 1 ELSE 0 END) "
+            + "      AND l.int_cores_min <= h.int_cores "
+            + "LEFT JOIN subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = h.pk_alloc "
+            + "WHERE  j.str_state = 'PENDING' "
+            + "  AND  j.b_paused  = false "
+            + "  AND  NOT (string_to_array(lower(replace(l.str_tags, ' ', '')), '|') "
+            + "            <@ string_to_array(?, ',')) "
+            + "  AND  (h.pk_host IS NULL "
+            + "        OR (sub.pk_subscription IS NOT NULL AND sub.int_cores < sub.int_burst)) "
+            + "  AND  jr.int_cores  < jr.int_max_cores "
+            + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
+            + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
+            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "  AND (? OR sh.b_scheduler_managed = true) "
+            + "ORDER BY power(random(), 1.0 / power(GREATEST(jr.int_priority, 1), 1.5)) DESC "
             + "LIMIT  ? ";
     // spotless:on
 
@@ -643,6 +755,7 @@ public class Maestro extends JdbcDaoSupport {
                     c.jobMaxCores = rs.getInt("job_max_cores");
                     c.showCoresInUse = rs.getInt("show_cores_in_use");
                     c.showBurstCores = rs.getInt("show_burst");
+                    c.showSizeCores = rs.getInt("show_size");
                     c.waitingFrameCount = rs.getInt("waiting_frame_count");
                     c.clockTimeHighSec = rs.getInt("clock_time_high");
                     c.frameSuccessCount = rs.getInt("frame_success_count");
@@ -657,6 +770,10 @@ public class Maestro extends JdbcDaoSupport {
                     return c;
                 }
             };
+
+    private static final RowMapper<PinRow> PINNED_MAPPER =
+            (rs, i) -> new PinRow(CANDIDATE_MAPPER.mapRow(rs, i), rs.getString("pin_host"),
+                    rs.getString("str_tags"));
 
     // ---- tick -------------------------------------------------------------
 
@@ -728,7 +845,7 @@ public class Maestro extends JdbcDaoSupport {
      * the host/layer cache-warmth entry (this host just ran this layer, so its caches are hot) with
      * the host's booking odometer; a lost one is handled as stale. Returns the number drained.
      */
-    private int drainResolvedCompletions() {
+    int drainResolvedCompletions() {
         if (frameCompleteHandler == null)
             return 0;
         List<QueuedFrameCompletion> resolved = MaestroCompletionQueue.drain();
@@ -747,14 +864,11 @@ public class Maestro extends JdbcDaoSupport {
                 }
                 for (int i = 0; i < won.length; i++) {
                     QueuedFrameCompletion c = chunk.get(i);
-                    // Ledger: the proc is released on both branches (stop won, or
-                    // stale and unbooked), so its cores leave the show either way.
-                    bumpShowCoresLive(c.frame.show,
-                            -c.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
-                    if (runningFramesLive > 0)
-                        runningFramesLive--;
                     if (won[i]) {
-                        if (localityEnabled && localityWindowFrames > 0
+                        // Warmth is the leader's ledger: a standby never advances
+                        // the odometers, so its stamps would neither expire nor mean
+                        // anything.
+                        if (leaderConn != null && localityEnabled && localityWindowFrames > 0
                                 && c.proc.getLayerId() != null) {
                             warmthByHostLayer.put(c.proc.getHostId() + "|" + c.proc.getLayerId(),
                                     bookingsByHost.getOrDefault(c.proc.getHostId(), 0L));
@@ -817,7 +931,6 @@ public class Maestro extends JdbcDaoSupport {
         long nowMs = System.currentTimeMillis();
         if (lastSummaryMs == 0) { // first call: start the window, do not emit
             lastSummaryMs = nowMs;
-            summaryLaunchDroppedAt = launchDropped.get();
             return;
         }
         if (nowMs - lastSummaryMs < statIntervalMs)
@@ -831,8 +944,6 @@ public class Maestro extends JdbcDaoSupport {
                 : 0.0;
         long avgTick = summaryTicks > 0 ? summaryTickMs / summaryTicks : 0;
         long raceLost = Math.max(0, summaryPlanned - summaryDispatched);
-        long dropNow = launchDropped.get();
-        long droppedInWindow = dropNow - summaryLaunchDroppedAt;
         int skipped = summarySkipped.getAndSet(0);
 
         // Cores currently held by the wide-job reservation feature: the sum of the
@@ -855,23 +966,26 @@ public class Maestro extends JdbcDaoSupport {
         // Waitlist section: the window's PEAK waiting frames per cause (not the last
         // tick), so a cause that spiked for a single tick still shows here.
         String waitlist = String.format(
-                " | waitlist total=%d flowing=%d capacity=%d nofit=%d limit=%d license=%d held=%d",
+                " | waitlist total=%d flowing=%d capacity=%d nofit=%d limit=%d license=%d held=%d"
+                        + " share=%d nohost=%d",
                 winWaitTotalMax, winWaitMax.getOrDefault("flowing", 0L),
                 winWaitMax.getOrDefault("capacity", 0L), winWaitMax.getOrDefault("no fit", 0L),
                 winWaitMax.getOrDefault("limit", 0L), winWaitMax.getOrDefault("no license", 0L),
-                winWaitMax.getOrDefault("held", 0L));
+                winWaitMax.getOrDefault("held", 0L), winWaitMax.getOrDefault("share", 0L),
+                winWaitMax.getOrDefault("no host", 0L));
 
         logger.info(String.format(
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
-                        + " | flow committed=%d planned=%d raceLost=%d launchDropped=%d drained=%d postQ=%d"
+                        + " | flow committed=%d planned=%d raceLost=%d drained=%d"
+                        + " postQ=%d planFail=%d"
                         + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
-                summaryPlanned, raceLost, droppedInWindow, summaryDrained,
+                summaryPlanned, raceLost, summaryDrained,
                 frameCompleteHandler == null ? 0 : frameCompleteHandler.getPostCompleteQueueDepth(),
-                reservations.size(), reservedCp / CORE_POINTS_PER_CORE, summaryGranted,
-                lastReservationReqs, summaryBackfilled,
+                summaryPlanFailures, reservations.size(), reservedCp / CORE_POINTS_PER_CORE,
+                summaryGranted, lastReservationReqs, summaryBackfilled,
                 summaryBackfilledCores / CORE_POINTS_PER_CORE, lic, waitlist));
 
         lastSummaryMs = nowMs;
@@ -881,6 +995,7 @@ public class Maestro extends JdbcDaoSupport {
         summaryMaxTickMs = 0;
         summaryLockLost = 0;
         summaryPlanned = 0;
+        summaryPlanFailures = 0;
         summaryGranted = 0;
         summaryBackfilled = 0;
         summaryBackfilledCores = 0;
@@ -888,7 +1003,6 @@ public class Maestro extends JdbcDaoSupport {
         summaryLicenseBooked = 0;
         summaryLicenseHeld = 0;
         summaryLicenseTrimmed = 0;
-        summaryLaunchDroppedAt = dropNow;
         winWaitMax.clear();
         winWaitTotalMax = 0;
     }
@@ -1140,7 +1254,6 @@ public class Maestro extends JdbcDaoSupport {
      */
     private void clearTickScratch() {
         plannedByHost.clear();
-        placedLayerIds.clear();
         jobCoresUsed.clear();
         showCoresUsed.clear();
         folderUsed.clear();
@@ -1153,6 +1266,7 @@ public class Maestro extends JdbcDaoSupport {
         limitSeats.clear();
         limitBudgetsResolved = false;
         seenLayerIds.clear();
+        pinnedByGroup.clear();
         reservationReqs.clear();
         waitReasonByLayer.clear();
         waitFramesByLayer.clear();
@@ -1180,12 +1294,14 @@ public class Maestro extends JdbcDaoSupport {
         List<LayerCandidate> candidates;
         try {
             candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            addPinned(candidates, pinnedByGroup.get(spec), idleGroup);
             // Size threadable layers from their observed rss before anything scores or
             // fits them, against the studio's memory-per-core policy ratio (or, when
             // none is set, this group's own derived one); 1-core layers with no
             // evidence yet stay unproven and get the probe gate.
             resizeFromLiveMem(candidates, layerLiveMem,
-                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup), layerResize);
+                    memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup),
+                    maxCoresTotalInGroup, layerResize);
         } catch (RuntimeException e) {
             long nowMs = System.currentTimeMillis();
             if (nowMs - lastCandidateErrWarnMs >= GROUP_WARN_INTERVAL_MS) {
@@ -1302,6 +1418,7 @@ public class Maestro extends JdbcDaoSupport {
             hostById.put(h.hostId, h);
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
+        readPinnedCandidates(groups, hostById);
 
         // 3. PLAN each host-spec group in priority order.
         int dispatched = 0;
@@ -1321,37 +1438,28 @@ public class Maestro extends JdbcDaoSupport {
         long tRead = System.currentTimeMillis();
         tickPlanned = planned.size();
 
-        // 4b. COMMIT the survivors and their resource accounting in ONE transaction, then
-        // launch them. DispatchSupportService is REQUIRED, so the batch joins this
-        // transaction rather than opening its own: procs and the counters that mirror them
-        // commit together or not at all. Splitting them let a crash in between leave procs
-        // whose cores were never added, while the release path subtracts them regardless,
-        // and four of the five mirrors have no repair job to undo that.
-        final List<FrameBooking> toCommit = planned;
-        List<FrameBooking> committed =
-                toCommit.isEmpty() ? java.util.Collections.<FrameBooking>emptyList()
-                        : txTemplate().execute(status -> {
-                            List<FrameBooking> won =
-                                    dispatchSupport.startFramesAndProcsBatch(toCommit);
-                            applyResourceDeltas(won);
-                            return won;
-                        });
+        // 4b. COMMIT the survivors and their resource accounting in host-aligned chunks, each
+        // chunk one transaction, launched as it lands (commitInChunks). DispatchSupportService
+        // is REQUIRED, so the batch joins the chunk's transaction rather than opening its own:
+        // procs and the counters that mirror them commit together or not at all. Splitting them
+        // let a crash in between leave procs whose cores were never added, while the release
+        // path subtracts them regardless, and four of the five mirrors have no repair job to
+        // undo that.
+        List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
-        // Monitoring events go out AFTER the commit transaction so a slow
-        // publish can never extend the booking commit's lock window.
-        dispatchSupport.publishFrameStartedEvents(committed);
         recordCommitted(committed, stats);
-        // Publish the ledger AFTER this tick's bookings landed: at this point it
-        // holds the procs alive right now (booked minus drained). Filling it at
-        // tick start would sample the post-drain trough, where a fast-completing
-        // farm reads as empty every time.
+        // Read live usage AFTER this tick's bookings landed. Reading at tick start
+        // would sample the post-drain trough, where a fast-completing farm reads as
+        // empty every time.
         if (maestroMetrics != null && maestroMetrics.isEnabled()) {
-            stats.coresByShow.putAll(showCoresLive);
-            stats.runningFrames = runningFramesLive;
+            try {
+                readLiveShowUsage(stats);
+            } catch (DataAccessException e) {
+                logger.warn("Maestro: live show usage read failed: " + e.getMessage());
+            }
             if (farmHealth != null)
                 aggregateFarmHealth(groups, farmHealth.snapshot(), stats);
         }
-        launchCommitted(committed);
         int dispatchedNow = committed.size();
         long tFlush = System.currentTimeMillis();
         if (tFlush - tStart > 1000) {
@@ -1362,8 +1470,137 @@ public class Maestro extends JdbcDaoSupport {
         }
         dispatched = dispatchedNow;
 
+        persistMemoryRaises();
         sweepStaleReservationState(seenLayerIds);
         return dispatched;
+    }
+
+    /**
+     * Commit the planned bookings in transactions of at most COMMIT_CHUNK_FRAMES frames, cut on
+     * host boundaries so a host's bookings stay in one transaction (the capacity gate is per host,
+     * and planBookings emits each host's bookings together). A tick may plan a whole idle farm at
+     * once; one transaction for all of it would hold every booked host row and stat row for minutes
+     * and show nothing until the end. A chunk holds its locks for a bounded window, lands its procs
+     * as it goes, and launches them as it goes. Each chunk commits with its own resource deltas, so
+     * procs and their mirrors still land together or not at all. A chunk is one unit of failure:
+     * one that fails rolls back alone (commitChunk) and the loop goes on, so one failed chunk never
+     * aborts the tick. A leader that lost the planning lock stops before its next chunk: the frames
+     * left stay WAITING for the next leader, which plans from the database, so two Maestros never
+     * commit the same plan.
+     */
+    List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
+        List<FrameBooking> committed = new ArrayList<>();
+        int start = 0;
+        while (start < planned.size()) {
+            if (!leaderAlive()) {
+                logger.warn("Maestro: leadership lost mid-commit, " + (planned.size() - start)
+                        + " planned frames left for the next leader");
+                demote();
+                break;
+            }
+            int end = chunkEnd(planned, start);
+            committed.addAll(commitChunk(new ArrayList<>(planned.subList(start, end))));
+            start = end;
+        }
+        return committed;
+    }
+
+    /**
+     * The end of the chunk that starts at start: COMMIT_CHUNK_FRAMES bookings, extended past the
+     * cut to the last booking of the host that straddles it, so a host's bookings never split
+     * across two transactions.
+     */
+    static int chunkEnd(List<FrameBooking> planned, int start) {
+        int end = Math.min(start + COMMIT_CHUNK_FRAMES, planned.size());
+        while (end < planned.size()
+                && planned.get(end).proc.getHostId().equals(planned.get(end - 1).proc.getHostId()))
+            end++;
+        return end;
+    }
+
+    /**
+     * Commit one chunk in its own transaction, then publish and launch it outside that transaction:
+     * a slow publish never extends the lock window, and the frames start while the later chunks are
+     * still committing instead of after the last. A chunk whose transaction fails rolls back alone:
+     * its frames stay WAITING for the next tick, the chunks committed before it keep their procs,
+     * deltas and launches, and the chunks after it still commit. The in-memory snapshot stays
+     * decremented for the rest of the tick, the same under-booking a lost version race leaves, and
+     * the next snapshot corrects it. The resource deltas a failed flush left in the buffers are
+     * discarded with the chunk, so the next chunk credits only its own procs. A failed event
+     * publish is logged and never keeps a committed chunk from its launch.
+     */
+    private List<FrameBooking> commitChunk(final List<FrameBooking> chunk) {
+        List<FrameBooking> won;
+        try {
+            won = txTemplate().execute(status -> {
+                List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
+                applyResourceDeltas(w);
+                return w;
+            });
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: commit of a chunk of " + chunk.size() + " bookings failed and"
+                    + " rolled back; its frames wait for the next tick: " + e.getMessage());
+            discardResourceDeltas();
+            return Collections.emptyList();
+        }
+        try {
+            dispatchSupport.publishFrameStartedEvents(won);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: frame-started events of a chunk of " + won.size()
+                    + " bookings failed: " + e.getMessage());
+        }
+        launchCommitted(won);
+        return won;
+    }
+
+    /**
+     * The plan read of one (host, layer) slice: the frames planHost books for the layer on the host
+     * at the rss resize Maestro scored with ({cores, memKb}; absent = the layer's own ask), from
+     * the slice's offset and for its size. A layer that plans but yields zero bookable frames for
+     * plan_zero_warn_ticks ticks in a row is warned.
+     */
+    private List<FrameBooking> planLayerOnHost(DispatchHost host, String hostId, String layerId,
+            int planZeroWarnTicks) {
+        LayerInterface layer = jobManager.getLayer(layerId);
+        long[] resize = layerResize.get(layerId);
+        long effMemKb = resize != null ? resize[1] : 0;
+        // No recorded slice: a single {0, 0, 0} slice, which planHost reads as "no slice limit".
+        List<int[]> slices = planSliceByHostLayer.getOrDefault(hostId + "|" + layerId,
+                List.of(new int[] {0, 0, 0}));
+        List<FrameBooking> got = new ArrayList<>();
+        for (int[] slice : slices) {
+            // {offset, count, cores}: the cores are the slice's own (see submitCommit).
+            got.addAll(dispatcher.planHost(host, layer, slice[2], effMemKb, slice[0], slice[1]));
+        }
+        if (got.isEmpty()) {
+            int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
+            if (streak % planZeroWarnTicks == 0) {
+                logger.warn("Maestro: layer " + layerId + " planned " + streak
+                        + " consecutive ticks (last host " + host.getName()
+                        + ") but planHost found 0 bookable frames each time."
+                        + " A dispatch-query gate Maestro does not model is"
+                        + " rejecting it (thread mode, limit, local booking, ...):"
+                        + " enable DEBUG on this class and read the 'Maestro"
+                        + " unplaced'/'explain' lines for the candidate-side view.");
+            }
+        } else {
+            planZeroStreak.remove(layerId);
+        }
+        return got;
+    }
+
+    /**
+     * One line per tick for the plan reads that threw, host tasks and layer slices together, with
+     * the first cause: a database that fails under every host would otherwise write one warning per
+     * host and layer every tick. The window count goes on the stat line (planFail).
+     */
+    private void reportPlanFailures(int failedTasks, int tasks, int failedLayers, String cause) {
+        int failed = failedTasks + failedLayers;
+        if (failed == 0)
+            return;
+        summaryPlanFailures += failed;
+        logger.warn("Maestro: " + failedTasks + " of " + tasks + " host plans and " + failedLayers
+                + " layer plans failed this tick, the rest stand; first cause: " + cause);
     }
 
     /**
@@ -1376,9 +1613,10 @@ public class Maestro extends JdbcDaoSupport {
      * frames for plan_zero_warn_ticks ticks in a row is warned (a commit-time gate Maestro does not
      * model is silently rejecting it, which would otherwise starve in silence). Returns the planned
      * bookings, or null if the wait was interrupted (the caller then aborts the tick before
-     * committing).
+     * committing). A host task or a layer slice that throws costs its own bookings only; the
+     * failures are counted and reported once per tick (reportPlanFailures).
      */
-    private List<FrameBooking> planBookings() {
+    List<FrameBooking> planBookings() {
         int planZeroWarnTicks = env.getProperty("maestro.plan_zero_warn_ticks", Integer.class, 40);
         lastPlacements = 0;
         Set<String> plannedLayerIds = new HashSet<>();
@@ -1387,36 +1625,32 @@ public class Maestro extends JdbcDaoSupport {
             plannedLayerIds.addAll(ls);
         }
         List<Callable<List<FrameBooking>>> tasks = new ArrayList<>(plannedByHost.size());
+        AtomicInteger failedLayers = new AtomicInteger();
+        AtomicReference<String> firstCause = new AtomicReference<>();
         for (Map.Entry<String, List<String>> e : plannedByHost.entrySet()) {
             final String hostId = e.getKey();
             final List<String> layerIds = e.getValue();
             tasks.add(() -> {
                 List<FrameBooking> out = new ArrayList<>();
                 DispatchHost host = hostManager.getDispatchHost(hostId);
+                // A host whose launches keep ending with unknown outcomes is not
+                // booked: the launch would cost a deadline and a confirmation.
+                if (rqdClient != null && rqdClient.isLaunchBreakerOpen(host.getName())) {
+                    logger.info(
+                            "Maestro: skipping " + host.getName() + ", its launch breaker is open");
+                    return out;
+                }
                 for (String layerId : layerIds) {
-                    LayerInterface layer = jobManager.getLayer(layerId);
-                    // The rss resize Maestro scored with, so the commit books the
-                    // same shape. {cores, memKb}; absent = book the layer's own ask.
-                    long[] rz = layerResize.get(layerId);
-                    int[] slice = planSliceByHostLayer.get(hostId + "|" + layerId);
-                    List<FrameBooking> got = dispatcher.planHost(host, layer,
-                            rz != null ? (int) rz[0] : 0, rz != null ? rz[1] : 0,
-                            slice != null ? slice[0] : 0, slice != null ? slice[1] : 0);
-                    if (got.isEmpty()) {
-                        int streak = planZeroStreak.merge(layerId, 1, Integer::sum);
-                        if (streak % planZeroWarnTicks == 0) {
-                            logger.warn("Maestro: layer " + layerId + " planned " + streak
-                                    + " consecutive ticks (last host " + host.getName()
-                                    + ") but planHost found 0 bookable frames each time."
-                                    + " A dispatch-query gate Maestro does not model is"
-                                    + " rejecting it (thread mode, limit, local booking, ...):"
-                                    + " enable DEBUG on this class and read the 'Maestro"
-                                    + " unplaced'/'explain' lines for the candidate-side view.");
-                        }
-                    } else {
-                        planZeroStreak.remove(layerId);
+                    // One layer is one unit: a layer deleted mid-tick costs its
+                    // own slice, never the host's other layers; the failure is
+                    // counted and reported once per tick, below.
+                    try {
+                        out.addAll(planLayerOnHost(host, hostId, layerId, planZeroWarnTicks));
+                    } catch (RuntimeException ex) {
+                        failedLayers.incrementAndGet();
+                        firstCause.compareAndSet(null, "layer " + layerId + " on host "
+                                + host.getName() + ": " + ex.getMessage());
                     }
-                    out.addAll(got);
                 }
                 return out;
             });
@@ -1424,16 +1658,18 @@ public class Maestro extends JdbcDaoSupport {
         plannedByHost.clear();
 
         List<FrameBooking> planned = new ArrayList<>();
+        int failedTasks = 0;
         try {
             for (Future<List<FrameBooking>> f : readPool.invokeAll(tasks)) {
                 try {
                     planned.addAll(f.get());
                 } catch (ExecutionException ee) {
-                    logger.debug("Maestro: plan task failed: "
-                            + (ee.getCause() != null ? ee.getCause().getMessage()
-                                    : ee.getMessage()));
+                    failedTasks++;
+                    firstCause.compareAndSet(null, "host task: "
+                            + (ee.getCause() != null ? ee.getCause().toString() : ee.toString()));
                 }
             }
+            reportPlanFailures(failedTasks, tasks.size(), failedLayers.get(), firstCause.get());
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             return null;
@@ -1445,49 +1681,95 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Resize threadable candidates from the layer's observed rss BEFORE placement, so scoring, fit,
-     * caps, accounting and booking all see the layer's real shape. The size is the median rss of
-     * the layer's recent frames ({@link LayerLiveMem}), never the declared memory: declarations
-     * lie, running processes do not, and a single haywire process is one sample and cannot resize
-     * the layer. cores = round(rss / memPerCoreKb), never below the ask, never past the layer's
-     * max; memory = max(declared, rss) so packing stops trusting an under-declaration too. A layer
-     * with no evidence keeps its ask; when that ask is exactly 1 core ("let the system decide", the
-     * shape nobody sized) it stays rssProven=false, which arms the probe gate in the dispatch loop:
-     * at most {@link #PROBE_FRAMES} of its frames run until the farm has seen it (the production
-     * rss-watcher script's loop, inside the scheduler). An explicit ask of 2+ cores was sized by
-     * someone and books at full speed from frame one. A held layer that has already completed a
-     * probe's worth of frames without ever landing in a report runs too fast to sample and is
-     * released, never starved. Non-threadable layers are never resized (a single-threaded renderer
-     * cannot use the cores). The metric is the group's own memory-per-core, derived from the
-     * machines each tick, never configuration.
+     * Sets each candidate's cores and memory to what its frames really need, before placement.
+     * Scoring, fit checks, caps and booking then all use the same size.
+     *
+     * Memory: the larger of the layer's ask and its typical rss, which is the median peak of its
+     * recent frames ({@link LayerLiveMem}).
+     *
+     * Cores, for threadable layers only: {@code round(memory / memPerCoreKb)}, where memory is the
+     * typical rss or, while the layer has no rss samples yet, its memory ask. The result is never
+     * below the layer's core ask and never above its max cores or {@code maxHostCores} (the largest
+     * host in the group). Non-threadable layers keep their cores.
+     *
+     * Probe gate: a layer without rss samples whose size is still 1 core is marked unproven
+     * ({@code rssProven = false}), so at most {@link #PROBE_FRAMES} of its frames run until its rss
+     * is known. A layer that already finished that many frames is released, since its frames end
+     * too fast to be sampled.
+     *
+     * Changed sizes go into {@code resizeOut} as {cores, memory, previous memory}.
      */
-    static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem liveMem,
-            long memPerCoreKb, Map<String, long[]> resizeOut) {
-        for (LayerCandidate c : candidates) {
-            if (liveMem == null || !c.threadable || memPerCoreKb <= 0 || c.layerCoresMin <= 0) {
-                c.rssProven = true;
+    static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem rssLedger,
+            long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
+        for (LayerCandidate layer : candidates) {
+            if (rssLedger == null || layer.layerCoresMin <= 0) {
+                layer.rssProven = true;
                 continue;
             }
-            long typKb = liveMem.typicalRssKb(c.layerId);
-            if (typKb <= 0) {
-                // No evidence. Only a 1-core ask probes: nobody sized it, so nothing
-                // about it can be trusted until the reports have seen it. A layer that
-                // completed a probe's worth of frames unsampled is too fast to sample.
-                c.rssProven = c.layerCoresMin != 100 || c.frameSuccessCount >= PROBE_FRAMES;
-                continue;
+            long typicalRssKb = rssLedger.typicalRssKb(layer.layerId);
+            boolean hasRssSamples = typicalRssKb > 0;
+            boolean coresFollowMemory = layer.threadable && memPerCoreKb > 0;
+
+            int newCores = layer.layerCoresMin;
+            if (coresFollowMemory) {
+                long sizingMemKb = hasRssSamples ? typicalRssKb : layer.layerMemMin;
+                newCores = coresForMemory(layer, sizingMemKb, memPerCoreKb, maxHostCores);
             }
-            c.rssProven = true;
-            int eff = (int) Math.round(typKb / (double) memPerCoreKb) * 100;
-            if (c.layerCoresMax > 0 && eff > c.layerCoresMax) {
-                eff = c.layerCoresMax;
+            long newMemKb = Math.max(layer.layerMemMin, typicalRssKb);
+
+            boolean probeReleased = layer.frameSuccessCount >= PROBE_FRAMES;
+            layer.rssProven = hasRssSamples || !coresFollowMemory
+                    || newCores != CORE_POINTS_PER_CORE || probeReleased;
+
+            if (newCores != layer.layerCoresMin || newMemKb != layer.layerMemMin) {
+                resizeOut.put(layer.layerId, new long[] {newCores, newMemKb, layer.layerMemMin});
+                layer.layerCoresMin = newCores;
+                layer.layerMemMin = newMemKb;
             }
-            int cores = Math.max(c.layerCoresMin, eff);
-            long memKb = Math.max(c.layerMemMin, typKb);
-            if (cores != c.layerCoresMin || memKb != c.layerMemMin) {
-                c.layerCoresMin = cores;
-                c.layerMemMin = memKb;
-                resizeOut.put(c.layerId, new long[] {cores, memKb});
-            }
+        }
+    }
+
+    /**
+     * round(memKb / memPerCoreKb) cores, never below the ask, capped by the layer's and host's max.
+     */
+    private static int coresForMemory(LayerCandidate layer, long memKb, long memPerCoreKb,
+            int maxHostCores) {
+        int cores = (int) Math.round(memKb / (double) memPerCoreKb) * CORE_POINTS_PER_CORE;
+        if (layer.layerCoresMax > 0 && cores > layer.layerCoresMax)
+            cores = layer.layerCoresMax;
+        if (cores > maxHostCores)
+            cores = maxHostCores;
+        return Math.max(layer.layerCoresMin, cores);
+    }
+
+    /**
+     * The memory raises among this tick's resizes, as {memKb, layerId, memKb} rows for the
+     * ratcheting layer update, ordered by layer id so concurrent writers lock rows in one order.
+     */
+    static List<Object[]> memoryRaises(Map<String, long[]> resize) {
+        List<Object[]> rows = new ArrayList<>();
+        resize.entrySet().stream().filter(e -> e.getValue()[1] > e.getValue()[2])
+                .sorted(Map.Entry.comparingByKey()).forEach(
+                        e -> rows.add(new Object[] {e.getValue()[1], e.getKey(), e.getValue()[1]}));
+        return rows;
+    }
+
+    /**
+     * Write this tick's memory raises to layer.int_mem_min, so operators see the size Maestro books
+     * at and the size outlives a Cuebot restart. Upward only: the next tick reads the raised value
+     * back as the layer's ask, so a layer is written once per growth. Never throws: a failed write
+     * only delays what the GUI shows.
+     */
+    private void persistMemoryRaises() {
+        List<Object[]> rows = memoryRaises(layerResize);
+        if (rows.isEmpty())
+            return;
+        try {
+            getJdbcTemplate().batchUpdate(
+                    "UPDATE layer SET int_mem_min = ? WHERE pk_layer = ? AND int_mem_min < ?",
+                    rows);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: persisting " + rows.size() + " layer memory raises failed: " + e);
         }
     }
 
@@ -1507,17 +1789,10 @@ public class Maestro extends JdbcDaoSupport {
         return wholeCores > 0 ? mem / wholeCores : 0;
     }
 
-    /**
-     * Fold the committed bookings into the per-show throughput tally and the live cores-per-show
-     * ledger (the show_cores gauge's only source: stats never query the database), then apply their
-     * resource accounting deltas and flush one UPDATE per changed row.
-     */
+    /** Fold the committed bookings into the per-show throughput tally. */
     private void recordCommitted(List<FrameBooking> committed, MaestroMetrics.TickStats stats) {
-        for (FrameBooking b : committed) {
+        for (FrameBooking b : committed)
             stats.framesByShow.merge(b.frame.show, 1, Integer::sum);
-            bumpShowCoresLive(b.frame.show, b.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
-            runningFramesLive++;
-        }
     }
 
     /**
@@ -1538,9 +1813,10 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Launch the committed bookings: fire each one's RQD launch on the launch pool. A launch that
-     * fails post-commit unbooks the proc, returns the frame to WAITING, and kills it on RQD, all on
-     * the launch thread so the tick is never blocked.
+     * Launch the committed bookings: fire each one's RQD launch on the launch pool, stamped with
+     * the commit time. Each launch is its own unit (launchOne): an unknown outcome is resolved
+     * before any release and a definite failure rolls its booking back, all on the launch thread so
+     * the tick is never blocked.
      *
      * This is also where locality cache-warmth is stamped, since the committed set is in hand:
      * every commit advances its host's odometer (displacing older cache), and a layer returning to
@@ -1558,25 +1834,79 @@ public class Maestro extends JdbcDaoSupport {
                 }
             }
         }
+        long now = System.currentTimeMillis();
         for (FrameBooking b : committed) {
             final FrameBooking fb = b;
-            launchPool.execute(() -> {
-                try {
-                    dispatchSupport.runFrame(fb.proc, fb.frame);
-                } catch (RuntimeException e) {
-                    logger.warn("Maestro: RQD launch failed for " + fb.proc.getName() + " on frame "
-                            + fb.frame.getFrameId() + ": " + e.getMessage()
-                            + ", unbooking and clearing frame");
-                    try {
-                        dispatchSupport.unbookProc(fb.proc);
-                        dispatchSupport.clearFrame(fb.frame);
-                        rqdClient.killFrame(fb.proc, "launch failed during scheduler dispatch");
-                    } catch (RuntimeException ce) {
-                        logger.debug("Maestro: launch-failure cleanup partial for "
-                                + fb.frame.getFrameId() + ": " + ce.getMessage());
-                    }
-                }
-            });
+            fb.committedMs = now;
+            launchPool.execute(() -> launchOne(fb));
+        }
+    }
+
+    /**
+     * Launch one committed booking on its host. A launch whose RPC failed without proof that the
+     * frame never started (RqdLaunchUnknownOutcomeException) is resolved before anything is
+     * released: the frame may be running on the host, so DispatchSupport confirms twice that it is
+     * not and keeps the booking otherwise, the double-run guard the legacy dispatcher uses. A
+     * definite failure, one the request never left with, rolls the booking back (rollbackLaunch). A
+     * launch that waited in the queue longer than LAUNCH_MAX_AGE_MS, half the orphan age
+     * (ProcDao.ORPHAN_AGE_SECONDS), is rolled back unsent and without a kill: at the orphan age the
+     * maintenance pass releases the proc, which never pinged, and the next tick rebooks the frame,
+     * so a later launch would start it a second time. Half leaves the pass cadence, the RPC and the
+     * first host report their time whatever the interval is set to. A booking whose host's launch
+     * breaker opened since the plan is rolled back unsent the same way. Either way the failure is
+     * this launch's alone; the pool goes on with the next.
+     */
+    void launchOne(FrameBooking fb) {
+        long waitedMs = fb.committedMs > 0 ? System.currentTimeMillis() - fb.committedMs : 0;
+        if (waitedMs > LAUNCH_MAX_AGE_MS) {
+            logger.warn("Maestro: launch of " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + " waited " + waitedMs / 1000
+                    + "s in the queue; rolling the booking back unsent");
+            rollbackLaunch(fb, false);
+            return;
+        }
+        if (rqdClient != null && rqdClient.isLaunchBreakerOpen(fb.proc.hostName)) {
+            logger.info("Maestro: launch breaker open for " + fb.proc.hostName
+                    + "; rolling the booking of frame " + fb.frame.getFrameId() + " back unsent");
+            rollbackLaunch(fb, false);
+            return;
+        }
+        try {
+            dispatchSupport.runFrame(fb.proc, fb.frame);
+        } catch (RqdLaunchUnknownOutcomeException e) {
+            logger.warn("Maestro: launch outcome unknown for " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + ", keeping the booking until resolved: "
+                    + e.getMessage());
+            try {
+                dispatchSupport.resolveUnknownLaunchOutcomeAsync(fb.proc, fb.frame);
+            } catch (RuntimeException re) {
+                logger.warn("Maestro: launch outcome resolution failed for " + fb.frame.getFrameId()
+                        + ", booking kept: " + re.getMessage());
+            }
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: RQD launch failed for " + fb.proc.getName() + " on frame "
+                    + fb.frame.getFrameId() + ": " + e.getMessage()
+                    + ", unbooking and clearing frame");
+            rollbackLaunch(fb, true);
+        }
+    }
+
+    /**
+     * Roll a booking back after a launch failure: unbook the proc, clear the frame on the version
+     * this tick started (the batch start kept it in step), and kill on the host only when the
+     * launch was sent and the clear matched. A clear that matched no row means the frame moved on
+     * (released and rebooked, its version advanced), and the kill, addressed by host and frame,
+     * would hit the new run. A partial cleanup is logged; the proc sweep finishes it.
+     */
+    private void rollbackLaunch(FrameBooking fb, boolean sent) {
+        try {
+            dispatchSupport.unbookProc(fb.proc);
+            boolean cleared = dispatchSupport.clearFrame(fb.frame);
+            if (sent && cleared)
+                rqdClient.killFrame(fb.proc, "launch failed during scheduler dispatch");
+        } catch (RuntimeException ce) {
+            logger.warn("Maestro: launch-failure cleanup partial for " + fb.frame.getFrameId()
+                    + ": " + ce.getMessage());
         }
     }
 
@@ -1596,8 +1926,14 @@ public class Maestro extends JdbcDaoSupport {
      *
      * The isValid() ping each tick doubles as a keepalive, so an otherwise-idle lock connection is
      * never dropped by a firewall/NAT idle timeout.
+     *
+     * While onShutdown runs (shuttingDown) there is no leadership to have: a tick that raced the
+     * shutdown must not take back the lock the shutdown thread just released and commit into a JVM
+     * that is going down.
      */
-    private boolean ensureLeadership() {
+    boolean ensureLeadership() {
+        if (shuttingDown)
+            return false;
         Connection held = leaderConn;
         if (held != null) {
             try {
@@ -1608,7 +1944,7 @@ public class Maestro extends JdbcDaoSupport {
                 // treated as dead below
             }
             logger.warn("Maestro: planning-lock connection lost; demoting to standby");
-            closeLeaderConn();
+            demote();
             return false;
         }
         Connection conn = null;
@@ -1649,8 +1985,70 @@ public class Maestro extends JdbcDaoSupport {
         return c;
     }
 
-    /** Release (if the connection is still alive) and close the leadership connection. */
-    private void closeLeaderConn() {
+    /**
+     * Whether this cuebot still holds the planning lock: the lock connection is alive and no
+     * shutdown is under way. A closed connection is a definite loss (the session, and with it the
+     * advisory lock, is gone) and demotes at once. A failed isValid(1) probe is ambiguous -- a dead
+     * server or merely a loaded one -- so a single miss is tolerated and only LEADER_PROBE_STRIKES
+     * consecutive misses demote: one blip must not cost every live reservation and all cache
+     * warmth, while a truly dead session at worst commits one more chunk, whose frame-version
+     * guards fence it against the next leader.
+     */
+    private boolean leaderAlive() {
+        if (shuttingDown) {
+            return false;
+        }
+        Connection held = leaderConn;
+        if (held == null) {
+            return false;
+        }
+        boolean ok;
+        try {
+            if (held.isClosed()) {
+                leaderProbeMisses = 0;
+                return false;
+            }
+            ok = held.isValid(1);
+        } catch (SQLException e) {
+            ok = false;
+        }
+        if (ok) {
+            leaderProbeMisses = 0;
+            return true;
+        }
+        if (++leaderProbeMisses < LEADER_PROBE_STRIKES) {
+            logger.warn("Maestro: leadership probe miss " + leaderProbeMisses + " of "
+                    + LEADER_PROBE_STRIKES + "; keeping the lock");
+            return true;
+        }
+        leaderProbeMisses = 0;
+        return false;
+    }
+
+    /**
+     * Demote, on the tick thread: release the lock and forget what only a leader may hold. The next
+     * leader plans from the database, not from this Maestro's memory: reservations, blocked debt,
+     * warmth and odometers go with the lock (forgetLeaderMemory).
+     */
+    void demote() {
+        closeLeaderConn();
+        forgetLeaderMemory();
+    }
+
+    /** The planner's memory, cleared on demotion. Tick thread only: these are plain maps. */
+    void forgetLeaderMemory() {
+        reservations.clear();
+        blockedDebtMs.clear();
+        lastSeenMs.clear();
+        warmthByHostLayer.clear();
+        bookingsByHost.clear();
+    }
+
+    /**
+     * Release (if the connection is still alive) and close the leadership connection. Only the
+     * lock: the memory goes on the tick thread (demote), never from the shutdown thread.
+     */
+    void closeLeaderConn() {
         Connection held = leaderConn;
         leaderConn = null;
         if (held != null) {
@@ -1664,11 +2062,51 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Bean lifecycle: give up leadership promptly on shutdown so a standby can take over without
-     * waiting for the OS to tear down the socket.
+     * Bean lifecycle. Mark the shutdown first, so a tick that raced it takes no leadership and
+     * commits no further chunk; give up the lock, so a standby takes over without waiting for the
+     * OS to tear down the socket; wait, bounded by TICK_END_WAIT_MAX_S, for a tick in flight, so
+     * its chunks reach the pool before it closes; then drain the launch pool: every booking a tick
+     * committed is RUNNING in the database, and a launch still queued here is the only thing that
+     * will start it. The drain waits at most LAUNCH_DRAIN_MAX_S; a launch that misses it is an
+     * orphan the proc sweep resets, as after a crash. The planner's memory is left to the tick
+     * thread; this thread never touches it.
      */
     public void onShutdown() {
+        shuttingDown = true;
         closeLeaderConn();
+        awaitTickEnd();
+        drainLaunchPool();
+    }
+
+    private void awaitTickEnd() {
+        long deadline = System.currentTimeMillis() + 1000L * TICK_END_WAIT_MAX_S;
+        while (tickInFlight.get() && System.currentTimeMillis() < deadline) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        if (tickInFlight.get()) {
+            logger.warn("Maestro: a tick is still in flight at shutdown; the launches it has not"
+                    + " handed to the pool are left to the proc sweep");
+        }
+    }
+
+    private void drainLaunchPool() {
+        ExecutorService pool = launchPool;
+        if (pool == null)
+            return;
+        pool.shutdown();
+        try {
+            if (!pool.awaitTermination(LAUNCH_DRAIN_MAX_S, TimeUnit.SECONDS)) {
+                logger.warn("Maestro: launch pool did not drain within " + LAUNCH_DRAIN_MAX_S
+                        + "s; the launches still queued are left to the proc sweep");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private boolean acquireLeaderLock(Connection conn) throws SQLException {
@@ -1703,30 +2141,17 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Live cores-per-show ledger, no SQL: stats never query the database. The scheduler is the
-     * single writer for its shows, so it counts what it sees flow: plus the proc's cores when its
-     * batch commit books a frame, minus when the drain applies that frame's completion (won or
-     * stale, the proc is released either way). A show whose count reaches zero drops out of the
-     * map, which also bounds the small leaks this bookkeeping accepts: a proc released outside the
-     * drain (a lost host, a failed launch) leaks its cores only until its show drains empty. A
-     * fresh leader starts the ledger empty and converges as its own bookings flow.
+     * Fill the stats' cores-per-show and running-frame count from the procs alive right now, for
+     * the shows this scheduler plans. Read from the proc table each tick rather than tallied from
+     * bookings and completions: a tally starts empty on a new leader and never subtracts procs
+     * released outside the drain (kills, retries, lost hosts, failed launches), so it drifts.
      */
-    private final Map<String, Double> showCoresLive = new HashMap<>();
-
-    // Live running-frame count, same ledger discipline as showCoresLive (one booking
-    // is one frame on a proc; one drained completion releases it). The denominator
-    // that turns the waitlist's blocked counts into a share of ALL frames the farm
-    // handles right now, so a small blocked slice reads small.
-    private long runningFramesLive = 0;
-
-    /** Ledger update: {@code delta} whole cores for {@code show}; at zero the entry drops out. */
-    private void bumpShowCoresLive(String show, double delta) {
-        if (show == null)
-            return;
-        showCoresLive.compute(show, (k, v) -> {
-            double next = (v == null ? 0.0 : v) + delta;
-            return next < 0.001 ? null : next;
-        });
+    /* package for tests */ void readLiveShowUsage(MaestroMetrics.TickStats stats) {
+        getJdbcTemplate().query(SELECT_LIVE_SHOW_USAGE, rs -> {
+            stats.coresByShow.put(rs.getString("show_name"),
+                    rs.getLong("cores") / (double) CORE_POINTS_PER_CORE);
+            stats.runningFrames += rs.getLong("frames");
+        }, MaestroMode.facility(env));
     }
 
     /**
@@ -1755,6 +2180,65 @@ public class Maestro extends JdbcDaoSupport {
                     layerRunningFrames.merge(layer, rs.getInt("n"), Integer::sum);
                 });
         return affinity;
+    }
+
+    /**
+     * The soft cap's yield test: whether another candidate of this group could still use host h.
+     * True when some other layer has waiting frames, fits the host as it stands now, is under its
+     * own per-host cap there, and is not held by its job cap, show burst or a full limit, all read
+     * against the tick-wide usage maps. The cap is a contention rule among peers: while work of
+     * equal or higher priority waits for a machine, no layer takes more than its share of it; with
+     * nobody else able to use the machine, holding the cap would only strand it, and holding it for
+     * lower-priority work would hand that work the cores the draw gave this layer. Candidates later
+     * in the draw count as waiting, which is the point: the yield must not run ahead of their turn.
+     */
+    private boolean othersWant(BookableHost h, LayerCandidate c, List<LayerCandidate> candidates,
+            String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
+        for (LayerCandidate o : candidates) {
+            if (o == c || o.waitingFrameCount <= 0 || !pinsAllow(o, h) || !fitsOnHost(o, h))
+                continue;
+            if (lotteryWeight(o) < lotteryWeight(c))
+                continue;
+            if (hostLayerFrames.getOrDefault(h.hostId + "|" + o.layerId, 0) >= layerHostCap(h, o))
+                continue;
+            if (jobCoresUsed.getOrDefault(o.jobId, o.jobCoresInUse)
+                    + o.layerCoresMin > o.jobMaxCores)
+                continue;
+            if (showCoresUsed.getOrDefault(subKey(o.showId, groupAllocId), o.showCoresInUse)
+                    + o.layerCoresMin > o.showBurstCores)
+                continue;
+            if (limitBlocks(h, o, limitBudgets, limitUsed, limitSeats))
+                continue;
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Whether a gating limit keeps candidate o off host h right now: a FRAME limit whose tick-wide
+     * budget is spent, or a HOST limit with no seat left that h does not already hold. A limit with
+     * no budget entry does not gate (see resolveLimitBudgets).
+     */
+    private static boolean limitBlocks(BookableHost h, LayerCandidate o,
+            Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
+            Map<String, Set<String>> limitSeats) {
+        if (o.limitIds == null)
+            return false;
+        for (String limId : o.limitIds) {
+            LimitBudget b = limitBudgets.get(limId);
+            if (b == null)
+                continue;
+            if (b.hostBased) {
+                Set<String> seats = limitSeats.getOrDefault(limId, b.seats);
+                if (!seats.contains(shortHostName(h.hostName)) && seats.size() >= b.seatCap)
+                    return true;
+            } else if (limitUsed.getOrDefault(limId, 0) >= b.usable) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -2112,6 +2596,7 @@ public class Maestro extends JdbcDaoSupport {
                 FarmHealth.HostHealth hh = health.get(h.hostName.toLowerCase());
                 if (hh == null)
                     continue;
+                stats.busyCorePoints += hh.busyCorePoints;
                 String shape = (h.coresTotal / 100) + "c/"
                         + Math.round(h.memTotal / (1024.0 * 1024.0)) + "g";
                 stats.healthByGroup.computeIfAbsent(groupLabel, x -> new MaestroMetrics.HealthAgg())
@@ -2124,21 +2609,148 @@ public class Maestro extends JdbcDaoSupport {
 
     static Map<HostSpecKey, List<BookableHost>> groupByHostSpec(List<BookableHost> hosts) {
         Map<HostSpecKey, List<BookableHost>> groups = new LinkedHashMap<>();
-        for (BookableHost h : hosts) {
-            HostSpecKey k = new HostSpecKey(h.pkAlloc, h.pkFacility,
-                    // Cuebot auto-adds each host's own name as a tag. Drop it
-                    // from the grouping key, otherwise every host falls into a
-                    // group of one and the per-group candidate query runs once
-                    // per host instead of once per real spec.
-                    normalizeTags(h.tagsRaw, h.hostName), h.os,
-                    // GPU presence is a static hardware property: use totals,
-                    // not idle. A fully-booked GPU host (gpusIdle == 0) must
-                    // still group as a GPU host so its candidate query filters
-                    // for GPU layers and the GPU-weighted score protects it.
-                    h.gpusTotal > 0 || h.gpuMemTotal > 0, h.threadMode == ThreadMode.ALL_VALUE);
-            groups.computeIfAbsent(k, x -> new ArrayList<>()).add(h);
-        }
+        for (BookableHost h : hosts)
+            groups.computeIfAbsent(hostSpecKey(h), x -> new ArrayList<>()).add(h);
         return groups;
+    }
+
+    /**
+     * A host's spec: what kind of machine it is, never which one. Cuebot auto-adds each host's own
+     * name as a tag; the key drops it, otherwise every host falls into a group of one and the
+     * per-group candidate query runs once per host instead of once per real spec. A name in a
+     * layer's tags is a pin instead (see {@link #readPinnedCandidates}). GPU presence is a static
+     * hardware property, so it uses totals, not idle: a fully-booked GPU host must still group as a
+     * GPU host so its candidate query filters for GPU layers and the GPU-weighted score protects
+     * it.
+     */
+    static HostSpecKey hostSpecKey(BookableHost h) {
+        return new HostSpecKey(h.pkAlloc, h.pkFacility, normalizeTags(h.tagsRaw, h.hostName), h.os,
+                h.gpusTotal > 0 || h.gpuMemTotal > 0, h.threadMode == ThreadMode.ALL_VALUE);
+    }
+
+    /**
+     * Pins: a tag that names a host is a pin, not a spec. A layer pinned to hosts is a candidate
+     * only on the hosts it names and obeys every other rule there (its show's subscription in that
+     * host's allocation, facility, OS, thread mode, fit, caps, reservations, seats and the soft
+     * per-host cap), and it never widens to the host's group. The legacy match is an OR over the
+     * layer's tags, so a layer tagged with a spec and a name runs anywhere the spec allows plus on
+     * the named host; that layer is a group candidate as well and the group's copy wins there.
+     *
+     * One read per tick returns a row per (layer, named host) for the waiting layers whose tags are
+     * not all spec tags, with the host resolved and checked in SQL exactly as the group query
+     * checks a group (see SELECT_PINNED_CANDIDATES). The rows become one candidate per (layer,
+     * host-spec group), each carrying its pinned hosts, filed under the groups those hosts belong
+     * to; planGroup adds them to the group's candidates. A layer none of whose names resolves, and
+     * that has no spec tag either, waits with the reason "no host" so a stale machine list is
+     * visible in the waitlist instead of silent.
+     *
+     * Bound: one query over the waiting layers with a non-spec tag, then O(rows).
+     */
+    private void readPinnedCandidates(Map<HostSpecKey, List<BookableHost>> groups,
+            Map<String, BookableHost> hostById) {
+        Set<String> specTags = new HashSet<>();
+        for (HostSpecKey k : groups.keySet())
+            for (String t : k.tagsNormalized.split("\\s+"))
+                if (!t.isEmpty())
+                    specTags.add(t.toLowerCase());
+        if (specTags.isEmpty())
+            return;
+        int limit = env.getProperty("maestro.layer_candidates_per_group_max", Integer.class, 2000);
+        List<PinRow> rows;
+        try {
+            rows = getJdbcTemplate().query(SELECT_PINNED_CANDIDATES, PINNED_MAPPER,
+                    ThreadMode.ALL_VALUE, String.join(",", specTags), MaestroMode.facility(env),
+                    limit);
+        } catch (RuntimeException e) {
+            logger.warn("Maestro: pinned candidate query failed; no pinned layer is planned this"
+                    + " tick: " + e.getMessage());
+            return;
+        }
+        pinnedByGroup
+                .putAll(attachPins(rows, hostById, specTags, waitReasonByLayer, waitFramesByLayer));
+    }
+
+    /**
+     * Turn the pinned rows into one candidate per (layer, host-spec group), each holding the pinned
+     * hosts of that group. A row whose host is not in this tick's snapshot resolves nothing; a
+     * layer with no resolved host and no spec tag is filed under the waitlist reason "no host" with
+     * its waiting frames. Bound: O(rows).
+     */
+    static Map<HostSpecKey, List<LayerCandidate>> attachPins(List<PinRow> rows,
+            Map<String, BookableHost> hostById, Set<String> specTags,
+            Map<String, String> waitReason, Map<String, Integer> waitFrames) {
+        Map<HostSpecKey, List<LayerCandidate>> out = new HashMap<>();
+        Map<HostSpecKey, Map<String, LayerCandidate>> byLayer = new HashMap<>();
+        Set<String> resolved = new HashSet<>();
+        List<PinRow> unresolved = new ArrayList<>();
+        for (PinRow r : rows) {
+            BookableHost h = r.hostId == null ? null : hostById.get(r.hostId);
+            if (h == null) {
+                unresolved.add(r);
+                continue;
+            }
+            HostSpecKey k = hostSpecKey(h);
+            Map<String, LayerCandidate> inGroup = byLayer.computeIfAbsent(k, x -> new HashMap<>());
+            LayerCandidate c = inGroup.get(r.row.layerId);
+            if (c == null) {
+                c = r.row;
+                c.pinnedHosts = new ArrayList<>();
+                c.pinnedIds = new HashSet<>();
+                inGroup.put(c.layerId, c);
+                out.computeIfAbsent(k, x -> new ArrayList<>()).add(c);
+            }
+            c.pinnedHosts.add(h);
+            c.pinnedIds.add(h.hostId);
+            resolved.add(c.layerId);
+        }
+        for (PinRow r : unresolved) {
+            if (resolved.contains(r.row.layerId) || namesSpecTag(r.tags, specTags))
+                continue;
+            waitReason.put(r.row.layerId, "no host");
+            waitFrames.put(r.row.layerId, r.row.waitingFrameCount);
+        }
+        return out;
+    }
+
+    /** Whether any token of a layer's tag regex is a host-spec tag (case-insensitive). */
+    static boolean namesSpecTag(String layerTags, Set<String> specTags) {
+        if (layerTags == null)
+            return false;
+        for (String t : layerTags.replace(" ", "").split("\\|"))
+            if (specTags.contains(t.toLowerCase()))
+                return true;
+        return false;
+    }
+
+    /**
+     * Add a group's pinned candidates to its candidate list, skipping a layer the group query
+     * already returned (a layer tagged with a spec and a name), and cut each one's visit list to
+     * its pinned hosts that are in the group's idle subset: placement scans that subset and
+     * reservations use the full group, for a pin as for any other candidate. Bound: O(candidates +
+     * pins).
+     */
+    static void addPinned(List<LayerCandidate> candidates, List<LayerCandidate> pinned,
+            List<BookableHost> idleGroup) {
+        if (pinned == null || pinned.isEmpty())
+            return;
+        Set<String> present = new HashSet<>();
+        for (LayerCandidate c : candidates)
+            present.add(c.layerId);
+        Set<BookableHost> idle = new HashSet<>(idleGroup);
+        for (LayerCandidate c : pinned) {
+            if (!present.add(c.layerId))
+                continue;
+            c.pinnedIdle = new ArrayList<>();
+            for (BookableHost h : c.pinnedHosts)
+                if (idle.contains(h))
+                    c.pinnedIdle.add(h);
+            candidates.add(c);
+        }
+    }
+
+    /** A pinned candidate wants only its own hosts; an unpinned one wants any. */
+    static boolean pinsAllow(LayerCandidate o, BookableHost h) {
+        return o.pinnedIds == null || o.pinnedIds.contains(h.hostId);
     }
 
     /**
@@ -2164,14 +2776,22 @@ public class Maestro extends JdbcDaoSupport {
     // ---- placement: layer-driven, best-fit -------------------------------
 
     /**
-     * Layer-driven placement with persistent reservations. For each candidate in priority order:
+     * Layer-driven placement with persistent reservations, one placement slot at a time. Every slot
+     * goes to the show with the lowest subscription tier (showTier), and within it to a candidate
+     * drawn by priority-weighted lottery among that tier's candidates that can still place
+     * (placeOnce: the host with the lowest {@link #placementScore} among those that fit and pass
+     * the reservation, seat, per-host-plan and soft-cap gates), until none can. So a lone layer
+     * takes every fitting host in one tick, shows converge to their subscription sizes, and within
+     * a tier contending layers share the capacity in proportion to their priority: a rate, never a
+     * strict order. Every plan gets a disjoint frame slice from submitCommit, so parallel per-host
+     * plan reads cannot collide, and a layer's waiting count is tick-wide (frames planned for it in
+     * an earlier group are subtracted on entry), so the groups share one backlog. A tick therefore
+     * costs what the idle capacity it can fill costs, and commitInChunks lands that in bounded
+     * transactions.
      *
-     * 1. Dispatch loop: score every fitting host (respecting reservations) with
-     * {@link #placementScore} and pick the one with the lowest score. Dispatch via
-     * {@code dispatcher.dispatchHost(host, layer)}. If the chosen host carried a lower-priority
-     * reservation, override it to c. Loop until no fitting host, no waiting frames, or the job/show
-     * cap is reached. 2. Reconcile: c's reservation count should equal c.waitingFrameCount
-     * (decremented as we dispatched). Drop excess; claim more if short.
+     * After the slots, once per candidate: the why-not trace, the waitlist tally, and the
+     * reservation reconcile (c's reservation count should equal c.waitingFrameCount, decremented as
+     * we dispatched; drop excess, claim more if short), all read against the end-of-tick gate.
      *
      * Layer ids are recorded in {@code seenLayerIds} so the end-of-tick sweep can drop reservations
      * for layers that left the dispatchable set.
@@ -2193,255 +2813,51 @@ public class Maestro extends JdbcDaoSupport {
             if (h.coresTotal > maxGroupHostCores)
                 maxGroupHostCores = h.coresTotal;
         }
+        takeTickWideRemainder(candidates, plannedFramesByLayer, seenLayerIds);
+        stampDrawWeights(candidates);
+        for (LayerCandidate candidate : candidates)
+            candidate.showKey = subKey(candidate.showId, groupAllocId);
+
+        // Hand out placements one at a time until no candidate can place. Each
+        // placement goes to the show with the lowest tier (cores in use over
+        // subscription size, updated after every placement), as the legacy
+        // dispatcher does. Within that show, a candidate is drawn weighted by
+        // job priority. A candidate that places nothing or runs out of frames
+        // leaves the draw; once a show has none left, the next tier takes over.
+        List<LayerCandidate> active = new ArrayList<>(candidates.size());
+        for (LayerCandidate candidate : candidates) {
+            if (candidate.waitingFrameCount > 0)
+                active.add(candidate);
+        }
+        while (!active.isEmpty()) {
+            LayerCandidate head = stampTiers(active, showCoresUsed);
+            double weightSum = headWeight(active, head);
+            int idx = drawSlot(active, head, ThreadLocalRandom.current().nextDouble() * weightSum);
+            LayerCandidate drawn = active.get(idx);
+            int got = placeOnce(drawn, hosts, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+                    folderUsed, tReadyByHost, hostLayerAffinity, limitBudgets, limitUsed,
+                    limitSeats);
+            if (got > 0)
+                dispatched += got;
+            if (got <= 0 || drawn.waitingFrameCount <= 0) {
+                active.set(idx, active.get(active.size() - 1));
+                active.remove(active.size() - 1);
+            }
+        }
+
+        // Epilogue, once per candidate, against the end-of-tick gate.
         for (LayerCandidate c : candidates) {
-            seenLayerIds.add(c.layerId);
-
-
-            // Cross-group dedup: skip a layer already placed in an earlier host-spec group this
-            // tick, whose per-host plan read would pull the same waiting frames and lose the
-            // commit-time frame.int_version race. Placed after seenLayerIds.add (so the sweep still
-            // sees the layer) and before any host/cap mutation. Keyed on placement, so a layer
-            // capped or unfit in an earlier group is still tried here.
-            if (placedLayerIds.contains(c.layerId))
+            if (c.waitingFrameCount <= 0 && !c.placedThisTick)
                 continue;
-
-            // Sync this candidate's job/show usage with the tick-wide totals
-            // before any cap check: seed from the DB snapshot the first time
-            // a job/show is seen, then read back the accumulated value so
-            // earlier dispatches of the same job/show (here or in another
-            // group) count against this candidate's caps.
-            c.jobCoresInUse = jobCoresUsed.computeIfAbsent(c.jobId, k -> c.jobCoresInUse);
-            // Keyed on the subscription, not the show: a show with two allocations has
-            // two bursts, and the candidate row carries this group's own sub.int_cores.
-            c.showCoresInUse = showCoresUsed.computeIfAbsent(subKey(c.showId, groupAllocId),
-                    k -> c.showCoresInUse);
-            // Limits the layer is bound to: FRAME limits allow the minimum of their
-            // remaining budgets, tick-wide; HOST limits are enforced per host in the
-            // scoring loop. A limit with no budget entry does not gate (ADVISORY,
-            // DISABLED, or its external report went stale), exactly as under the
-            // legacy dispatcher's gate.
-            int limitUsable = Integer.MAX_VALUE;
-            List<LimitBudget> limitSeatPools = null;
-            if (c.limitIds != null) {
-                for (String limId : c.limitIds) {
-                    LimitBudget b = limitBudgets.get(limId);
-                    if (b == null)
-                        continue;
-                    if (b.hostBased) {
-                        if (limitSeatPools == null)
-                            limitSeatPools = new ArrayList<>(2);
-                        limitSeatPools.add(b);
-                        limitSeats.putIfAbsent(limId, b.seats);
-                    } else {
-                        int remaining = b.usable - limitUsed.computeIfAbsent(limId, k -> 0);
-                        if (remaining < limitUsable)
-                            limitUsable = remaining;
-                    }
-                }
-            }
-            // Same for the folder core ceiling (cores, not frames). Only tracked
-            // when the folder actually has a cap (folderMax >= 0; -1 = unlimited).
-            int folderInUse = (c.folderMax >= 0)
-                    ? folderUsed.computeIfAbsent(c.folderId, k -> c.folderRunning)
-                    : 0;
-
-            // A capped layer (job/show cap, full limit, folder ceiling) must
-            // not dispatch but must still reconcile, dropping reservations it
-            // can no longer use so other work can take those hosts.
-            boolean capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
-                    || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
-                    || (c.folderMax >= 0 && folderInUse + c.layerCoresMin > c.folderMax)
-                    || limitUsable <= 0;
-            if (c.limitIds != null && limitUsable <= 0)
+            CandidateGate g = gate(c, groupAllocId, jobCoresUsed, showCoresUsed, folderUsed,
+                    limitBudgets, limitUsed, limitSeats);
+            if (c.limitIds != null && g.limitUsable <= 0)
                 tickLicenseHeld++;
-
-            boolean placed = false;
-            while (!capped) {
-                // Probe gate: a 1-core threadable layer with no rss evidence ("let the
-                // system decide") may hold only PROBE_FRAMES frames farm-wide, so a
-                // brand-new mis-sized layer cannot blast the farm before the reports
-                // have seen what it really uses.
-                int probeHeadroom = Integer.MAX_VALUE;
-                if (!c.rssProven) {
-                    probeHeadroom = PROBE_FRAMES - layerRunningFrames.getOrDefault(c.layerId, 0)
-                            - layerProbeUsed.getOrDefault(c.layerId, 0);
-                    if (probeHeadroom <= 0)
-                        break;
-                }
-                BookableHost best = null;
-                BookableHost cappedFallback = null;
-                double bestScore = Double.POSITIVE_INFINITY;
-                for (BookableHost h : hosts) {
-                    if (!fitsOnHost(c, h))
-                        continue;
-                    // Per-host gate for HOST-type limits, keyed by host name (what
-                    // a license server reports): this host is eligible only if it
-                    // already holds every such limit, or the limit still has a
-                    // seat to give out.
-                    if (limitSeatPools != null && !limitSeatsAllow(limitSeatPools, limitSeats, h))
-                        continue;
-                    // A reserved host is off-limits unless EASY backfill can
-                    // borrow it without delaying the reservation's owner.
-                    if (!reservationAllows(h, c)) {
-                        if (!backfillAllows(h, c, tReadyByHost))
-                            continue;
-                    }
-                    // Per-host layer cap: a host already holding its share of
-                    // this layer takes no more of it; the flood spills to the
-                    // next host instead of blanketing this one.
-                    // One plan per (host, layer) per tick; a pair already
-                    // planned takes its next slice next tick.
-                    if (planSliceByHostLayer.containsKey(h.hostId + "|" + c.layerId))
-                        continue;
-                    // SOFT per-host layer cap: prefer hosts under the cap, so
-                    // a flood spreads instead of blanketing one machine. But a
-                    // fitting host blocked ONLY by the cap is remembered: if
-                    // no host is under the cap, the cap yields rather than
-                    // stranding an idle machine. Unproven layers never get
-                    // the fallback (the probe gate is their brake).
-                    if (layerHostMaxFrac > 0 && hostLayerFrames
-                            .getOrDefault(h.hostId + "|" + c.layerId, 0) >= layerHostCap(h, c)) {
-                        if (cappedFallback == null && c.rssProven)
-                            cappedFallback = h;
-                        continue;
-                    }
-                    double score = placementScore(h, c);
-                    // Locality bonus: prefer a host already running this layer so
-                    // a freed core is refilled by the same layer (same-machine
-                    // locality, formerly the reactive DispatchNextFrame path).
-                    if (localityEnabled) {
-                        Set<String> layersHere = hostLayerAffinity.get(h.hostId);
-                        if (layersHere != null && layersHere.contains(c.layerId)) {
-                            score -= localityBonus;
-                        } else if (localityWindowFrames > 0) {
-                            // Cache warmth: the host ran this layer and few
-                            // foreign frames displaced its cache since, so
-                            // pull the layer back with a decayed bonus. Never
-                            // larger than the live bonus; fit/reservations
-                            // are filtered before scoring.
-                            Long seen = warmthByHostLayer.get(h.hostId + "|" + c.layerId);
-                            if (seen != null) {
-                                long foreign = bookingsByHost.getOrDefault(h.hostId, 0L) - seen;
-                                if (foreign >= 0 && foreign < localityWindowFrames) {
-                                    score -= localityBonus
-                                            * (1.0 - (double) foreign / localityWindowFrames);
-                                }
-                            }
-                        }
-                    }
-                    // Seat bonus for HOST-type limits: packing onto an
-                    // already-seated machine consumes no new seat, which is the
-                    // whole point when seats are the scarce resource. Applied per
-                    // limit, so a host seated in all of the layer's limits outranks
-                    // one seated in only some. Stacks with the locality bonus.
-                    if (limitSeatPools != null) {
-                        String hName = shortHostName(h.hostName);
-                        for (LimitBudget b : limitSeatPools) {
-                            if (limitSeats.get(b.id).contains(hName))
-                                score -= limitSeatBonus;
-                        }
-                    }
-                    if (score < bestScore) {
-                        bestScore = score;
-                        best = h;
-                    }
-                }
-                boolean overCap = false;
-                if (best == null && cappedFallback != null) {
-                    // Soft cap: the only thing between this layer and an idle
-                    // machine was the cap. Give it the machine.
-                    best = cappedFallback;
-                    overCap = true;
-                }
-                if (best == null)
-                    break; // no host can fit this layer
-
-                // Estimate how many frames this commit will book. The
-                // dispatcher books up to job_frame_dispatch_max per call,
-                // bounded by the same fit checks placementScore uses.
-                int estFrames =
-                        headroomFrames(c, best, overCap, probeHeadroom, limitUsable, folderUsed);
-                if (estFrames <= 0)
-                    break;
-
-                // The locality dial: classify the chosen host here, before this
-                // commit moves any of the maps the bonus scored.
-                lastTickStats.bookedFramesByLocality.merge(localityKind(best, c), (long) estFrames,
-                        Long::sum);
-
-                int estCores = estFrames * c.layerCoresMin;
-                long estMem = (long) estFrames * c.layerMemMin;
-                int estGpus = estFrames * c.layerGpusMin;
-                long estGpuMem = (long) estFrames * c.layerGpuMemMin;
-
-                best.coresIdle -= estCores;
-                best.memIdle -= estMem;
-                best.gpusIdle -= estGpus;
-                best.gpuMemIdle -= estGpuMem;
-                c.jobCoresInUse += estCores;
-                c.showCoresInUse += estCores;
-                c.waitingFrameCount -= estFrames;
-                // Publish back so other candidates of the same job/show this
-                // tick see the updated usage.
-                jobCoresUsed.put(c.jobId, c.jobCoresInUse);
-                showCoresUsed.put(subKey(c.showId, groupAllocId), c.showCoresInUse);
-                if (layerHostMaxFrac > 0)
-                    hostLayerFrames.merge(best.hostId + "|" + c.layerId, estFrames, Integer::sum);
-                if (!c.rssProven)
-                    layerProbeUsed.merge(c.layerId, estFrames, Integer::sum);
-                if (c.folderMax >= 0)
-                    folderUsed.merge(c.folderId, estCores, Integer::sum);
-                // Spend the limits: a frame is a token in each FRAME limit, and
-                // this host now holds a seat in each HOST one. Both are tick-wide
-                // so every later candidate of the same limit, in any group, sees
-                // the spend.
-                if (c.limitIds != null) {
-                    boolean gated = false;
-                    if (limitUsable != Integer.MAX_VALUE)
-                        limitUsable -= estFrames;
-                    for (String limId : c.limitIds) {
-                        LimitBudget b = limitBudgets.get(limId);
-                        if (b == null)
-                            continue;
-                        gated = true;
-                        if (b.hostBased) {
-                            Set<String> seats = limitSeats.get(limId);
-                            if (seats.add(shortHostName(best.hostName))) {
-                                logger.info("Maestro limit: new seat " + seats.size() + "/"
-                                        + b.seatCap + " on host " + best.hostName + " for limit "
-                                        + b.name);
-                            }
-                        } else {
-                            limitUsed.merge(limId, estFrames, Integer::sum);
-                        }
-                    }
-                    if (gated)
-                        tickLicenseBooked += estFrames;
-                }
-
-                // Count an EASY-backfill borrow for the stat line: this host
-                // is reserved for someone else and only backfillAllows let us
-                // in.
-                if (!reservationAllows(best, c)) {
-                    tickBackfilled++;
-                    tickBackfilledCores += estCores;
-                }
-
-                // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
-                // reached here is either its owner booking after the drain or an EASY-backfill
-                // borrow. A borrow never takes ownership, so the reservation is left intact.
-                submitCommit(best.hostId, c.layerId, estFrames);
-                dispatched += estFrames;
-                placed = true;
-
-                // One commit per layer per tick: parallel per-host plan reads
-                // would otherwise grab the same frames (version collisions).
-                // A layer spreads across hosts over a few ticks instead. Soft-
-                // cap grants keep booking the remaining idle machines: their
-                // plans carry frame-slice offsets, so the reads stay disjoint.
-                if (!overCap)
-                    break;
-            }
+            boolean placed = c.placedThisTick;
+            boolean capped = g.capped;
+            int folderInUse = g.folderInUse;
+            int limitUsable = g.limitUsable;
+            List<LimitBudget> limitSeatPools = g.limitSeatPools;
 
             // Why-not trace: one DEBUG line per candidate that wanted work but
             // placed nothing this tick, naming the binding constraint in the
@@ -2475,8 +2891,8 @@ public class Maestro extends JdbcDaoSupport {
             if (c.waitingFrameCount > 0) {
                 waitReasonByLayer.put(c.layerId,
                         placed ? "flowing"
-                                : waitlistReason(c, hosts, folderInUse, limitUsable, limitSeatPools,
-                                        limitSeats));
+                                : waitlistReason(c, c.pinnedIdle != null ? c.pinnedIdle : hosts,
+                                        folderInUse, limitUsable, limitSeatPools, limitSeats));
                 waitFramesByLayer.put(c.layerId, c.waitingFrameCount);
             } else if (placed) {
                 waitReasonByLayer.remove(c.layerId);
@@ -2504,7 +2920,8 @@ public class Maestro extends JdbcDaoSupport {
                 boolean qualified = blocked && debt >= reservationBlockMs && wideEnough;
                 boolean holdsResv = layerHoldsReservation(c.layerId);
                 if (holdsResv || qualified) {
-                    reservationReqs.add(new ReservationRequest(c, fullHosts));
+                    reservationReqs.add(new ReservationRequest(c,
+                            c.pinnedHosts != null ? c.pinnedHosts : fullHosts));
                 }
                 // Trace reservation decisions for every candidate so we can
                 // see why wide-job layers never accumulate enough debt.
@@ -2521,6 +2938,364 @@ public class Maestro extends JdbcDaoSupport {
         }
 
         return dispatched;
+    }
+
+    /**
+     * The weight of a job in the placement draw, computed from its priority. The higher the weight,
+     * the larger the share of this tick's slots the job wins.
+     *
+     * Each slot goes to a candidate picked at random, with odds proportional to its weight: a
+     * higher priority wins more slots, but a lower one still gets some. The weight is the priority
+     * raised to PRIORITY_EXPONENT, with priorities below 1 counted as 1 (like the candidate query's
+     * GREATEST). The exponent decides how much a priority gap is worth. For two jobs competing for
+     * the same slots, priority 80 against 30, the higher job wins 73% of slots with a linear weight
+     * (80 vs 30), 81% with the 1.5 exponent (716 vs 164), and all of them under legacy's job walk,
+     * until it runs out of frames.
+     *
+     * Equal priorities split slots evenly. The weight is per job; stampDrawWeights splits it among
+     * the job's layers.
+     */
+    static double lotteryWeight(LayerCandidate candidate) {
+        return Math.pow(Math.max(1, candidate.priority), PRIORITY_EXPONENT);
+    }
+
+    /**
+     * The winner of one slot among the candidates of {@code head}'s tier (see stampTiers): their
+     * drawWeight bands (see headWeight) laid end to end in list order, ticket in [0, headWeight).
+     * The last of them absorbs any rounding, so a draw never falls outside the tier.
+     */
+    static int drawSlot(List<LayerCandidate> active, LayerCandidate head, double ticket) {
+        int lastInTier = 0;
+        for (int index = 0; index < active.size(); index++) {
+            LayerCandidate candidate = active.get(index);
+            if (candidate.tier > head.tier)
+                continue;
+            lastInTier = index;
+            ticket -= candidate.drawWeight;
+            if (ticket < 0)
+                return index;
+        }
+        return lastInTier;
+    }
+
+    /**
+     * Stamp every active candidate with its show's tier, read against the tick-wide show cores map
+     * so every placement of this tick moves its show before the next draw, and return a candidate
+     * of the lowest tier.
+     */
+    static LayerCandidate stampTiers(List<LayerCandidate> active,
+            Map<String, Integer> showCoresUsed) {
+        LayerCandidate head = null;
+        for (LayerCandidate candidate : active) {
+            candidate.tier = showTier(candidate, showCoresUsed);
+            if (head == null || candidate.tier < head.tier)
+                head = candidate;
+        }
+        return head;
+    }
+
+    /** The draw weight of {@code head}'s tier: the range drawSlot draws from. */
+    static double headWeight(List<LayerCandidate> active, LayerCandidate head) {
+        double weightSum = 0;
+        for (LayerCandidate candidate : active) {
+            if (candidate.tier <= head.tier)
+                weightSum += candidate.drawWeight;
+        }
+        return weightSum;
+    }
+
+    /**
+     * Stamp each candidate's draw weight, once per group. Priority is a job's, so a job's weight is
+     * split evenly among its layers in the group: an eight-layer job draws as one job, not as
+     * eight.
+     */
+    static void stampDrawWeights(List<LayerCandidate> candidates) {
+        Map<String, Integer> layersOfJob = new HashMap<>();
+        for (LayerCandidate c : candidates)
+            layersOfJob.merge(c.jobId, 1, Integer::sum);
+        for (LayerCandidate c : candidates)
+            c.drawWeight = lotteryWeight(c) / layersOfJob.get(c.jobId);
+    }
+
+    /**
+     * Prologue of a group, once per candidate: register it with the sweep and take its tick-wide
+     * remainder. A layer planned in an earlier host-spec group this tick keeps only its remaining
+     * frames here, so the groups share one backlog and every plan's slice stays disjoint.
+     */
+    static void takeTickWideRemainder(List<LayerCandidate> candidates,
+            Map<String, Integer> plannedByLayer, Set<String> seenLayerIds) {
+        for (LayerCandidate c : candidates) {
+            seenLayerIds.add(c.layerId);
+            c.waitingFrameCount -= plannedByLayer.getOrDefault(c.layerId, 0);
+            c.placedThisTick = false;
+        }
+    }
+
+    /**
+     * The tier of a candidate's show on this allocation: the legacy dispatcher's subscription tier
+     * (the database's tier() function) read tick-wide. Cores in use over subscription size; a show
+     * running nothing sorts below every other, at minus its size; a show with no size scores its
+     * whole cores plus one, so it sorts above every show still under its size, though a sized show
+     * far enough over its size can sort above it. Lower runs first.
+     */
+    static double showTier(LayerCandidate candidate, Map<String, Integer> showCoresUsed) {
+        int cores = showCoresUsed.getOrDefault(candidate.showKey, candidate.showCoresInUse);
+        if (candidate.showSizeCores == 0)
+            return cores / 100.0 + 1;
+        if (cores == 0)
+            return -candidate.showSizeCores;
+        return (double) cores / candidate.showSizeCores;
+    }
+
+    /** Tick-wide cap state of one candidate, read fresh at every slot and once in the epilogue. */
+    static final class CandidateGate {
+        int folderInUse;
+        int limitUsable = Integer.MAX_VALUE;
+        List<LimitBudget> limitSeatPools;
+        boolean capped;
+    }
+
+    /**
+     * Sync one candidate's job and show usage with the tick-wide totals and evaluate every cap that
+     * can hold it: job max cores, show burst (keyed on the subscription, not the show: a show with
+     * two allocations has two bursts), the folder core ceiling, and the limits the layer is bound
+     * to (FRAME limits allow the minimum of their remaining budgets, HOST limits are gated per host
+     * in placeOnce; a limit with no budget entry does not gate). Each tick-wide map is seeded from
+     * the DB snapshot the first time its key is seen and read back after, so placements made
+     * earlier this tick, here or in another group, count against this candidate. Idempotent:
+     * placeOnce calls it before every attempt, the epilogue once more.
+     */
+    private CandidateGate gate(LayerCandidate c, String groupAllocId,
+            Map<String, Integer> jobCoresUsed, Map<String, Integer> showCoresUsed,
+            Map<String, Integer> folderUsed, Map<String, LimitBudget> limitBudgets,
+            Map<String, Integer> limitUsed, Map<String, Set<String>> limitSeats) {
+        CandidateGate g = new CandidateGate();
+        c.jobCoresInUse = jobCoresUsed.computeIfAbsent(c.jobId, k -> c.jobCoresInUse);
+        c.showCoresInUse = showCoresUsed.computeIfAbsent(subKey(c.showId, groupAllocId),
+                k -> c.showCoresInUse);
+        if (c.limitIds != null) {
+            for (String limId : c.limitIds) {
+                LimitBudget b = limitBudgets.get(limId);
+                if (b == null)
+                    continue;
+                if (b.hostBased) {
+                    if (g.limitSeatPools == null)
+                        g.limitSeatPools = new ArrayList<>(2);
+                    g.limitSeatPools.add(b);
+                    limitSeats.putIfAbsent(limId, b.seats);
+                } else {
+                    int remaining = b.usable - limitUsed.computeIfAbsent(limId, k -> 0);
+                    if (remaining < g.limitUsable)
+                        g.limitUsable = remaining;
+                }
+            }
+        }
+        g.folderInUse =
+                (c.folderMax >= 0) ? folderUsed.computeIfAbsent(c.folderId, k -> c.folderRunning)
+                        : 0;
+        // A capped layer (job/show cap, folder ceiling, spent limit budget) must
+        // not dispatch but must still reconcile, dropping reservations it can no
+        // longer use so other work can take those hosts.
+        g.capped = c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
+                || c.showCoresInUse + c.layerCoresMin > c.showBurstCores
+                || (c.folderMax >= 0 && g.folderInUse + c.layerCoresMin > c.folderMax)
+                || g.limitUsable <= 0;
+        return g;
+    }
+
+    /**
+     * One placement attempt for candidate c: the gate, the probe headroom, the host scan (every
+     * fitting host scored with placementScore under the reservation, seat, per-host-plan and
+     * soft-cap gates; a pinned candidate scans only its pinned hosts, see addPinned; the soft cap
+     * yields only on a host nobody else wants, see othersWant), the frame estimate, then the
+     * bookkeeping that makes the tick's later candidates see the spend, and submitCommit. Returns
+     * the frames planned, 0 when the candidate is capped, out of probe headroom, or has no host
+     * left this tick.
+     */
+    private int placeOnce(LayerCandidate c, List<BookableHost> hosts,
+            List<LayerCandidate> candidates, String groupAllocId, Map<String, Integer> jobCoresUsed,
+            Map<String, Integer> showCoresUsed, Map<String, Integer> folderUsed,
+            Map<String, Integer> tReadyByHost, Map<String, Set<String>> hostLayerAffinity,
+            Map<String, LimitBudget> limitBudgets, Map<String, Integer> limitUsed,
+            Map<String, Set<String>> limitSeats) {
+        CandidateGate g = gate(c, groupAllocId, jobCoresUsed, showCoresUsed, folderUsed,
+                limitBudgets, limitUsed, limitSeats);
+        if (g.capped)
+            return 0;
+        int limitUsable = g.limitUsable;
+        List<LimitBudget> limitSeatPools = g.limitSeatPools;
+        // Probe gate: a 1-core threadable layer with no rss evidence ("let the
+        // system decide") may hold only PROBE_FRAMES frames farm-wide, so a
+        // brand-new mis-sized layer cannot blast the farm before the reports
+        // have seen what it really uses.
+        int probeHeadroom = Integer.MAX_VALUE;
+        if (!c.rssProven) {
+            probeHeadroom = PROBE_FRAMES - layerRunningFrames.getOrDefault(c.layerId, 0)
+                    - layerProbeUsed.getOrDefault(c.layerId, 0);
+            if (probeHeadroom <= 0)
+                return 0;
+        }
+        BookableHost best = null;
+        BookableHost cappedFallback = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        for (BookableHost h : c.pinnedIdle != null ? c.pinnedIdle : hosts) {
+            if (!fitsOnHost(c, h))
+                continue;
+            // Per-host gate for HOST-type limits, keyed by host name (what
+            // a license server reports): this host is eligible only if it
+            // already holds every such limit, or the limit still has a
+            // seat to give out.
+            if (limitSeatPools != null && !limitSeatsAllow(limitSeatPools, limitSeats, h))
+                continue;
+            // A reserved host is off-limits unless EASY backfill can
+            // borrow it without delaying the reservation's owner.
+            if (!reservationAllows(h, c)) {
+                if (!backfillAllows(h, c, tReadyByHost))
+                    continue;
+            }
+            // Per-host layer cap: a host already holding its share of
+            // this layer takes no more of it; the flood spills to the
+            // next host instead of blanketing this one.
+            // SOFT per-host layer cap: prefer hosts under the cap, so
+            // a flood spreads instead of blanketing one machine. But a
+            // fitting host blocked ONLY by the cap is remembered: if
+            // no host is under the cap, the cap yields rather than
+            // stranding an idle machine, and only on a host no other
+            // candidate could still use (othersWant). Unproven layers
+            // never get the fallback (the probe gate is their brake).
+            if (layerHostMaxFrac > 0 && hostLayerFrames.getOrDefault(h.hostId + "|" + c.layerId,
+                    0) >= layerHostCap(h, c)) {
+                if (cappedFallback == null && c.rssProven
+                        && !othersWant(h, c, candidates, groupAllocId, jobCoresUsed, showCoresUsed,
+                                limitBudgets, limitUsed, limitSeats))
+                    cappedFallback = h;
+                continue;
+            }
+            double score = placementScore(h, c);
+            // Locality bonus: prefer a host already running this layer so
+            // a freed core is refilled by the same layer (same-machine
+            // locality, formerly the reactive DispatchNextFrame path).
+            if (localityEnabled) {
+                Set<String> layersHere = hostLayerAffinity.get(h.hostId);
+                if (layersHere != null && layersHere.contains(c.layerId)) {
+                    score -= localityBonus;
+                } else if (localityWindowFrames > 0) {
+                    // Cache warmth: the host ran this layer and few
+                    // foreign frames displaced its cache since, so
+                    // pull the layer back with a decayed bonus. Never
+                    // larger than the live bonus; fit/reservations
+                    // are filtered before scoring.
+                    Long seen = warmthByHostLayer.get(h.hostId + "|" + c.layerId);
+                    if (seen != null) {
+                        long foreign = bookingsByHost.getOrDefault(h.hostId, 0L) - seen;
+                        if (foreign >= 0 && foreign < localityWindowFrames) {
+                            score -= localityBonus
+                                    * (1.0 - (double) foreign / localityWindowFrames);
+                        }
+                    }
+                }
+            }
+            // Seat bonus for HOST-type limits: packing onto an
+            // already-seated machine consumes no new seat, which is the
+            // whole point when seats are the scarce resource. Applied per
+            // limit, so a host seated in all of the layer's limits outranks
+            // one seated in only some. Stacks with the locality bonus.
+            if (limitSeatPools != null) {
+                String hName = shortHostName(h.hostName);
+                for (LimitBudget b : limitSeatPools) {
+                    if (limitSeats.get(b.id).contains(hName))
+                        score -= limitSeatBonus;
+                }
+            }
+            if (score < bestScore) {
+                bestScore = score;
+                best = h;
+            }
+        }
+        boolean overCap = false;
+        if (best == null && cappedFallback != null) {
+            // Soft cap: the only thing between this layer and an idle
+            // machine was the cap. Give it the machine.
+            best = cappedFallback;
+            overCap = true;
+        }
+        if (best == null)
+            return 0; // no host can fit this layer
+
+        // Estimate how many frames this commit will book. The
+        // dispatcher books up to job_frame_dispatch_max per call,
+        // bounded by the same fit checks placementScore uses.
+        int estFrames = headroomFrames(c, best, overCap, probeHeadroom, limitUsable, folderUsed);
+        if (estFrames <= 0)
+            return 0;
+
+        // The locality dial: classify the chosen host here, before this
+        // commit moves any of the maps the bonus scored.
+        lastTickStats.bookedFramesByLocality.merge(localityKind(best, c), (long) estFrames,
+                Long::sum);
+
+        int estCores = estFrames * c.layerCoresMin;
+        long estMem = (long) estFrames * c.layerMemMin;
+        int estGpus = estFrames * c.layerGpusMin;
+        long estGpuMem = (long) estFrames * c.layerGpuMemMin;
+
+        best.coresIdle -= estCores;
+        best.memIdle -= estMem;
+        best.gpusIdle -= estGpus;
+        best.gpuMemIdle -= estGpuMem;
+        c.jobCoresInUse += estCores;
+        c.showCoresInUse += estCores;
+        c.waitingFrameCount -= estFrames;
+        // Publish back so other candidates of the same job/show this
+        // tick see the updated usage.
+        jobCoresUsed.put(c.jobId, c.jobCoresInUse);
+        showCoresUsed.put(subKey(c.showId, groupAllocId), c.showCoresInUse);
+        if (layerHostMaxFrac > 0)
+            hostLayerFrames.merge(best.hostId + "|" + c.layerId, estFrames, Integer::sum);
+        if (!c.rssProven)
+            layerProbeUsed.merge(c.layerId, estFrames, Integer::sum);
+        if (c.folderMax >= 0)
+            folderUsed.merge(c.folderId, estCores, Integer::sum);
+        // Spend the limits: a frame is a token in each FRAME limit, and
+        // this host now holds a seat in each HOST one. Both are tick-wide
+        // so every later candidate of the same limit, in any group, sees
+        // the spend.
+        if (c.limitIds != null) {
+            boolean gated = false;
+            for (String limId : c.limitIds) {
+                LimitBudget b = limitBudgets.get(limId);
+                if (b == null)
+                    continue;
+                gated = true;
+                if (b.hostBased) {
+                    Set<String> seats = limitSeats.get(limId);
+                    if (seats.add(shortHostName(best.hostName))) {
+                        logger.info("Maestro limit: new seat " + seats.size() + "/" + b.seatCap
+                                + " on host " + best.hostName + " for limit " + b.name);
+                    }
+                } else {
+                    limitUsed.merge(limId, estFrames, Integer::sum);
+                }
+            }
+            if (gated)
+                tickLicenseBooked += estFrames;
+        }
+
+        // Count an EASY-backfill borrow for the stat line: this host
+        // is reserved for someone else and only backfillAllows let us
+        // in.
+        if (!reservationAllows(best, c)) {
+            tickBackfilled++;
+            tickBackfilledCores += estCores;
+        }
+
+        // No seize-on-dispatch: reservations are firm (see reservationAllows), so a host
+        // reached here is either its owner booking after the drain or an EASY-backfill
+        // borrow. A borrow never takes ownership, so the reservation is left intact.
+        submitCommit(best.hostId, c.layerId, estFrames, c.layerCoresMin);
+        c.placedThisTick = true;
+        return estFrames;
+
     }
 
     /** True if any host is currently reserved for this layer. */
@@ -2804,19 +3579,6 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Predict the number of additional frames of c (beyond the first) that could be dispatched to h
-     * within this tick. Shared by placementScore (which uses it to compute stranding) and the
-     * dispatch loop (which uses it to estimate the frames a single commit will book).
-     *
-     * Caps applied (mirroring the dispatcher's per-frame fit checks): physical fit on each
-     * dimension, job int_max_cores (matches isJobBookable), and show int_burst (matches
-     * isShowAtOrOverBurst).
-     *
-     * The per-call caps host_frame_dispatch_max and job_frame_dispatch_max are not applied here
-     * because they bound a single dispatch call, not the per-tick total. The dispatch loop applies
-     * job_frame_dispatch_max when estimating a single commit's worth of frames.
-     */
-    /**
      * Frames one commit may book for candidate c on host best: the minimum of every sizing rule,
      * each term named. Zero or less means stop booking this candidate this tick. A soft-cap grant
      * (overCap) skips the per-host layer-cap term; the cap already yielded for this booking.
@@ -2939,13 +3701,15 @@ public class Maestro extends JdbcDaoSupport {
      * Record a (host, layer) placement to commit at the end of this tick. Maestro-thread only;
      * doTick drains plannedByHost via planHost + startFramesAndProcsBatch.
      */
-    private void submitCommit(String hostId, String layerId, int estFrames) {
-        plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
-        placedLayerIds.add(layerId);
-        // Slice bookkeeping: this plan starts where the layer's earlier plans
-        // this tick end, so parallel plan reads pull disjoint frames.
-        planSliceByHostLayer.put(hostId + "|" + layerId,
-                new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames});
+    private void submitCommit(String hostId, String layerId, int estFrames, int cores) {
+        // Start this slice where the layer's previous one ended, so parallel plan reads never
+        // pull the same frames. A (host, layer) pair gets one slice per slot the draw gives it.
+        List<int[]> slices = planSliceByHostLayer.computeIfAbsent(hostId + "|" + layerId,
+                k -> new ArrayList<>());
+        if (slices.isEmpty())
+            plannedByHost.computeIfAbsent(hostId, k -> new ArrayList<>()).add(layerId);
+        // Cores are per slice: the grant is capped per group, and a layer may plan in several.
+        slices.add(new int[] {plannedFramesByLayer.getOrDefault(layerId, 0), estFrames, cores});
         plannedFramesByLayer.merge(layerId, estFrames, Integer::sum);
     }
 
@@ -2991,16 +3755,24 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Apply this tick's accumulated resource deltas as one UPDATE per row. Runs on Maestro thread
-     * right after the batch commit, so no accumulation races it. On a SQL error the deltas are
-     * merged back so the next tick retries them rather than silently dropping accounting.
-     * Subscription/layer rows missing (deleted mid-tick) simply update zero rows; folder/point use
-     * the job subquery and likewise no-op if the job is gone.
+     * Apply a chunk's accumulated resource deltas as one UPDATE per row, inside the chunk's
+     * transaction and on the Maestro thread, so no accumulation races it. A SQL error rolls the
+     * chunk back: the deltas already drained go with it, and commitChunk discards the rest
+     * (discardResourceDeltas), so a failed chunk never credits the next one. Subscription/layer
+     * rows missing (deleted mid-tick) simply update zero rows; folder/point use the job subquery
+     * and likewise no-op if the job is gone.
      */
     private void flushResourceDeltas() {
         flushSubDeltas();
         flushLayerDeltas();
         flushJobDeltas();
+    }
+
+    /** Drop the deltas a failed chunk left behind, so the next chunk credits only its own procs. */
+    void discardResourceDeltas() {
+        subDeltas.clear();
+        layerDeltas.clear();
+        jobDeltas.clear();
     }
 
     private void flushSubDeltas() {
@@ -3116,8 +3888,8 @@ public class Maestro extends JdbcDaoSupport {
      * (gates mirror {@link #fitsOnHost}): {@code cores} (no host had enough idle cores for one
      * frame), {@code memory} (cores fit somewhere but not the RAM), {@code gpu} (cores and RAM fit
      * but not the GPU), or {@code fit} (some host fit fully, so the layer was gated by a
-     * reservation or a host-based license seat -- the caller resolves that into held/license).
-     * Feeds the waitlist buckets via {@link #waitlistReason}.
+     * reservation or a HOST-limit seat -- the caller resolves that into held/license). Feeds the
+     * waitlist buckets via {@link #waitlistReason}.
      */
     static String classifyFragmentation(LayerCandidate c, List<BookableHost> hosts) {
         boolean anyCores = false;
@@ -3141,8 +3913,11 @@ public class Maestro extends JdbcDaoSupport {
 
     /**
      * Resolve a {@code fit} fragmentation (some host fit the layer fully, yet it did not book) into
-     * the gate that held it: {@code license} when a fitting host's HOST-limit seat is taken, else
-     * {@code held} (a reservation is draining that host for a wide job).
+     * the gate that held it: {@code license} when a fitting host's HOST-limit seat is taken;
+     * {@code held} when a fitting host is reserved for someone else (a reservation is draining it
+     * for a wide job); else {@code share}: every fitting host already holds this layer's per-host
+     * share while other work waits (the soft cap yielding to nobody, see othersWant), or was
+     * planned for it this tick and takes its next slice next tick.
      */
     private String fitGateReason(LayerCandidate c, List<BookableHost> hosts,
             List<LimitBudget> limitSeatPools, Map<String, Set<String>> limitSeats) {
@@ -3152,17 +3927,22 @@ public class Maestro extends JdbcDaoSupport {
                     return "license";
             }
         }
-        return "held";
+        for (BookableHost h : hosts) {
+            if (fitsOnHost(c, h) && !reservationAllows(h, c))
+                return "held";
+        }
+        return "share";
     }
 
     /**
      * The waitlist bucket for an unplaced candidate that still has waiting frames, by the same
      * precedence as the why-not trace: a job / show / folder cap is {@code limit}; an exhausted
      * FRAME-limit budget is {@code no license}; a fitting host reserved for someone else is
-     * {@code held}. The remaining fit failures split in two: {@code capacity} when the group's idle
-     * cores together cannot cover even one frame (the farm is simply full, nothing is wrong), and
-     * {@code no fit} when idle cores exist but none fits (slivers too small for a wide frame, or
-     * memory / gpu short): the shape mismatch worth investigating.
+     * {@code held}; a layer at its per-host share on every fitting host while other work waits is
+     * {@code share}. The remaining fit failures split in two: {@code capacity} when the group's
+     * idle cores together cannot cover even one frame (the farm is simply full, nothing is wrong),
+     * and {@code no fit} when idle cores exist but none fits (slivers too small for a wide frame,
+     * or memory / gpu short): the shape mismatch worth investigating.
      */
     private String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
             int limitUsable, List<LimitBudget> limitSeatPools,
@@ -3176,8 +3956,8 @@ public class Maestro extends JdbcDaoSupport {
         String fit = classifyFragmentation(c, hosts);
         if ("fit".equals(fit))
             fit = fitGateReason(c, hosts, limitSeatPools, limitSeats);
-        if ("held".equals(fit))
-            return "held";
+        if ("held".equals(fit) || "share".equals(fit))
+            return fit;
         if ("license".equals(fit))
             return "no license";
         if ("cores".equals(fit)) {
@@ -3249,21 +4029,26 @@ public class Maestro extends JdbcDaoSupport {
         String layerId;
         String jobId;
         String showId;
-        int layerCoresMin;
+        int layerCoresMin; // the ask, or the grant (resizeFromLiveMem)
         long layerMemMin;
         boolean threadable;
         int layerCoresMax;
         int layerGpusMin;
         long layerGpuMemMin;
         int priority;
+        double drawWeight; // stamped by stampDrawWeights(), consumed by drawSlot()
         // True when rss sizing does not gate this layer: not threadable, feature off,
         // or the ledger has evidence (and the layer was resized from it).
         boolean rssProven;
+        boolean placedThisTick; // consumed by dispatchGroupWithScoring()
         // Mutable in-tick accounting.
         int jobCoresInUse;
         int jobMaxCores;
         int showCoresInUse;
         int showBurstCores;
+        int showSizeCores; // consumed by showTier()
+        String showKey; // consumed by showTier()
+        double tier; // consumed by drawSlot()
         // Number of pending dispatchable (waiting) frames. Initialized from
         // waiting_frame_count in the candidate query; decremented as the
         // layer dispatches in this tick. Reconcile keeps the layer's
@@ -3288,10 +4073,29 @@ public class Maestro extends JdbcDaoSupport {
         String folderId;
         int folderMax;
         int folderRunning;
+        List<BookableHost> pinnedHosts; // consumed by addPinned() and the epilogue's reservation
+        Set<String> pinnedIds; // consumed by pinsAllow()
+        List<BookableHost> pinnedIdle; // consumed by placeOnce()
 
         /** Whether the layer has enough history to bound a frame's runtime. */
         boolean hasRuntimeEstimate() {
             return frameSuccessCount > 0 && clockTimeHighSec > 0;
+        }
+    }
+
+    /**
+     * One row of the pinned read: a candidate row, the host it names (null when none resolved) and
+     * the layer's tags.
+     */
+    static final class PinRow {
+        final LayerCandidate row;
+        final String hostId;
+        final String tags;
+
+        PinRow(LayerCandidate row, String hostId, String tags) {
+            this.row = row;
+            this.hostId = hostId;
+            this.tags = tags;
         }
     }
 

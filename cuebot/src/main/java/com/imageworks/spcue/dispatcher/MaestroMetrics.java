@@ -69,10 +69,10 @@ public class MaestroMetrics {
             .help("Total whole cores in the farm in the most recent scheduler tick")
             .labelNames("env", "cuebot_host").register();
 
-    // Cores in use per show, SET each tick from a live sum of the procs (never
-    // accumulated), so it tracks the farm and cannot drift above it.
+    // Cores in use per show, SET each tick from a sum over the proc table (never
+    // accumulated), so it survives a leader change and cannot drift.
     private static final Gauge showCores = Gauge.build().name("cue_maestro_show_cores")
-            .help("Whole cores in use per show, summed live from the procs each tick")
+            .help("Whole cores in use per show, summed from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
     // Frames booked per show; rate() = throughput.
@@ -94,11 +94,17 @@ public class MaestroMetrics {
     // zero means everything flows. Loop-only by design (no extra query): a job the
     // candidate query filters out at its cap shows up only on the ticks churn
     // re-admits it.
-    // Frames on procs right now, from the live ledger (booked minus drained). The
-    // denominator that turns the waitlist's blocked counts into a share of ALL
+    // Frames on procs right now for the shows Maestro plans, read from the proc
+    // table each tick. The denominator that turns the waitlist's blocked counts into a share of ALL
     // frames the farm handles, so a small blocked slice reads small on the panel.
     private static final Gauge runningFrames = Gauge.build().name("cue_maestro_running_frames")
-            .help("Frames on procs right now, from the live booking/drain ledger")
+            .help("Frames on procs right now for the shows Maestro plans")
+            .labelNames("env", "cuebot_host").register();
+
+    // Cores the running frames really use (their pcpu from the host reports), against
+    // cue_maestro_show_cores, the cores they hold.
+    private static final Gauge farmBusyCores = Gauge.build().name("cue_maestro_farm_cores_busy")
+            .help("Whole cores the running frames really use, summed from the host reports")
             .labelNames("env", "cuebot_host").register();
 
     // Farm health from the live report ledger, sliced two ways: by='group' is the
@@ -147,7 +153,7 @@ public class MaestroMetrics {
                     .labelNames("env", "cuebot_host").register();
 
     private static final String[] WAIT_REASONS =
-            {"flowing", "capacity", "no fit", "limit", "no license", "held"};
+            {"flowing", "capacity", "no fit", "limit", "no license", "held", "share", "no host"};
     private static final Gauge waitingFrames = Gauge.build().name("cue_maestro_waiting_frames")
             .help("Waiting frames on the last tick's candidate layers, by why they cannot run: "
                     + "flowing (layer booked this tick, backlog is moving); "
@@ -155,7 +161,10 @@ public class MaestroMetrics {
                     + "'no fit' (idle exists but none fits: slivers, memory or gpu); "
                     + "limit (job, show, limit or folder cap); "
                     + "'no license' (pool exhausted or stale); "
-                    + "held (every fitting host is reserved)")
+                    + "held (every fitting host is reserved); "
+                    + "share (the layer holds its per-host share on every fitting host while "
+                    + "other work waits); "
+                    + "'no host' (the layer's tags name no host: a stale machine list)")
             .labelNames("env", "cuebot_host", "reason").register();
 
     private final boolean enabled;
@@ -207,6 +216,7 @@ public class MaestroMetrics {
             groupsByState.labels(env, host, "inactive").set((double) s.noWork);
             farmCores.labels(env, host).set(s.farmCores);
             runningFrames.labels(env, host).set(s.runningFrames);
+            farmBusyCores.labels(env, host).set(s.busyCorePoints / 100.0);
             farmStrandedCores.labels(env, host).set(s.strandedCores);
             incReason("booked", s.booked);
             incReason("no fit", s.noFit);
@@ -286,6 +296,7 @@ public class MaestroMetrics {
         public int noWork;
         public int queryError;
         public long runningFrames;
+        public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
         public final Map<String, Double> coresByShow = new HashMap<>();

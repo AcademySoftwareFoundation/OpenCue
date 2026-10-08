@@ -40,11 +40,22 @@ else
   sed_cmd="sed"
 fi
 
-version_major_minor="$(cat "$version_in" | sed 's/[[:space:]]//g')"
+version_major_minor="$(cat "$version_in" | ${sed_cmd} 's/[[:space:]]//g')"
+
+if [[ -n "${VERSION_PATCH:-}" ]]; then
+  echo "${version_major_minor}.${VERSION_PATCH}"
+  exit 0
+fi
 
 current_branch="$(git branch --show-current)"
 if [[ -z "${current_branch}" ]]; then
-  current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p')"
+  # Detached HEAD (common in CI). A commit reachable from master is a master commit
+  # (e.g. a release tag), even when other remote branches created later also contain it.
+  if git merge-base --is-ancestor HEAD origin/master 2>/dev/null; then
+    current_branch="master"
+  else
+    current_branch="$(git branch --remote --verbose --no-abbrev --contains | ${sed_cmd} -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p' | head -n 1)"
+  fi
 fi
 
 if [[ "$current_branch" = "master" ]]; then

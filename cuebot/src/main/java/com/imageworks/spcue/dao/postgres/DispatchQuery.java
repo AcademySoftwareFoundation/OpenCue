@@ -227,6 +227,22 @@ public class DispatchQuery {
         // spotless:on
     }
 
+    /**
+     * Excludes jobs on shows flagged {@code b_scheduler_managed} from every legacy by-show and
+     * by-group booking query, the same way {@link #FIND_SHOWS} excludes those shows from the
+     * all-shows path.
+     *
+     * The filter lives in SQL, not behind a {@code maestro.enabled} check, because ownership is a
+     * property of the show and not of the Cuebot running the query: during a rollout most Cuebots
+     * run with Maestro off (only the leader plans, and completions are forwarded to it), and they
+     * must not book a managed show just because Maestro is not enabled in their own process.
+     * Without this, the by-show entry points that skip {@link #FIND_SHOWS} -- a deeded host's
+     * preferred show in HostReportHandler, and a group redirect -- would let the legacy dispatcher
+     * book jobs Maestro owns, racing its plan.
+     */
+    private static final String NOT_SCHEDULER_MANAGED =
+            "AND job.pk_show NOT IN (SELECT pk_show FROM show WHERE b_scheduler_managed = true) ";
+
     // spotless:off
     public static final String FIND_JOBS_BY_SHOW =
             "/* FIND_JOBS_BY_SHOW */ "
@@ -278,6 +294,7 @@ public class DispatchQuery {
                         + "AND job.str_state                  = 'PENDING' "
                         + "AND job.b_paused                   = false "
                         + "AND job.pk_show                    = ? "
+                        + NOT_SCHEDULER_MANAGED
                         + "AND job.pk_facility                = ? "
                         + "AND "
                             + "("
@@ -344,6 +361,7 @@ public class DispatchQuery {
                     + "AND job.str_state                  = 'PENDING' "
                     + "AND job.b_paused                   = false "
                     + "AND job.pk_show                    = ? "
+                    + NOT_SCHEDULER_MANAGED
                     + "AND job.pk_facility                = ? "
                     + "AND "
                         + "("

@@ -33,6 +33,8 @@ do
   python -m pytest ${package}
 done
 
+python -m pytest ci/tests
+
 # Xvfb no longer supports Python 2.
 if [[ "$python_version" =~ "Python 3" && ${args[0]} != "--no-gui" ]]; then
   ci/run_gui_test.sh
