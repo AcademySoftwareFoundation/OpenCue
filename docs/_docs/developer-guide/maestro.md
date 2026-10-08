@@ -527,10 +527,13 @@ a group with nothing waiting strands nothing: idle without demand is just
 idle. Sustained growth means the farm's idle is the wrong shape for the
 waiting work.
 
-House rule for every Maestro metric: stats gather NO SQL, only live data the
-tick already holds. The waitlist reuses the loop's own verdicts, and the
-`show_cores` gauge is a live ledger (plus on the batch commit, minus on the
-drain; a show that drains to zero drops out), not a query over procs.
+House rule for Maestro metrics: stats reuse data the tick already holds
+wherever they can. The waitlist reuses the loop's own verdicts. The one
+exception is `show_cores` and `running_frames`, read each tick from one
+`GROUP BY` over the proc table (Maestro's shows only). An in-memory tally of
+bookings minus drained completions started empty on every leader change and
+never subtracted procs released outside the drain (kills, retries, lost hosts,
+failed launches), so it climbed over time.
 
 ### 3.9 Rss-driven layer sizing (cores=1 means "let the system decide")
 

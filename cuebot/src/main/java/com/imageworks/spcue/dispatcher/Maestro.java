@@ -51,6 +51,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -490,6 +491,22 @@ public class Maestro extends JdbcDaoSupport {
     // spotless:on
 
     /**
+     * Cores (core points) and frames on procs per show, limited to the shows Maestro plans: every
+     * show in facility mode (the bound flag), else only the b_scheduler_managed ones.
+     */
+    // spotless:off
+    private static final String SELECT_LIVE_SHOW_USAGE =
+            "SELECT "
+            + "  sh.str_name AS show_name, "
+            + "  SUM(p.int_cores_reserved) AS cores, "
+            + "  COUNT(*) AS frames "
+            + "FROM proc p "
+            + "JOIN show sh ON sh.pk_show = p.pk_show "
+            + "WHERE (? OR sh.b_scheduler_managed = true) "
+            + "GROUP BY sh.str_name";
+    // spotless:on
+
+    /**
      * Candidate layers for a host spec group. One query per group. Filters: - job PENDING and
      * unpaused - tag regex match against the group's normalized tag string - OS match (or any if
      * the job is OS-agnostic) - job under int_max_cores - show under subscription burst on this
@@ -847,12 +864,6 @@ public class Maestro extends JdbcDaoSupport {
                 }
                 for (int i = 0; i < won.length; i++) {
                     QueuedFrameCompletion c = chunk.get(i);
-                    // Ledger: the proc is released on both branches (stop won, or
-                    // stale and unbooked), so its cores leave the show either way.
-                    bumpShowCoresLive(c.frame.show,
-                            -c.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
-                    if (runningFramesLive > 0)
-                        runningFramesLive--;
                     if (won[i]) {
                         // Warmth is the leader's ledger: a standby never advances
                         // the odometers, so its stamps would neither expire nor mean
@@ -1437,13 +1448,15 @@ public class Maestro extends JdbcDaoSupport {
         List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
         recordCommitted(committed, stats);
-        // Publish the ledger AFTER this tick's bookings landed: at this point it
-        // holds the procs alive right now (booked minus drained). Filling it at
-        // tick start would sample the post-drain trough, where a fast-completing
-        // farm reads as empty every time.
+        // Read live usage AFTER this tick's bookings landed. Reading at tick start
+        // would sample the post-drain trough, where a fast-completing farm reads as
+        // empty every time.
         if (maestroMetrics != null && maestroMetrics.isEnabled()) {
-            stats.coresByShow.putAll(showCoresLive);
-            stats.runningFrames = runningFramesLive;
+            try {
+                readLiveShowUsage(stats);
+            } catch (DataAccessException e) {
+                logger.warn("Maestro: live show usage read failed: " + e.getMessage());
+            }
             if (farmHealth != null)
                 aggregateFarmHealth(groups, farmHealth.snapshot(), stats);
         }
@@ -1776,17 +1789,10 @@ public class Maestro extends JdbcDaoSupport {
         return wholeCores > 0 ? mem / wholeCores : 0;
     }
 
-    /**
-     * Fold the committed bookings into the per-show throughput tally and the live cores-per-show
-     * ledger (the show_cores gauge's only source: stats never query the database), then apply their
-     * resource accounting deltas and flush one UPDATE per changed row.
-     */
+    /** Fold the committed bookings into the per-show throughput tally. */
     private void recordCommitted(List<FrameBooking> committed, MaestroMetrics.TickStats stats) {
-        for (FrameBooking b : committed) {
+        for (FrameBooking b : committed)
             stats.framesByShow.merge(b.frame.show, 1, Integer::sum);
-            bumpShowCoresLive(b.frame.show, b.proc.coresReserved / (double) CORE_POINTS_PER_CORE);
-            runningFramesLive++;
-        }
     }
 
     /**
@@ -2135,30 +2141,17 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Live cores-per-show ledger, no SQL: stats never query the database. The scheduler is the
-     * single writer for its shows, so it counts what it sees flow: plus the proc's cores when its
-     * batch commit books a frame, minus when the drain applies that frame's completion (won or
-     * stale, the proc is released either way). A show whose count reaches zero drops out of the
-     * map, which also bounds the small leaks this bookkeeping accepts: a proc released outside the
-     * drain (a lost host, a failed launch) leaks its cores only until its show drains empty. A
-     * fresh leader starts the ledger empty and converges as its own bookings flow.
+     * Fill the stats' cores-per-show and running-frame count from the procs alive right now, for
+     * the shows this scheduler plans. Read from the proc table each tick rather than tallied from
+     * bookings and completions: a tally starts empty on a new leader and never subtracts procs
+     * released outside the drain (kills, retries, lost hosts, failed launches), so it drifts.
      */
-    private final Map<String, Double> showCoresLive = new HashMap<>();
-
-    // Live running-frame count, same ledger discipline as showCoresLive (one booking
-    // is one frame on a proc; one drained completion releases it). The denominator
-    // that turns the waitlist's blocked counts into a share of ALL frames the farm
-    // handles right now, so a small blocked slice reads small.
-    private long runningFramesLive = 0;
-
-    /** Ledger update: {@code delta} whole cores for {@code show}; at zero the entry drops out. */
-    private void bumpShowCoresLive(String show, double delta) {
-        if (show == null)
-            return;
-        showCoresLive.compute(show, (k, v) -> {
-            double next = (v == null ? 0.0 : v) + delta;
-            return next < 0.001 ? null : next;
-        });
+    /* package for tests */ void readLiveShowUsage(MaestroMetrics.TickStats stats) {
+        getJdbcTemplate().query(SELECT_LIVE_SHOW_USAGE, rs -> {
+            stats.coresByShow.put(rs.getString("show_name"),
+                    rs.getLong("cores") / (double) CORE_POINTS_PER_CORE);
+            stats.runningFrames += rs.getLong("frames");
+        }, MaestroMode.facility(env));
     }
 
     /**
