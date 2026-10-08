@@ -9,10 +9,10 @@ on:
 jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.9
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -23,7 +23,7 @@ jobs:
 
   build_opencue_packages:
     name: Build Python Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -36,7 +36,7 @@ jobs:
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -70,7 +70,7 @@ jobs:
   install_opencue_packages:
     needs: build_opencue_packages
     name: Test installing packages with python ${{ matrix.python-version }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       fail-fast: false
       matrix:
@@ -78,7 +78,7 @@ jobs:
     container: python:${{ matrix.python-version }}
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -104,10 +104,10 @@ jobs:
   test_python_2023:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -116,7 +116,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -136,11 +136,11 @@ jobs:
   test_cuebot_2023:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -149,11 +149,11 @@ jobs:
   test_python_2024:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -162,7 +162,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -183,11 +183,11 @@ jobs:
   test_cuebot_2024:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2024
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build with Gradle
         run: |
           chown -R aswfuser:aswfgroup .
@@ -196,10 +196,10 @@ jobs:
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -208,7 +208,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -227,7 +227,7 @@ jobs:
           ci/run_integration_test.sh
 
       - name: Archive log files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: test-logs
@@ -236,11 +236,11 @@ jobs:
   lint_python:
     needs: build_opencue_packages
     name: Lint Python Code
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024.1
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -249,7 +249,7 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Download a single artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -272,11 +272,11 @@ jobs:
   test_sphinx:
     needs: build_opencue_packages
     name: Test Documentation Build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container:
       image: aswf/ci-opencue:2023
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -289,9 +289,9 @@ jobs:
 
   check_changed_files:
     name: Check Changed Files
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           set-safe-directory: true
@@ -305,17 +305,17 @@ jobs:
 
   check_migration_files:
     name: Check Database Migration Files
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check Migration Files
         run: ci/check_database_migrations.py
 
   check_for_version_bump:
     name: Check for Version Bump
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 2
           set-safe-directory: true
@@ -329,10 +329,10 @@ jobs:
 
   test_rest_gateway:
     name: Test REST Gateway
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -400,7 +400,7 @@ jobs:
           go tool cover -func=coverage.out
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: rest-gateway-coverage
@@ -408,10 +408,10 @@ jobs:
 
   build_cueweb:
     name: Build CueWeb Docker Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -432,10 +432,10 @@ jobs:
 
   build_rest_gateway:
     name: Build REST Gateway Docker Image
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true

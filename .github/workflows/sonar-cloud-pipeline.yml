@@ -7,14 +7,14 @@ on:
 
 jobs:
   analyze_python:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024.1
     name: Analyze Python Components
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -32,14 +32,14 @@ jobs:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
   analyze_cuebot:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: aswf/ci-opencue:2024.1
     name: Analyze Cuebot
     env:
       ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: true
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.

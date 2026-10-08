@@ -8,7 +8,7 @@ on:
 jobs:
   build_opencue_packages:
     name: Build Python Packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -22,7 +22,7 @@ jobs:
       opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -65,7 +65,7 @@ jobs:
     outputs:
       rust_binaries_artifact: rust-binaries-${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-tags: true
           fetch-depth: 0
@@ -129,7 +129,7 @@ jobs:
         shell: cmd
 
       - name: Upload binaries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-binaries-${{ matrix.target }}
           path: release/
@@ -137,10 +137,10 @@ jobs:
   integration_test:
     needs: build_opencue_packages
     name: Run Integration Test
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -149,13 +149,13 @@ jobs:
         run: git config --global --add safe.directory $GITHUB_WORKSPACE
 
       - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
 
       - name: Download Rust binaries artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rust-binaries-*
           path: rust-binaries
@@ -174,7 +174,7 @@ jobs:
           ci/run_integration_test.sh
 
       - name: Archive log files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ always() }}
         with:
           name: test-logs
@@ -197,7 +197,7 @@ jobs:
             DOCKERFILE: rust/Dockerfile.rqd
 
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -224,13 +224,13 @@ jobs:
         continue-on-error: true
 
       - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
 
       - name: Download Rust binaries artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rust-binaries-*
           path: rust-binaries
@@ -311,10 +311,10 @@ jobs:
               --build-arg NEXT_PUBLIC_GIT_SHA=${GIT_SHA}
 
     name: Build ${{ matrix.NAME }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Fetch all Git history, otherwise the current version number will
           # not be correctly calculated.
@@ -365,7 +365,7 @@ jobs:
     needs:
       - integration_test
       - build_opencue_packages
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
@@ -377,7 +377,7 @@ jobs:
 
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
@@ -393,7 +393,7 @@ jobs:
       - build_components
       - build_opencue_packages
       - build_rust_binaries
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     continue-on-error: true
     steps:
       - name: Checkout
@@ -431,13 +431,13 @@ jobs:
           echo "{\"git_commit\": \"$(BUILD_SOURCEVERSION)\"}" | tee "${GITHUB_WORKSPACE}/artifacts/build_metadata.json"
 
       - name: Download Python packages artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: opencue_packages
           path: packages
 
       - name: Download Rust binaries artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: rust-binaries-*
           path: rust-binaries
