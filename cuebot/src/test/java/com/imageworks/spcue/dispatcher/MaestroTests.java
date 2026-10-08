@@ -49,7 +49,6 @@ import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
-import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertArrayEquals;
@@ -497,20 +496,9 @@ public class MaestroTests {
         assertFalse(Maestro.backfillFits(true, 1, Integer.MAX_VALUE));
     }
 
-    // ---- rss-driven resize: resizeFromLiveMem + LayerLiveMem --------------
+    // ---- memory-driven sizing: sizeFromMemory ------------------------------
 
     private static final long MPC = 4L * CueUtil.GB; // the 4G/core metric
-
-    /** A ledger that has seen {@code n} frames of the layer at the given rss values. */
-    private static LayerLiveMem seen(String layerId, long... rssKbs) {
-        LayerLiveMem mem = new LayerLiveMem();
-        int i = 0;
-        for (long kb : rssKbs) {
-            mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId(layerId)
-                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build());
-        }
-        return mem;
-    }
 
     private static Maestro.LayerCandidate grantLayer(String layerId, boolean threadable,
             int coresMin, int coresMax, long memMinKb) {
@@ -521,149 +509,124 @@ public class MaestroTests {
         return c;
     }
 
-    private static Map<String, long[]> resize(Maestro.LayerCandidate c, LayerLiveMem mem) {
+    /** Sizes the candidate after its frames reported {@code maxRssKb} at most (0: none yet). */
+    private static Map<String, long[]> resize(Maestro.LayerCandidate c, long maxRssKb) {
+        c.layerMaxRssKb = maxRssKb;
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, Integer.MAX_VALUE, out);
+        Maestro.sizeFromMemory(Arrays.asList(c), MPC, Integer.MAX_VALUE, out);
         return out;
     }
 
     @Test
-    public void resizeUsesTheMedianOfRecentFrames() {
-        // Four frames near 18G: the layer really is an 18G layer -> 5 cores,
+    public void aLayerSizesFromItsLargestRss() {
+        // Declares 4G, a frame reported 18G: the layer is an 18G layer -> 5 cores,
         // and the memory Maestro packs with is the observed figure.
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, 4L * CueUtil.GB);
-        Map<String, long[]> out = resize(c, seen("hog", g18, g18, g18, g18));
+        Map<String, long[]> out = resize(c, g18);
         assertEquals(500, c.layerCoresMin);
         assertEquals(g18, c.layerMemMin);
         assertTrue(c.rssProven);
-        assertEquals(500, out.get("hog")[0]);
-    }
-
-    @Test
-    public void oneHaywireProcessCannotResizeTheLayer() {
-        // Seven honest 2G frames and one 60G leaker: the median stays 2G, the
-        // layer stays at its ask. The leaker is the OOM machinery's problem.
-        long g2 = 2L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("leak", true, 100, 0, g2);
-        LayerLiveMem mem = seen("leak", g2, g2, g2, g2, g2, g2, g2, 60L * CueUtil.GB);
-        resize(c, mem);
-        assertEquals(100, c.layerCoresMin);
-        assertTrue(c.rssProven);
-    }
-
-    @Test
-    public void resizeWaitsForEnoughSamples() {
-        // Three 18G frames seen (under MIN_SAMPLES) of a layer declaring 2G: the
-        // ask still sizes to 1 core, so no resize and the probe gate is armed.
-        long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("young", true, 100, 0, 2L * CueUtil.GB);
-        resize(c, seen("young", g18, g18, g18));
-        assertEquals(100, c.layerCoresMin);
-        assertFalse(c.rssProven);
+        assertArrayEquals(new long[] {500, g18}, out.get("hog"));
     }
 
     @Test
     public void coldLayerSizesItsCoresFromItsMemoryAsk() {
-        // No evidence yet (or a Cuebot restart emptied the ledger): an 18G ask
-        // books 5 cores from frame one instead of stranding cores at 1, and it
-        // is not probe-gated. Memory is untouched, so nothing is persisted.
+        // No rss yet: an 18G ask books 5 cores from frame one instead of
+        // stranding cores at 1, and it is not probe-gated.
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("cold", true, 100, 0, g18);
-        Map<String, long[]> out = resize(c, new LayerLiveMem());
+        Map<String, long[]> out = resize(c, 0);
         assertEquals(500, c.layerCoresMin);
         assertEquals(g18, c.layerMemMin);
         assertTrue(c.rssProven);
-        assertArrayEquals(new long[] {500, g18, g18}, out.get("cold"));
-        assertTrue(Maestro.memoryRaises(out).isEmpty());
+        assertArrayEquals(new long[] {500, g18}, out.get("cold"));
     }
 
     @Test
-    public void coldSizingKeepsTheLayerAndHostCaps() {
+    public void sizingKeepsTheLayerAndHostCaps() {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate capped = grantLayer("capped", true, 100, 200, g18);
-        resize(capped, new LayerLiveMem());
+        resize(capped, 0);
         assertEquals(200, capped.layerCoresMin);
 
         Maestro.LayerCandidate big = grantLayer("big", true, 100, 0, 200L * CueUtil.GB);
-        Maestro.resizeFromLiveMem(Arrays.asList(big), new LayerLiveMem(), MPC, 1600,
-                new java.util.HashMap<>());
+        Maestro.sizeFromMemory(Arrays.asList(big), MPC, 1600, new java.util.HashMap<>());
         assertEquals(1600, big.layerCoresMin);
     }
 
     @Test
-    public void coldSizingLeavesNonThreadableLayersAlone() {
-        Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, 18L * CueUtil.GB);
-        assertTrue(resize(c, new LayerLiveMem()).isEmpty());
-        assertEquals(100, c.layerCoresMin);
-        assertTrue(c.rssProven);
+    public void nonThreadableLayersSizeTheirMemoryOnly() {
+        long g18 = 18L * CueUtil.GB;
+        Maestro.LayerCandidate cold = grantLayer("ctrl", false, 100, 0, g18);
+        assertTrue(resize(cold, 0).isEmpty());
+        assertEquals(100, cold.layerCoresMin);
+        assertTrue(cold.rssProven); // never probed either
+
+        Maestro.LayerCandidate seen = grantLayer("ctrl2", false, 100, 0, 2L * CueUtil.GB);
+        Map<String, long[]> out = resize(seen, g18);
+        assertEquals(100, seen.layerCoresMin);
+        assertEquals(g18, seen.layerMemMin);
+        assertEquals(g18, out.get("ctrl2")[1]);
     }
 
     @Test
-    public void evidenceOverridesAnOverDeclaredAsk() {
-        // Declares 32G, really uses 2G: once the farm has seen it, cores follow
-        // the rss (1 core) while memory never drops below the declaration.
-        long g2 = 2L * CueUtil.GB;
+    public void anOverDeclaredAskKeepsItsWidth() {
+        // Declares 32G, really uses 2G: memory never drops below the declaration,
+        // so the cores follow the declaration, as under the legacy dispatcher.
         long g32 = 32L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("fat", true, 100, 0, g32);
-        resize(c, seen("fat", g2, g2, g2, g2));
-        assertEquals(100, c.layerCoresMin);
+        resize(c, 2L * CueUtil.GB);
+        assertEquals(800, c.layerCoresMin);
         assertEquals(g32, c.layerMemMin);
         assertTrue(c.rssProven);
-    }
-
-    @Test
-    public void resizeNeverTouchesNonThreadableCores() {
-        long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, g18);
-        resize(c, seen("ctrl", g18, g18, g18, g18));
-        assertEquals(100, c.layerCoresMin);
-        assertTrue(c.rssProven); // non-threadable is never probed either
-    }
-
-    @Test
-    public void resizeStopsAtTheLayersMaxCores() {
-        long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("capped", true, 100, 200, g18);
-        resize(c, seen("capped", g18, g18, g18, g18));
-        assertEquals(200, c.layerCoresMin);
     }
 
     @Test
     public void wideAskAboveTheMetricIsPreserved() {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("wide", true, 800, 0, g18);
-        resize(c, seen("wide", g18, g18, g18, g18));
+        resize(c, g18);
         assertEquals(800, c.layerCoresMin);
     }
 
     @Test
-    public void ledgerFoldsPerFramePeaksAndForgetsUnknownLayers() {
+    public void aManualLayerKeepsItsAsk() {
+        // Tagged "manual": a person sizes it, as under cue-layer-man.
         long g18 = 18L * CueUtil.GB;
-        LayerLiveMem mem = seen("hog", g18, g18, g18, g18);
-        // The same frame reporting a lower rss later must not add a new sample.
-        mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
-                .setMaxRss(1L * CueUtil.GB).build());
-        assertEquals(g18, mem.typicalRssKb("hog"));
-        assertEquals(0, mem.typicalRssKb("never-seen"));
+        Maestro.LayerCandidate c = grantLayer("hand", true, 200, 0, 2L * CueUtil.GB);
+        c.manual = true;
+        resize(c, g18);
+        assertEquals(200, c.layerCoresMin);
+        assertEquals(g18, c.layerMemMin);
+        assertTrue(c.rssProven);
     }
 
     @Test
     public void oneCoreAskWithinOneCoresShareIsGated() {
-        // cores=1 means "let the system decide": with no evidence and an ask that
+        // cores=1 means "let the system decide": with no rss seen and an ask that
         // sizes to 1 core (2G at 4G per core), the layer probes.
         Maestro.LayerCandidate c = grantLayer("comp", true, 100, 0, 2L * CueUtil.GB);
-        resize(c, new LayerLiveMem());
+        resize(c, 0);
         assertEquals(100, c.layerCoresMin);
         assertFalse(c.rssProven);
     }
 
     @Test
+    public void theFirstReportReleasesTheProbe() {
+        // The farm has seen it: small for real, so it runs at its ask, ungated.
+        Maestro.LayerCandidate c = grantLayer("small", true, 100, 0, 2L * CueUtil.GB);
+        resize(c, 2L * CueUtil.GB);
+        assertEquals(100, c.layerCoresMin);
+        assertTrue(c.rssProven);
+    }
+
+    @Test
     public void explicitAskAboveOneBooksAtFullSpeed() {
         // Someone sized this layer (2 cores): never gated, corrected later
-        // only upward when evidence arrives.
+        // only upward when a frame reports more.
         Maestro.LayerCandidate c = grantLayer("sized", true, 200, 0, 4L * CueUtil.GB);
-        resize(c, new LayerLiveMem());
+        resize(c, 0);
         assertEquals(200, c.layerCoresMin);
         assertTrue(c.rssProven);
     }
@@ -676,57 +639,20 @@ public class MaestroTests {
         assertEquals(56L * CueUtil.GB / 16, metric);
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, g18);
-        Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric,
-                Integer.MAX_VALUE, out);
+        Maestro.sizeFromMemory(Arrays.asList(c), metric, Integer.MAX_VALUE,
+                new java.util.HashMap<>());
         assertEquals(500, c.layerCoresMin);
     }
 
     @Test
     public void fastLayerIsReleasedAfterProbeCompletions() {
         // Its frames complete faster than the report cycle: a probe's worth of
-        // successes with no samples releases the hold.
+        // successes with no rss seen releases the hold.
         Maestro.LayerCandidate c = grantLayer("fast", true, 100, 0, 2L * CueUtil.GB);
         c.frameSuccessCount = 8;
-        resize(c, new LayerLiveMem());
+        resize(c, 0);
         assertEquals(100, c.layerCoresMin);
         assertTrue(c.rssProven);
-    }
-
-    @Test
-    public void memoryRaisesAreSelectedForPersistence() {
-        long g2 = 2L * CueUtil.GB;
-        long g4 = 4L * CueUtil.GB;
-        long g18 = 18L * CueUtil.GB;
-        Map<String, long[]> out = new java.util.HashMap<>();
-        // Under-declared, non-threadable: memory raised, cores kept.
-        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("b-ctrl", false, 100, 0, g4)),
-                seen("b-ctrl", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
-        // Threadable and over-declared: only cores grow, nothing to persist.
-        Maestro.resizeFromLiveMem(
-                Arrays.asList(grantLayer("c-wide", true, 100, 0, 20L * CueUtil.GB)),
-                seen("c-wide", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
-        // Under-declared threadable: both grow.
-        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("a-hog", true, 100, 0, g2)),
-                seen("a-hog", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
-        assertEquals(g4, out.get("b-ctrl")[2]);
-        assertEquals(3, out.size());
-
-        List<Object[]> rows = Maestro.memoryRaises(out);
-        assertEquals(2, rows.size());
-        // Ordered by layer id, shaped for "SET int_mem_min=? WHERE pk_layer=? AND int_mem_min<?".
-        assertArrayEquals(new Object[] {g18, "a-hog", g18}, rows.get(0));
-        assertArrayEquals(new Object[] {g18, "b-ctrl", g18}, rows.get(1));
-    }
-
-    @Test
-    public void noMemoryRaiseOnceTheLayerCarriesIt() {
-        // The tick after a raise reads the persisted value back as the ask: no new write.
-        long g18 = 18L * CueUtil.GB;
-        Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(grantLayer("ctrl", false, 100, 0, g18)),
-                seen("ctrl", g18, g18, g18, g18), MPC, Integer.MAX_VALUE, out);
-        assertTrue(Maestro.memoryRaises(out).isEmpty());
     }
 
     // ---- subscription identity --------------------------------------------
@@ -1512,34 +1438,7 @@ public class MaestroTests {
         }
     }
 
-    // ---- the grant and the ledger ------------------------------------------
-
-    @Test
-    public void aNonThreadableLayerSizesItsMemoryOnly() {
-        long g6 = 6L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("single", false, 100, 0, 2L * CueUtil.GB);
-        Map<String, long[]> out = resize(c, seen("single", g6, g6, g6, g6));
-        assertEquals(100, c.layerCoresMin);
-        assertEquals(g6, c.layerMemMin);
-        assertEquals(g6, out.get("single")[1]);
-    }
-
-    @Test
-    public void aCompletionReplacesTheFramesRunningSamples() {
-        // Four frames ran at 20G; retried after a scene fix they finish at 4G.
-        long g20 = 20L * CueUtil.GB;
-        long g4 = 4L * CueUtil.GB;
-        LayerLiveMem mem = new LayerLiveMem();
-        List<RunningFrameInfo> running = new ArrayList<>();
-        for (int i = 0; i < 4; i++)
-            running.add(RunningFrameInfo.newBuilder().setLayerId("retry").setFrameId("f" + i)
-                    .setMaxRss(g20).build());
-        mem.record(running);
-        assertEquals(g20, mem.typicalRssKb("retry"));
-        for (RunningFrameInfo frame : running)
-            mem.recordFinished(frame.toBuilder().setMaxRss(g4).build());
-        assertEquals(g4, mem.typicalRssKb("retry"));
-    }
+    // ---- the grant ----------------------------------------------------------
 
     @Test
     @SuppressWarnings("unchecked")
@@ -1576,9 +1475,9 @@ public class MaestroTests {
         Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
         c.layerId = "big";
         c.threadable = true;
+        c.layerMaxRssKb = 200 * GB;
         // 200G at 4G per core asks 50 cores; the largest host has 16.
-        LayerLiveMem mem = seen("big", 200 * GB, 200 * GB, 200 * GB, 200 * GB);
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, 4 * GB, 16 * CORE, new HashMap<>());
+        Maestro.sizeFromMemory(Arrays.asList(c), 4 * GB, 16 * CORE, new HashMap<>());
         assertEquals(16 * CORE, c.layerCoresMin);
         assertEquals(200 * GB, c.layerMemMin);
     }

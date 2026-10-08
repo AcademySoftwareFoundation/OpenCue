@@ -115,18 +115,13 @@ public class Maestro extends JdbcDaoSupport {
     // frames blanketing one machine, at the price of nibbling more hosts per flood.
     private volatile double layerHostMaxFrac = 0.25;
 
-    // Rss-driven sizing (no configuration, works out of the box; see maestro.md 3.9).
-    // A threadable layer books round(memory / the group's own memory-per-core) cores: its
-    // median rss once the farm has seen it, its memory ask until then. cores=1 means "let
-    // the system decide": a layer whose ask still sizes to 1 core probes at PROBE_FRAMES
-    // running frames while the farm has no rss evidence for it, then every later launch
-    // books at its true shape, so scoring, fit, caps and booking all see it. An explicit
-    // ask of 2+ cores books at full speed from frame one and is only ever corrected
-    // upward. The metric derives from the machines themselves, never a config
-    // constant. Probe size is deliberately a constant, not a property. The one exposed
-    // parameter is the memory-per-core ratio (maestro.mem_per_core, KB): 0 (the
-    // default, shipped) derives it from each group's own hosts, so sizing follows the
-    // hardware out of the box; a studio can pin its core-selling ratio instead.
+    // Memory-driven sizing (see maestro.md 3.9). A threadable layer books
+    // round(memory / memory-per-core) cores, where memory is the larger of its ask and the
+    // largest rss any of its frames has reported (layer_mem.int_max_rss, raised by every
+    // host report). cores=1 means "let the system decide": a layer that still sizes to 1
+    // core with no rss seen yet probes at PROBE_FRAMES running frames, then every later
+    // launch books at its real shape. The ratio is maestro.mem_per_core (KB); 0, the
+    // default, derives it from each group's own hosts.
     static final int PROBE_FRAMES = 8;
     static final int COMMIT_CHUNK_FRAMES = 500; // consumed by commitInChunks()
     static final double PRIORITY_EXPONENT = 1.5; // the query's power() and lotteryWeight()
@@ -176,11 +171,6 @@ public class Maestro extends JdbcDaoSupport {
     // scheduler runs unchanged where the ledger bean is absent (unit tests).
     @Autowired(required = false)
     private FarmHealth farmHealth;
-
-    // Per-layer rss ledger that sizes the launch-time core grant; optional so the scheduler
-    // runs without it (grants simply stay off).
-    @Autowired(required = false)
-    private LayerLiveMem layerLiveMem;
 
     // The in-progress tick's stats, handed to maestroMetrics at tick end.
     private MaestroMetrics.TickStats lastTickStats;
@@ -269,9 +259,8 @@ public class Maestro extends JdbcDaoSupport {
     // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
     // count}. A pair holds one slice per slot the draw gave it this tick.
     private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
-    // Layers resized from rss evidence this tick: layerId -> {effective core points,
-    // effective memory KB, declared memory KB}, read by planBookings so the commit books the
-    // same shape the Maestro scored, and by persistMemoryRaises at the end of the tick.
+    // Layers sized this tick: layerId -> {core points, memory KB}, read by planBookings so
+    // the commit books the same shape the Maestro scored.
     private final Map<String, long[]> layerResize = new HashMap<>();
 
     // Layer-placements planned this tick, for the tick-breakdown log line.
@@ -538,6 +527,8 @@ public class Maestro extends JdbcDaoSupport {
             + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
             + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
+            + "  COALESCE(lm.int_max_rss, 0) AS layer_max_rss, "
+            + "  position('manual' in lower(l.str_tags)) > 0 AS b_manual, "
             // Limits bound to the layer, comma separated, NULL when none. The
             // per-limit budgets (usage, thresholds, holder hosts) are resolved
             // once per tick in resolveLimitBudgets, not per candidate row.
@@ -554,6 +545,7 @@ public class Maestro extends JdbcDaoSupport {
             + "JOIN   show sh         ON sh.pk_show = j.pk_show "
             + "JOIN   subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = ? "
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
+            + "LEFT JOIN layer_mem   lm ON lm.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             // Folder core ceiling + the folder's current running cores. Derived from
             // layer_stat.int_running_count (running frames x per-frame cores), the
@@ -660,6 +652,8 @@ public class Maestro extends JdbcDaoSupport {
             + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
             + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
+            + "  COALESCE(lm.int_max_rss, 0) AS layer_max_rss, "
+            + "  position('manual' in lower(l.str_tags)) > 0 AS b_manual, "
             + "  (SELECT string_agg(ll.pk_limit_record, ',') "
             + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
             + "  j.pk_folder AS folder_id, "
@@ -672,6 +666,7 @@ public class Maestro extends JdbcDaoSupport {
             + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
             + "JOIN   show sh         ON sh.pk_show = j.pk_show "
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
+            + "LEFT JOIN layer_mem   lm ON lm.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
             + "LEFT JOIN ("
@@ -759,6 +754,8 @@ public class Maestro extends JdbcDaoSupport {
                     c.waitingFrameCount = rs.getInt("waiting_frame_count");
                     c.clockTimeHighSec = rs.getInt("clock_time_high");
                     c.frameSuccessCount = rs.getInt("frame_success_count");
+                    c.layerMaxRssKb = rs.getLong("layer_max_rss");
+                    c.manual = rs.getBoolean("b_manual");
                     c.folderId = rs.getString("folder_id");
                     c.folderMax = rs.getInt("folder_max"); // -1 = unlimited
                     c.folderRunning = rs.getInt("folder_running"); // core-points
@@ -1295,11 +1292,9 @@ public class Maestro extends JdbcDaoSupport {
         try {
             candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
             addPinned(candidates, pinnedByGroup.get(spec), idleGroup);
-            // Size threadable layers from their observed rss before anything scores or
-            // fits them, against the studio's memory-per-core policy ratio (or, when
-            // none is set, this group's own derived one); 1-core layers with no
-            // evidence yet stay unproven and get the probe gate.
-            resizeFromLiveMem(candidates, layerLiveMem,
+            // Size threadable layers from their memory before anything scores or fits
+            // them, against the memory-per-core ratio (or this group's own derived one).
+            sizeFromMemory(candidates,
                     memPerCoreKb > 0 ? memPerCoreKb : memPerWholeCoreKb(fullGroup),
                     maxCoresTotalInGroup, layerResize);
         } catch (RuntimeException e) {
@@ -1470,7 +1465,6 @@ public class Maestro extends JdbcDaoSupport {
         }
         dispatched = dispatchedNow;
 
-        persistMemoryRaises();
         sweepStaleReservationState(seenLayerIds);
         return dispatched;
     }
@@ -1681,50 +1675,36 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Sets each candidate's cores and memory to what its frames really need, before placement.
-     * Scoring, fit checks, caps and booking then all use the same size.
+     * Sets each candidate's cores and memory to what its frames need, before placement, so scoring,
+     * fit, caps and booking all use one size.
      *
-     * Memory: the larger of the layer's ask and its typical rss, which is the median peak of its
-     * recent frames ({@link LayerLiveMem}).
+     * Memory: the larger of the layer's ask and the largest rss any of its frames reported (raised
+     * by every host report, so a restart or a later launch sees it within one report). Cores,
+     * threadable layers only: {@code round(memory / memPerCoreKb)}, never below the ask, never
+     * above the layer's max or {@code maxHostCores}. A layer tagged {@code manual} keeps its ask,
+     * as under cue-layer-man.
      *
-     * Cores, for threadable layers only: {@code round(memory / memPerCoreKb)}, where memory is the
-     * typical rss or, while the layer has no rss samples yet, its memory ask. The result is never
-     * below the layer's core ask and never above its max cores or {@code maxHostCores} (the largest
-     * host in the group). Non-threadable layers keep their cores.
-     *
-     * Probe gate: a layer without rss samples whose size is still 1 core is marked unproven
+     * Probe gate: a layer that still sizes to 1 core with no rss seen yet is unproven
      * ({@code rssProven = false}), so at most {@link #PROBE_FRAMES} of its frames run until its rss
-     * is known. A layer that already finished that many frames is released, since its frames end
-     * too fast to be sampled.
-     *
-     * Changed sizes go into {@code resizeOut} as {cores, memory, previous memory}.
+     * is known; one that already finished that many frames ends too fast to sample and runs.
      */
-    static void resizeFromLiveMem(List<LayerCandidate> candidates, LayerLiveMem rssLedger,
-            long memPerCoreKb, int maxHostCores, Map<String, long[]> resizeOut) {
+    static void sizeFromMemory(List<LayerCandidate> candidates, long memPerCoreKb, int maxHostCores,
+            Map<String, long[]> resizeOut) {
         for (LayerCandidate layer : candidates) {
-            if (rssLedger == null || layer.layerCoresMin <= 0) {
+            if (layer.layerCoresMin <= 0) {
                 layer.rssProven = true;
                 continue;
             }
-            long typicalRssKb = rssLedger.typicalRssKb(layer.layerId);
-            boolean hasRssSamples = typicalRssKb > 0;
-            boolean coresFollowMemory = layer.threadable && memPerCoreKb > 0;
-
-            int newCores = layer.layerCoresMin;
-            if (coresFollowMemory) {
-                long sizingMemKb = hasRssSamples ? typicalRssKb : layer.layerMemMin;
-                newCores = coresForMemory(layer, sizingMemKb, memPerCoreKb, maxHostCores);
-            }
-            long newMemKb = Math.max(layer.layerMemMin, typicalRssKb);
-
-            boolean probeReleased = layer.frameSuccessCount >= PROBE_FRAMES;
-            layer.rssProven = hasRssSamples || !coresFollowMemory
-                    || newCores != CORE_POINTS_PER_CORE || probeReleased;
-
-            if (newCores != layer.layerCoresMin || newMemKb != layer.layerMemMin) {
-                resizeOut.put(layer.layerId, new long[] {newCores, newMemKb, layer.layerMemMin});
-                layer.layerCoresMin = newCores;
-                layer.layerMemMin = newMemKb;
+            boolean coresFollowMemory = layer.threadable && memPerCoreKb > 0 && !layer.manual;
+            long memKb = Math.max(layer.layerMemMin, layer.layerMaxRssKb);
+            int cores = coresFollowMemory ? coresForMemory(layer, memKb, memPerCoreKb, maxHostCores)
+                    : layer.layerCoresMin;
+            layer.rssProven = layer.layerMaxRssKb > 0 || !coresFollowMemory
+                    || cores != CORE_POINTS_PER_CORE || layer.frameSuccessCount >= PROBE_FRAMES;
+            if (cores != layer.layerCoresMin || memKb != layer.layerMemMin) {
+                resizeOut.put(layer.layerId, new long[] {cores, memKb});
+                layer.layerCoresMin = cores;
+                layer.layerMemMin = memKb;
             }
         }
     }
@@ -1740,37 +1720,6 @@ public class Maestro extends JdbcDaoSupport {
         if (cores > maxHostCores)
             cores = maxHostCores;
         return Math.max(layer.layerCoresMin, cores);
-    }
-
-    /**
-     * The memory raises among this tick's resizes, as {memKb, layerId, memKb} rows for the
-     * ratcheting layer update, ordered by layer id so concurrent writers lock rows in one order.
-     */
-    static List<Object[]> memoryRaises(Map<String, long[]> resize) {
-        List<Object[]> rows = new ArrayList<>();
-        resize.entrySet().stream().filter(e -> e.getValue()[1] > e.getValue()[2])
-                .sorted(Map.Entry.comparingByKey()).forEach(
-                        e -> rows.add(new Object[] {e.getValue()[1], e.getKey(), e.getValue()[1]}));
-        return rows;
-    }
-
-    /**
-     * Write this tick's memory raises to layer.int_mem_min, so operators see the size Maestro books
-     * at and the size outlives a Cuebot restart. Upward only: the next tick reads the raised value
-     * back as the layer's ask, so a layer is written once per growth. Never throws: a failed write
-     * only delays what the GUI shows.
-     */
-    private void persistMemoryRaises() {
-        List<Object[]> rows = memoryRaises(layerResize);
-        if (rows.isEmpty())
-            return;
-        try {
-            getJdbcTemplate().batchUpdate(
-                    "UPDATE layer SET int_mem_min = ? WHERE pk_layer = ? AND int_mem_min < ?",
-                    rows);
-        } catch (RuntimeException e) {
-            logger.warn("Maestro: persisting " + rows.size() + " layer memory raises failed: " + e);
-        }
     }
 
     /**
@@ -4037,9 +3986,9 @@ public class Maestro extends JdbcDaoSupport {
         long layerGpuMemMin;
         int priority;
         double drawWeight; // stamped by stampDrawWeights(), consumed by drawSlot()
-        // True when rss sizing does not gate this layer: not threadable, feature off,
-        // or the ledger has evidence (and the layer was resized from it).
-        boolean rssProven;
+        long layerMaxRssKb; // largest rss any frame reported (layer_mem), 0 before the first
+        boolean manual; // tagged "manual": sized by hand, never by Maestro
+        boolean rssProven; // false arms the probe gate (see sizeFromMemory)
         boolean placedThisTick; // consumed by dispatchGroupWithScoring()
         // Mutable in-tick accounting.
         int jobCoresInUse;

@@ -398,10 +398,10 @@ public class CoreUnitDispatcher implements Dispatcher {
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame : frames) {
 
-            // Maestro sized this layer from its observed rss (LayerLiveMem):
+            // Maestro sized this layer from its memory (ask or largest rss seen):
             // book the frames at that size, and reserve the memory the layer
             // really uses, so the plan and the commit describe the same frame.
-            // 0 = no resize (no evidence, not threadable, or feature off).
+            // 0 = no resize (ask already right, not threadable, or manual).
             if (effCores > frame.minCores && frame.threadable) {
                 frame.minCores = effCores;
             }
