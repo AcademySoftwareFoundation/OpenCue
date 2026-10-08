@@ -377,8 +377,8 @@ public class CoreUnitDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
-            long effMemKb, List<DispatchFrame> frames) {
+    public List<FrameBooking> planHost(DispatchHost host, int effCores, long effMemKb,
+            List<DispatchFrame> frames) {
         // Maestro already loaded this host, read the layer's frames once for
         // every host it placed the layer on, and enforced show-burst and job
         // caps in-tick, so this skips both the per-host frame query and the

@@ -823,8 +823,8 @@ already takes most of the load off it.
 | `maestro.forward_deadline_ms` | `1500` | gRPC deadline for one forward attempt; exactly one attempt per report, then the local fallback. |
 | `maestro.forward_breaker_failures` | `3` | Consecutive forward failures that open the breaker. |
 | `maestro.forward_breaker_cooldown_s` | `30` | While open, managed-show reports take the instant local fallback with no gRPC call; after the cooldown the next report is the probe. |
-| `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings; a Maestro slice is sized by the planner and delivered whole. |
-| `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. A Maestro slice delivers the size the planner accounted (up to `frame_query_max`), not this cap. |
+| `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings. Not applied by Maestro: `planHost` reads nothing and plans exactly the slice it is handed, sized by the planner. |
+| `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. Not applied by Maestro: a host's bookings per tick are the slices the planner accounted for it, each delivered whole. |
 
 The reservation **width gate** (`RESERVATION_MIN_HOST_FRACTION`, 0.5 of the
 largest host in a group) is deliberately a fixed constant, not a property:

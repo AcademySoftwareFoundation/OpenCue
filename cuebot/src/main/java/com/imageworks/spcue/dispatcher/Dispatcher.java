@@ -174,14 +174,13 @@ public interface Dispatcher {
      * access and no RQD launch happen here.
      *
      * @param host the host, whose idle fields are decremented as frames are planned
-     * @param layer the frames' layer
      * @param effCores the cores to book threadable frames at, 0 to keep the frames' own ask
      * @param effMemKb the memory to reserve per frame, 0 to keep the frames' own ask
-     * @param frames the layer's frames to plan, in dispatch order
+     * @param frames one layer's frames to plan, in dispatch order
      * @return the planned bookings, in placement order.
      */
-    List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
-            long effMemKb, List<DispatchFrame> frames);
+    List<FrameBooking> planHost(DispatchHost host, int effCores, long effMemKb,
+            List<DispatchFrame> frames);
 
     /**
      * Dispatch a host to the specified job.

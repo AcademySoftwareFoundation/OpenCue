@@ -155,11 +155,11 @@ public interface DispatcherDao {
 
     /**
      * The next {@code limit} waiting frames of a layer in dispatch order, with no host predicate.
-     * Maestro reads each planned layer once per tick and slices the result among the hosts it
-     * placed the layer on; fit, tags and limits were decided per host in placement and are enforced
-     * again at commit.
+     * Maestro reads each planned layer once per tick, by id (no layer lookup), and slices the
+     * result among the hosts it placed the layer on; fit, tags and limits were decided per host in
+     * placement and are enforced again at commit.
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, int limit);
+    List<DispatchFrame> findNextDispatchFrames(String layerId, int limit);
 
     /**
      * Return Scheduling Mode selected

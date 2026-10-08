@@ -245,8 +245,8 @@ public class LocalDispatcher extends AbstractDispatcher implements Dispatcher {
     }
 
     @Override
-    public List<FrameBooking> planHost(DispatchHost host, LayerInterface layer, int effCores,
-            long effMemKb, List<DispatchFrame> frames) {
+    public List<FrameBooking> planHost(DispatchHost host, int effCores, long effMemKb,
+            List<DispatchFrame> frames) {
         // The plan/batch-commit path is used only by the in-process Maestro
         // via CoreUnitDispatcher; local dispatch always commits inline.
         throw new UnsupportedOperationException("planHost is not supported for local dispatch");

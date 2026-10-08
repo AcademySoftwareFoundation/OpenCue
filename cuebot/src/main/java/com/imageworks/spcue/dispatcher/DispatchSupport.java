@@ -319,9 +319,10 @@ public interface DispatchSupport {
 
     /**
      * The next {@code limit} waiting frames of a layer in dispatch order, with no host predicate
-     * (Maestro's once-per-layer plan read, sliced among the hosts the layer was placed on).
+     * (Maestro's once-per-layer plan read, by layer id, sliced among the hosts the layer was placed
+     * on).
      */
-    List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, int limit);
+    List<DispatchFrame> findNextDispatchFrames(String layerId, int limit);
 
     /**
      * Return the next N frames to be dispatched from the specified layer.

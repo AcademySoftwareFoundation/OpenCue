@@ -542,16 +542,12 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         return frames;
     }
 
-    // The same layer query over a slice: rows (offset, offset+limit] of the
-    // dispatchable-frame ranking, so parallel same-layer plans on different
-    // hosts pull disjoint frames.
-
     @Override
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, int limit) {
+    public List<DispatchFrame> findNextDispatchFrames(String layerId, int limit) {
         long lastTime = System.currentTimeMillis();
         List<DispatchFrame> frames = getNamedJdbcTemplate().query(
                 FIND_DISPATCH_FRAMES_BY_LAYER, new MapSqlParameterSource()
-                        .addValue("layerId", layer.getLayerId()).addValue("frameLimit", limit),
+                        .addValue("layerId", layerId).addValue("frameLimit", limit),
                 FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer query",
                 System.currentTimeMillis() - lastTime);

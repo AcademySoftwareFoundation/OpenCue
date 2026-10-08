@@ -59,7 +59,6 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchHost;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.postgres.DispatchQuery;
@@ -67,7 +66,6 @@ import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
-import com.imageworks.spcue.service.JobManager;
 
 /**
  * Single-threaded Maestro: one Cuebot holds a Postgres advisory lock and plans each tick while the
@@ -200,9 +198,6 @@ public class Maestro extends JdbcDaoSupport {
     // Resolves a host id to a DispatchHost for the plan reads (planBookings).
     private HostManager hostManager;
 
-    // Resolves a layer id to a LayerInterface for the plan reads (planBookings).
-    private JobManager jobManager;
-
     // Kills the frame whose post-commit launch failed (by frame id); see launchCommitted.
     private RqdClient rqdClient;
 
@@ -289,8 +284,9 @@ public class Maestro extends JdbcDaoSupport {
     // see startSchedulerPoolsIfNeeded and launchOne.
     private volatile ThreadPoolExecutor launchPool;
 
-    // Pool for the plan phase: per-host plan reads (planHost) run in parallel, one task per host
-    // (serial within a host so the capacity decrement is correct). Commit is still single/batched.
+    // Pool for the plan phase (planBookings), two rounds: one frame read per planned layer, then
+    // one in-memory plan task per host (serial within a host so the capacity decrement is
+    // correct). Commit is still single/batched.
     private volatile ExecutorService readPool;
 
     // Max frames one commit books per layer, also the plan pull size (property
@@ -1584,7 +1580,7 @@ public class Maestro extends JdbcDaoSupport {
         List<FrameBooking> got = new ArrayList<>();
         for (int[] slice : slices) {
             // {offset, count, cores}: the cores are the slice's own (see submitCommit).
-            got.addAll(dispatcher.planHost(host, planned.layer, slice[2], effMemKb,
+            got.addAll(dispatcher.planHost(host, slice[2], effMemKb,
                     planned.slice(slice[0], slice[1])));
         }
         if (got.isEmpty()) {
@@ -1710,19 +1706,16 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * A planned layer's once-per-tick read: the layer and its next waiting frames in dispatch
-     * order, as many as every placement of it this tick accounted for. Each (host, layer) slice
-     * takes a disjoint sub-list by its offset (submitCommit), so parallel host tasks never share a
-     * frame.
+     * A planned layer's once-per-tick read: its next waiting frames in dispatch order, as many as
+     * every placement of it this tick accounted for. Each (host, layer) slice takes a disjoint
+     * sub-list by its offset (submitCommit), so parallel host tasks never share a frame.
      */
     static final class PlannedLayer {
         final String layerId;
-        final LayerInterface layer;
         final List<DispatchFrame> frames;
 
-        PlannedLayer(String layerId, LayerInterface layer, List<DispatchFrame> frames) {
+        PlannedLayer(String layerId, List<DispatchFrame> frames) {
             this.layerId = layerId;
-            this.layer = layer;
             this.frames = frames;
         }
 
@@ -1735,21 +1728,21 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Round one of planBookings: resolve each planned layer and read its frames, one task per layer
-     * on the read pool. A layer whose lookup or read throws is left out (its slices plan nothing)
-     * and counted once. Returns null if the wait was interrupted.
+     * Round one of planBookings: read each planned layer's frames by id, one task per layer on the
+     * read pool (the frame rows carry everything planHost needs, so no layer lookup). A layer whose
+     * read throws is left out (its slices plan nothing) and counted once. Returns null if the wait
+     * was interrupted.
      */
     private Map<String, PlannedLayer> readPlannedLayers(Set<String> layerIds,
             AtomicInteger failedLayers, AtomicReference<String> firstCause) {
         List<Callable<PlannedLayer>> reads = new ArrayList<>(layerIds.size());
         for (String layerId : layerIds) {
             reads.add(() -> {
-                LayerInterface layer = jobManager.getLayer(layerId);
                 int wanted = plannedFramesByLayer.getOrDefault(layerId, 0);
                 List<DispatchFrame> frames =
-                        wanted > 0 ? dispatchSupport.findNextDispatchFrames(layer, wanted)
+                        wanted > 0 ? dispatchSupport.findNextDispatchFrames(layerId, wanted)
                                 : Collections.emptyList();
-                return new PlannedLayer(layerId, layer, frames);
+                return new PlannedLayer(layerId, frames);
             });
         }
         Map<String, PlannedLayer> out = new HashMap<>();
@@ -4294,10 +4287,6 @@ public class Maestro extends JdbcDaoSupport {
 
     public void setHostManager(HostManager m) {
         this.hostManager = m;
-    }
-
-    public void setJobManager(JobManager m) {
-        this.jobManager = m;
     }
 
     public void setRqdClient(RqdClient r) {

@@ -211,8 +211,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, int limit) {
-        return dispatcherDao.findNextDispatchFrames(layer, limit);
+    public List<DispatchFrame> findNextDispatchFrames(String layerId, int limit) {
+        return dispatcherDao.findNextDispatchFrames(layerId, limit);
     }
 
     @Override

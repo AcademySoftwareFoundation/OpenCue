@@ -41,13 +41,11 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -1483,8 +1481,9 @@ public class MaestroTests {
     @Test
     @SuppressWarnings("unchecked")
     public void aDeletedLayerCostsOnlyItsOwnSlice() throws Exception {
-        // Two layers vanish mid-tick on the host: the third still plans, and
-        // the two failures are counted once for the tick, not warned per layer.
+        // Two layers vanish mid-tick on the host (their frame reads throw): the
+        // third still plans, and the two failures are counted once for the tick,
+        // not warned per layer.
         Maestro s = new Maestro();
         set(s, "env", new MockEnvironment());
         ExecutorService pool = Executors.newFixedThreadPool(1);
@@ -1492,23 +1491,25 @@ public class MaestroTests {
         try {
             HostManager hosts = mock(HostManager.class);
             when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
-            JobManager jobs = mock(JobManager.class);
-            LayerInterface good = mock(LayerInterface.class);
-            when(jobs.getLayer("gone")).thenThrow(new RuntimeException("no such layer"));
-            when(jobs.getLayer("gone2")).thenThrow(new RuntimeException("no such layer"));
-            when(jobs.getLayer("good")).thenReturn(good);
             DispatchSupport support = mock(DispatchSupport.class);
-            when(support.findNextDispatchFrames(eq(good), anyInt())).thenReturn(frames(3));
+            when(support.findNextDispatchFrames(eq("gone"), anyInt()))
+                    .thenThrow(new RuntimeException("no such layer"));
+            when(support.findNextDispatchFrames(eq("gone2"), anyInt()))
+                    .thenThrow(new RuntimeException("no such layer"));
+            when(support.findNextDispatchFrames(eq("good"), anyInt())).thenReturn(frames(3));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(good), anyInt(), anyLong(), anyList()))
+            when(dispatcher.planHost(any(), anyInt(), anyLong(), anyList()))
                     .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
-            s.setJobManager(jobs);
             s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
-            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("good", 3);
+            Map<String, Integer> wanted =
+                    (Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer");
+            wanted.put("gone", 3);
+            wanted.put("good", 3);
+            wanted.put("gone2", 3);
             List<FrameBooking> planned = s.planBookings();
             assertEquals("the host's other layer stands", 1, planned.size());
             Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
@@ -1558,17 +1559,13 @@ public class MaestroTests {
         try {
             HostManager hosts = mock(HostManager.class);
             when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
-            JobManager jobs = mock(JobManager.class);
-            LayerInterface layer = mock(LayerInterface.class);
-            when(jobs.getLayer("wide")).thenReturn(layer);
             DispatchSupport support = mock(DispatchSupport.class);
-            when(support.findNextDispatchFrames(eq(layer), eq(5))).thenReturn(frames(5));
+            when(support.findNextDispatchFrames(eq("wide"), eq(5))).thenReturn(frames(5));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(),
+            when(dispatcher.planHost(any(), eq(1600), anyLong(),
                     argThat((List<DispatchFrame> l) -> l.size() == 5)))
                             .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
-            s.setJobManager(jobs);
             s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
@@ -1594,21 +1591,16 @@ public class MaestroTests {
         try {
             HostManager hosts = mock(HostManager.class);
             when(hosts.getDispatchHost(anyString())).thenReturn(new DispatchHost());
-            JobManager jobs = mock(JobManager.class);
-            LayerInterface layer = mock(LayerInterface.class);
-            when(jobs.getLayer("wide")).thenReturn(layer);
             List<DispatchFrame> read = frames(8);
             DispatchSupport support = mock(DispatchSupport.class);
-            when(support.findNextDispatchFrames(eq(layer), eq(8))).thenReturn(read);
+            when(support.findNextDispatchFrames(eq("wide"), eq(8))).thenReturn(read);
             Dispatcher dispatcher = mock(Dispatcher.class);
             List<List<DispatchFrame>> slices = Collections.synchronizedList(new ArrayList<>());
-            when(dispatcher.planHost(any(), eq(layer), anyInt(), anyLong(), anyList()))
-                    .thenAnswer(inv -> {
-                        slices.add(new ArrayList<>(inv.<List<DispatchFrame>>getArgument(4)));
-                        return Arrays.asList(bookingOn("h"));
-                    });
+            when(dispatcher.planHost(any(), anyInt(), anyLong(), anyList())).thenAnswer(inv -> {
+                slices.add(new ArrayList<>(inv.<List<DispatchFrame>>getArgument(3)));
+                return Arrays.asList(bookingOn("h"));
+            });
             s.setHostManager(hosts);
-            s.setJobManager(jobs);
             s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             Map<String, List<String>> byHost =
@@ -1622,8 +1614,8 @@ public class MaestroTests {
             ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("wide", 8);
 
             assertEquals(2, s.planBookings().size());
-            verify(support, times(1)).findNextDispatchFrames(any(), anyInt());
-            verify(jobs, times(1)).getLayer("wide");
+            verify(support, times(1)).findNextDispatchFrames(anyString(), anyInt());
+            verify(support, times(1)).findNextDispatchFrames("wide", 8);
             assertEquals(2, slices.size());
             Set<DispatchFrame> seen = new HashSet<>();
             int total = 0;
@@ -1648,6 +1640,26 @@ public class MaestroTests {
             out.add(f);
         }
         return out;
+    }
+
+    @Test
+    public void aSliceIsClippedToTheFramesTheReadReturned() {
+        // The placements accounted for 8 frames (host1: 0-5, host2: 5-8) but the
+        // layer had only 3 WAITING: the first host gets the 3, the second nothing,
+        // and malformed offsets or counts never throw.
+        List<DispatchFrame> read = frames(3);
+        Maestro.PlannedLayer planned = new Maestro.PlannedLayer("short", read);
+        assertEquals(read, planned.slice(0, 5));
+        assertTrue("an offset past the end is an empty slice", planned.slice(5, 3).isEmpty());
+        assertEquals("a slice inside the read is exact", read.subList(1, 3), planned.slice(1, 2));
+        assertEquals(read, planned.slice(0, 3));
+        assertTrue(planned.slice(3, 1).isEmpty());
+        assertEquals("a negative offset reads from the head", read.subList(0, 2),
+                planned.slice(-4, 2));
+        assertTrue("a negative count is an empty slice", planned.slice(0, -1).isEmpty());
+        assertTrue(planned.slice(-1, -1).isEmpty());
+        assertTrue(
+                new Maestro.PlannedLayer("empty", Collections.emptyList()).slice(0, 5).isEmpty());
     }
 
 

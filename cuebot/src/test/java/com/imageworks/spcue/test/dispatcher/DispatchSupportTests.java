@@ -307,8 +307,8 @@ public class DispatchSupportTests extends TransactionalTest {
         OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(), bump, 1000);
         try {
             LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
-            List<FrameBooking> plan = dispatcher.planHost(getHost(), layer, 0, 0,
-                    dispatchSupport.findNextDispatchFrames(layer, 10));
+            List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
+                    dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
             FrameBooking booked = null;
             for (FrameBooking b : plan)
                 if (b.frame.getFrameId().equals(frame.getFrameId()))
@@ -341,8 +341,8 @@ public class DispatchSupportTests extends TransactionalTest {
         OomMemoryTracker.INSTANCE.onOom(bumped.getFrameId(), bumped.getLayerId(), bump, 1000);
         try {
             LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
-            List<FrameBooking> plan = dispatcher.planHost(getHost(), layer, 0, 0,
-                    dispatchSupport.findNextDispatchFrames(layer, 10));
+            List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
+                    dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
             boolean sawBumped = false;
             boolean sawLater = false;
             for (FrameBooking b : plan) {

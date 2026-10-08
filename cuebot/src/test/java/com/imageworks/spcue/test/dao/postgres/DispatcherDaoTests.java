@@ -307,20 +307,20 @@ public class DispatcherDaoTests extends AbstractTransactionalJUnit4SpringContext
         JobDetail job = getJob1();
         LayerInterface layer = jobManager.getLayers(job).get(0);
 
-        List<DispatchFrame> frames = dispatcherDao.findNextDispatchFrames(layer, 10);
+        List<DispatchFrame> frames = dispatcherDao.findNextDispatchFrames(layer.getLayerId(), 10);
         assertEquals(10, frames.size());
         for (DispatchFrame frame : frames) {
             assertEquals(layer.getLayerId(), frame.getLayerId());
             assertEquals(FrameState.WAITING, frame.state);
         }
-        List<DispatchFrame> all = dispatcherDao.findNextDispatchFrames(layer, 1000);
+        List<DispatchFrame> all = dispatcherDao.findNextDispatchFrames(layer.getLayerId(), 1000);
         assertEquals("the limit is the head of the same ordering", frames, all.subList(0, 10));
 
         // A frame that left WAITING drops out of the read.
         DispatchFrame first = frames.get(0);
         jdbcTemplate.update("UPDATE frame SET str_state = 'RUNNING' WHERE pk_frame = ?",
                 first.getFrameId());
-        List<DispatchFrame> after = dispatcherDao.findNextDispatchFrames(layer, 1000);
+        List<DispatchFrame> after = dispatcherDao.findNextDispatchFrames(layer.getLayerId(), 1000);
         assertEquals(all.size() - 1, after.size());
         for (DispatchFrame frame : after)
             assertFalse(frame.getFrameId().equals(first.getFrameId()));
