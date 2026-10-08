@@ -187,6 +187,9 @@ public class Maestro extends JdbcDaoSupport {
     // Wall time of the latest drain, for the tick's phase split (doTick).
     private long lastDrainMs = 0;
 
+    // A tick longer than this is logged at WARN with its phase breakdown.
+    static final long SLOW_TICK_WARN_MS = 10_000;
+
     // Completions per drain transaction. Each holds its procs' host rows, and every
     // stop costs a frame_history close on the production table: 130 rows at 200 ms
     // held every host of a tick for 27 s. Small, so no one waits long on a host.
@@ -1471,12 +1474,17 @@ public class Maestro extends JdbcDaoSupport {
         int dispatchedNow = committed.size();
         long tFlush = System.currentTimeMillis();
         stats.phaseMs.put("usage", tFlush - tCommit);
-        if (tFlush - tStart > 1000) {
-            logger.info("Maestro tick breakdown: drain=" + lastDrainMs + "ms, snapshot="
-                    + (tSnapshot - tStart) + "ms, place=" + (tPlan - tSnapshot) + "ms, read="
-                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
-                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow);
+        long tTick = tFlush - tStart;
+        if (tTick > 1000) {
+            String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
+                    + "ms, place=" + (tPlan - tSnapshot) + "ms, read=" + (tRead - tPlan)
+                    + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage=" + (tFlush - tCommit)
+                    + "ms | placements=" + lastPlacements + " planned=" + planned.size()
+                    + " committed=" + dispatchedNow;
+            logger.info("Maestro tick breakdown: " + breakdown);
+            // Production runs at WARN, so a slow tick carries its own breakdown there.
+            if (tTick > SLOW_TICK_WARN_MS)
+                logger.warn("Maestro slow tick: " + tTick + "ms | " + breakdown);
         }
         dispatched = dispatchedNow;
 

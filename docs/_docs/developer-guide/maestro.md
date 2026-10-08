@@ -785,7 +785,9 @@ scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
 bookings) and `usage` (the live show-usage and farm-health reads). A growing
 tail names the phase that grew; the sandbox Maestro dashboard plots the p95 of
 each. The same split is logged at INFO (`Maestro tick breakdown`) for any tick
-over one second.
+over one second, and again at WARN (`Maestro slow tick`) for any tick over
+ten seconds, so a deployment logging at WARN still sees the breakdown of the
+ticks that matter.
 
 **Roughly 10x less DB traffic overall.** Together these move the design from "a
 transaction per booking decision plus a heavy join per host report" to
