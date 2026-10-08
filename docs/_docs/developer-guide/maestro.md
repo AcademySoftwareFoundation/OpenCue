@@ -15,7 +15,7 @@ OpenCue Maestro is a whole-farm scheduler, gated behind `maestro.enabled`
 (default **off**). It is an alternative to the legacy per-host dispatcher.
 When enabled it owns dispatch and the legacy `BookingQueue` path is
 suppressed. Placement decisions are made single-threaded over an in-memory
-snapshot; only the per-host plan reads run in parallel (see section 4).
+snapshot; only the plan reads run in parallel (see section 4).
 
 The keystone of the design is that Maestro is **stateless between ticks**:
 each tick re-derives its entire picture from a fresh database snapshot and keeps
@@ -284,9 +284,18 @@ the big job" practice.
 ### 3.3 Plan reads and batched commit
 
 Maestro never writes bookings during placement; it just records the
-`(host, layer)` pairings it chose. After all groups, `doTick` reads each
-pairing's frames in parallel by host (`planHost`, read-only, on a small read
-pool), then writes the bookings in host-aligned chunks (`commitInChunks`), each
+`(host, layer)` pairings it chose and how many frames each accounted for. After
+all groups, `planBookings` reads each planned layer **once**: its next waiting
+frames in dispatch order, as many as every placement of it this tick added up
+to (`FIND_DISPATCH_FRAMES_BY_LAYER`, a plain `ORDER BY ... LIMIT` with no host
+predicate, served by the partial index `i_frame_layer_dispatch_waiting`). Each
+`(host, layer)` slice then takes its disjoint sub-list of that read by offset,
+and one task per host builds the procs in memory (`planHost`, no DB access,
+on a small read pool). Fit, tags, thread mode, limits and caps were decided per
+host in placement and are enforced again at commit, so the read needs only the
+frames; a layer placed on three hundred hosts costs one query, not three
+hundred scans of its waiting list. `doTick` then writes the bookings in
+host-aligned chunks (`commitInChunks`), each
 chunk one batched transaction (`startFramesAndProcsBatch`: batched frame UPDATE
 + proc INSERT + host UPDATE) that is launched as soon as it lands. Frames lost
 to a `frame.int_version` race are dropped from the chunk and retried next tick;
@@ -762,10 +771,21 @@ farm grows. Maestro is proactive and farm-wide: one host-snapshot query per
 tick, hosts bucketed into a few static spec groups, then one candidate-layer
 query per group. On a homogeneous farm that is O(G) heavy queries per tick
 (G = distinct host specs, a small constant) instead of O(H) per report cycle
-(H = hosts), so heavy DB query load stops scaling with farm size. The only
-per-host work left is the read-only plan phase, which is light and runs in
-parallel; placement scoring is O(candidates x hosts), but that is in-memory
-arithmetic over the snapshot, not database work.
+(H = hosts), so heavy DB query load stops scaling with farm size. The plan
+reads are one indexed `LIMIT` query per planned layer per tick, however many
+hosts the layer lands on; the per-host work left is in-memory proc building.
+Placement scoring is O(candidates x hosts), but that is in-memory arithmetic
+over the snapshot, not database work.
+
+**Every tick is split by phase in Prometheus.** Beside the tick histogram
+`cue_maestro_tick_duration_seconds`, `cue_maestro_tick_phase_seconds{phase}`
+times each phase of the leader's tick: `drain` (queued completions applied),
+`snapshot` (hosts, procs and pins read), `place` (candidate queries and
+scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
+bookings) and `usage` (the live show-usage and farm-health reads). A growing
+tail names the phase that grew; the sandbox Maestro dashboard plots the p95 of
+each. The same split is logged at INFO (`Maestro tick breakdown`) for any tick
+over one second.
 
 **Roughly 10x less DB traffic overall.** Together these move the design from "a
 transaction per booking decision plus a heavy join per host report" to

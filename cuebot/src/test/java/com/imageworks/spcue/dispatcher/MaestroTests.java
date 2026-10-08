@@ -20,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -60,8 +61,10 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -1494,14 +1497,18 @@ public class MaestroTests {
             when(jobs.getLayer("gone")).thenThrow(new RuntimeException("no such layer"));
             when(jobs.getLayer("gone2")).thenThrow(new RuntimeException("no such layer"));
             when(jobs.getLayer("good")).thenReturn(good);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq(good), anyInt())).thenReturn(frames(3));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(good), anyInt(), anyLong(), anyInt(), anyInt()))
+            when(dispatcher.planHost(any(), eq(good), anyInt(), anyLong(), anyList()))
                     .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
             s.setJobManager(jobs);
+            s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
+            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("good", 3);
             List<FrameBooking> planned = s.planBookings();
             assertEquals("the host's other layer stands", 1, planned.size());
             Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
@@ -1554,20 +1561,93 @@ public class MaestroTests {
             JobManager jobs = mock(JobManager.class);
             LayerInterface layer = mock(LayerInterface.class);
             when(jobs.getLayer("wide")).thenReturn(layer);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq(layer), eq(5))).thenReturn(frames(5));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(), eq(0), eq(5)))
-                    .thenReturn(Arrays.asList(bookingOn("host1")));
+            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(),
+                    argThat((List<DispatchFrame> l) -> l.size() == 5)))
+                            .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
             s.setJobManager(jobs);
+            s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("wide")));
             ((Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer"))
                     .put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 1600})));
+            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("wide", 5);
             assertEquals(1, s.planBookings().size());
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aLayerIsReadOnceAndSlicedAmongItsHosts() throws Exception {
+        // Two hosts plan the same layer: one read of all eight frames the placements
+        // accounted for, then each host gets its own disjoint slice of it.
+        Maestro s = new Maestro();
+        set(s, "env", new MockEnvironment());
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        set(s, "readPool", pool);
+        try {
+            HostManager hosts = mock(HostManager.class);
+            when(hosts.getDispatchHost(anyString())).thenReturn(new DispatchHost());
+            JobManager jobs = mock(JobManager.class);
+            LayerInterface layer = mock(LayerInterface.class);
+            when(jobs.getLayer("wide")).thenReturn(layer);
+            List<DispatchFrame> read = frames(8);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq(layer), eq(8))).thenReturn(read);
+            Dispatcher dispatcher = mock(Dispatcher.class);
+            List<List<DispatchFrame>> slices = Collections.synchronizedList(new ArrayList<>());
+            when(dispatcher.planHost(any(), eq(layer), anyInt(), anyLong(), anyList()))
+                    .thenAnswer(inv -> {
+                        slices.add(new ArrayList<>(inv.<List<DispatchFrame>>getArgument(4)));
+                        return Arrays.asList(bookingOn("h"));
+                    });
+            s.setHostManager(hosts);
+            s.setJobManager(jobs);
+            s.setDispatchSupport(support);
+            s.setDispatcher(dispatcher);
+            Map<String, List<String>> byHost =
+                    (Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost");
+            byHost.put("host1", new ArrayList<>(Arrays.asList("wide")));
+            byHost.put("host2", new ArrayList<>(Arrays.asList("wide")));
+            Map<String, List<int[]>> bySlice =
+                    (Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer");
+            bySlice.put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 100})));
+            bySlice.put("host2|wide", new ArrayList<>(Arrays.asList(new int[] {5, 3, 100})));
+            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("wide", 8);
+
+            assertEquals(2, s.planBookings().size());
+            verify(support, times(1)).findNextDispatchFrames(any(), anyInt());
+            verify(jobs, times(1)).getLayer("wide");
+            assertEquals(2, slices.size());
+            Set<DispatchFrame> seen = new HashSet<>();
+            int total = 0;
+            for (List<DispatchFrame> slice : slices) {
+                total += slice.size();
+                seen.addAll(slice);
+            }
+            assertEquals("the slices cover the read", 8, total);
+            assertEquals("and never share a frame", 8, seen.size());
+            List<DispatchFrame> first = slices.get(0).size() == 5 ? slices.get(0) : slices.get(1);
+            assertEquals("the first slice is the head of the read", read.subList(0, 5), first);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static List<DispatchFrame> frames(int n) {
+        List<DispatchFrame> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            DispatchFrame f = new DispatchFrame();
+            f.id = "f" + i;
+            out.add(f);
+        }
+        return out;
     }
 
 

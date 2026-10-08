@@ -111,6 +111,27 @@ public class MaestroMetricsTests {
     }
 
     @Test
+    public void tickPhasesAreObservedPerPhase() {
+        MaestroMetrics m = enabledMetrics();
+        String count = "cue_maestro_tick_phase_seconds_count";
+        String total = "cue_maestro_tick_phase_seconds_sum";
+        double drainCountBefore = sample(count, "phase", "drain");
+        double readSumBefore = sample(total, "phase", "read");
+        double commitCountBefore = sample(count, "phase", "commit");
+
+        MaestroMetrics.TickStats s = new MaestroMetrics.TickStats();
+        s.tickDurationMs = 12_500;
+        s.phaseMs.put("drain", 2_000L);
+        s.phaseMs.put("read", 10_000L);
+        m.recordTick(s);
+
+        assertEquals(drainCountBefore + 1.0, sample(count, "phase", "drain"), 0.0001);
+        assertEquals(readSumBefore + 10.0, sample(total, "phase", "read"), 0.0001);
+        assertEquals("a phase the tick did not time is not observed", commitCountBefore,
+                sample(count, "phase", "commit"), 0.0001);
+    }
+
+    @Test
     public void showCoresIsSetLiveNotAccumulated() {
         MaestroMetrics m = enabledMetrics();
         String metric = "cue_maestro_show_cores";
