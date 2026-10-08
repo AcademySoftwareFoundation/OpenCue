@@ -1,0 +1,769 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Maestro migration watchboard: whole-farm utilization across both schedulers, Maestro's growing share, booking pace, managed-show health and the double-booking safety net. Built for the managed-mode rollout (one show, two shows, facility).",
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 1,
+  "links": [
+    {
+      "title": "OpenCue Maestro (full board)",
+      "type": "dashboards",
+      "tags": ["opencue", "scheduler"],
+      "asDropdown": true
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 30,
+  "style": "dark",
+  "tags": ["opencue", "scheduler", "migration"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".*",
+        "current": {
+          "selected": true,
+          "text": ["All"],
+          "value": ["$__all"]
+        },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Show",
+        "multi": true,
+        "name": "show",
+        "query": "label_values(cue_frames_completed_total, show)",
+        "refresh": 2,
+        "sort": 1,
+        "type": "query",
+        "datasource": "prometheus",
+        "description": "Sourced from cue_frames_completed_total, which Cuebot emits for BOTH schedulers, so every show appears here regardless of who books it."
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "",
+  "title": "Maestro Migration",
+  "uid": "maestro-migration",
+  "panels": [
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 0 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #73BF69;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">UTILISATION &mdash; the headline</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Whole-farm utilisation (both schedulers)",
+      "description": "The apples-to-apples number for the whole migration: cores in use over cores on UP+OPEN hosts, from the shared host table (cue_cores_total / cue_cores_idle). Both dispatchers decrement the same columns, so this is true across every phase (managed, two shows, facility). The dashed line is the same series one week earlier: the impact of each migration step reads as the gap between the two. max by (alloc) dedupes the per-Cuebot copies of the gauge.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 2 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "axisLabel": "% of farm cores in use"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "utilisation" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "one week ago" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "#808080" } },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [10, 10] } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle)) / sum(max by (alloc) (cue_cores_total)))",
+          "legendFormat": "utilisation",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle offset 1w)) / sum(max by (alloc) (cue_cores_total offset 1w)))",
+          "legendFormat": "one week ago",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Maestro's slice of the farm",
+      "description": "sum(cue_maestro_show_cores) over the farm total, as measured by Maestro's own booking ledger. CAREFUL WITH THE SEMANTICS: show_cores counts only cores MAESTRO booked, while farm_cores_total is the WHOLE farm. In managed mode this is therefore the managed shows' share of the farm (expect it small and growing per phase), NOT utilisation. Only at facility cutover does it converge to farm utilisation as Maestro sees it. The green reference line is whole-farm utilisation from the host table; the gap between them is legacy-booked plus idle.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 2 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 25,
+            "showPoints": "never",
+            "axisLabel": "% of farm cores"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "booked by maestro" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "whole-farm utilisation" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } },
+              { "id": "custom.fillOpacity", "value": 0 },
+              { "id": "custom.lineStyle", "value": { "fill": "dash", "dash": [4, 4] } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(cue_maestro_show_cores) / scalar(max(cue_maestro_farm_cores_total)) * 100",
+          "legendFormat": "booked by maestro",
+          "refId": "A"
+        },
+        {
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle)) / sum(max by (alloc) (cue_cores_total)))",
+          "legendFormat": "whole-farm utilisation",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Utilisation by allocation",
+      "description": "Cores in use per allocation over that allocation's total, from the shared host table. Localizes a utilisation move: if the farm number dips, this tells you whether it is the allocation the managed show renders on (Maestro's doing) or somewhere else (not Maestro's doing).",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 2 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "% of alloc cores in use"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last", "mean"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "100 * (1 - max by (alloc) (cue_cores_idle) / max by (alloc) (cue_cores_total))",
+          "legendFormat": "{{alloc}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 10 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #5794F2;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">BOOKING PACE</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to book, estimated (managed shows)",
+      "description": "Little's law estimate, zero code changes: the waiting backlog Maestro weighed this tick (all cue_maestro_waiting_frames buckets) divided by Maestro's booking rate = the average time a waiting frame will take to book at the current pace. In managed mode the waitlist covers only managed shows, which is exactly what we want here. Under a deep backlog this number is dominated by backlog depth, so read the TREND against the show's own history, not the absolute value. The precise per-frame version is the proposed cue_frame_time_to_book_seconds histogram (next panel).",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "axisLabel": "estimated seconds to book"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "est. time to book" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "showLegend": false },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(cue_maestro_waiting_frames) / sum(rate(cue_maestro_frames_dispatched_total[10m]))",
+          "legendFormat": "est. time to book",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Time to book p50 / p95 (proposed metric)",
+      "description": "PROPOSED, lights up once cue_frame_time_to_book_seconds{show, scheduler} lands: a histogram of (booked_at - frame ts_updated) observed at both booking funnels, scheduler='dispatcher' in DispatchSupportService.startFrameAndProc and scheduler='maestro' on the winners of startFramesAndProcsBatch. The one true apples-to-apples pace comparison between the two systems; until then use the estimate on the left.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "seconds from WAITING to booked"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, scheduler) (rate(cue_frame_time_to_book_seconds_bucket[10m])))",
+          "legendFormat": "{{scheduler}} p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, scheduler) (rate(cue_frame_time_to_book_seconds_bucket[10m])))",
+          "legendFormat": "{{scheduler}} p95",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Maestro booking throughput",
+      "description": "Frames booked per second by Maestro, per show (rate of cue_maestro_frames_dispatched_total). Sustained zero with a non-empty waitlist means the managed show is not flowing: read 'What's holding frames' below for the cause.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "lineWidth": 0,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never",
+            "axisLabel": "frames / sec"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["mean", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (show) (rate(cue_maestro_frames_dispatched_total[5m]))",
+          "legendFormat": "{{show}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Completion throughput per show (shared truth)",
+      "description": "Frames completed per second, per show, from cue_frames_completed_total. Cuebot emits this for BOTH schedulers (RQD reports completions to Cuebot either way), so it is the one throughput axis comparable across the migration boundary: the managed show against its own pre-migration history, and the unmanaged shows as the control group. An unmanaged show slowing down when a show flips to Maestro is the fairness-coupling fingerprint.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "frames completed / sec"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["mean", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (show) (rate(cue_frames_completed_total{show=~\"$show\"}[10m]))",
+          "legendFormat": "{{show}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 28 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #FF9830;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">MANAGED SHOW HEALTH</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "What's holding frames (managed shows)",
+      "description": "Of all frames Maestro handles (running + waiting), the share blocked by each cause. In managed mode this covers only the managed shows. capacity = farm full (fine). no fit = idle exists but wrong shape. limit = a cap. no license = pool exhausted or stale. held = reserved for a wide job. All near zero = everything flows. A 'limit' share while cores sit idle = check for a drifted job_resource counter.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0,
+          "max": 100,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 0,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never",
+            "axisLabel": "% of all managed frames"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "capacity" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "held" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "limit" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "no fit" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "no license" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (cue_maestro_waiting_frames{reason!=\"flowing\"}) / scalar(sum(cue_maestro_waiting_frames) + sum(cue_maestro_running_frames)) * 100",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Frame outcomes by state",
+      "description": "Frames completed per second by final state (cue_frames_completed_total, both schedulers). The regression canary: a rise in DEAD or EATEN on the managed show after the flip means frames are failing under Maestro that succeeded under the dispatcher (e.g. a layer class Maestro places differently, or a limit failure-rule misfire). SUCCEEDED should track the completion panel above.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "frames / sec"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "DEAD" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "SUCCEEDED" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["mean", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (state) (rate(cue_frames_completed_total{show=~\"$show\"}[10m]))",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Waiting backlog (managed shows)",
+      "description": "The absolute waitlist Maestro weighed, stacked by reason, including 'flowing' (booked this tick, backlog moving). The denominator of the time-to-book estimate: a rising estimate with a flat backlog means booking slowed; a rising estimate with a rising backlog means more work arrived. A layer stuck WAITING that never appears here at all is the silent class (e.g. a bare-hostname tag pin, which Maestro never dispatches).",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 30 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "fillOpacity": 45,
+            "stacking": { "mode": "normal", "group": "A" },
+            "showPoints": "never",
+            "axisLabel": "waiting frames"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "flowing" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum by (reason) (cue_maestro_waiting_frames)",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": { "h": 2, "w": 24, "x": 0, "y": 38 },
+      "options": {
+        "mode": "html",
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #F2495C;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">BOTH ENGINES &amp; THE SAFETY NET</div>"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Maestro tick duration",
+      "description": "Tick wall-clock p50/p95/p99. Maestro's core health signal; the batched commit is synchronous, so DB latency shows up here first. Watch it as each phase adds shows: it should stay well under the 3s tick interval.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 40 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum(rate(cue_maestro_tick_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p50",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p95",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum(rate(cue_maestro_tick_duration_seconds_bucket[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Legacy dispatcher health (unmanaged shows)",
+      "description": "The other engine is still doing most of the work during managed mode: BookingQueue backlog and rejections per Cuebot. A queue backing up or rejecting after a show flips to Maestro would mean the migration is hurting the legacy side (it should not: the managed show simply disappears from its query).",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 40 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "queued booking tasks"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byRegexp", "options": "/rejected/" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "max by (cuebot_hosts) (cue_booking_waiting_total)",
+          "legendFormat": "{{cuebot_hosts}} waiting",
+          "refId": "A"
+        },
+        {
+          "expr": "max by (cuebot_hosts) (cue_booking_rejected_total)",
+          "legendFormat": "{{cuebot_hosts}} rejected",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Booking safety net",
+      "description": "The double-booking and lost-launch counters, all emitted by Cuebot for both schedulers. zombie = RQD rendering a frame the DB forgot (a dropped Maestro launch shows up here until the reaper resets it). launch unknown = launch RPC failed without proving the frame never started. superseded / dropped = completion reports that could not be applied to their frame. All of these should be flat near zero; any sustained rate after a flip is the first sign the two dispatchers or the fire-and-forget launch path are stepping on each other.",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 48 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "axisLabel": "events / sec"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "zombie renders" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "calcs": ["last", "max"]
+        },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(cue_frame_zombie_render_total[10m]))",
+          "legendFormat": "zombie renders",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (resolution) (rate(cue_frame_launch_outcome_unknown_total[10m]))",
+          "legendFormat": "launch unknown: {{resolution}}",
+          "refId": "B"
+        },
+        {
+          "expr": "sum by (reason) (rate(cue_frame_complete_superseded_total[10m]))",
+          "legendFormat": "superseded: {{reason}}",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(rate(cue_frame_complete_dropped_total[10m]))",
+          "legendFormat": "completions dropped",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Stranded cores (two views)",
+      "description": "maestro view = cue_farm_health_stranded_cores, idle cores after planning that no waiting managed frame can buy. host table view = cue_cores_memory_stranded summed over allocations, idle cores on hosts out of memory, covering the whole farm and both schedulers. Sustained growth in either after a flip means the migrated load is packing hosts into shapes the remaining work cannot use (the rss-sizing and no-grab-idle behaviors changing the memory mix is the usual suspect).",
+      "datasource": "prometheus",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 48 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "fillOpacity": 12,
+            "showPoints": "never",
+            "axisLabel": "cores idle but unsellable"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "maestro view (managed work)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "host table view (whole farm)" },
+            "properties": [
+              { "id": "color", "value": { "mode": "fixed", "fixedColor": "purple" } }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "targets": [
+        {
+          "expr": "max(cue_farm_health_stranded_cores)",
+          "legendFormat": "maestro view (managed work)",
+          "refId": "A"
+        },
+        {
+          "expr": "sum(max by (alloc) (cue_cores_memory_stranded))",
+          "legendFormat": "host table view (whole farm)",
+          "refId": "B"
+        }
+      ]
+    }
+  ]
+}
