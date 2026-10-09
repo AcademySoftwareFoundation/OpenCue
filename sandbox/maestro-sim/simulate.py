@@ -396,6 +396,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "inject_strandgrow.py", "strandgrow_watch.py",
                      "inject_migrate.py", "migrate_watch.py", "forward_watch.py",
                      "inject_slice.py", "slice_watch.py",
+                     "inject_backlog.py", "phase_watch.py",
                      "inject_showtier.py", "showtier_watch.py",
                      "inject_completionstorm.py", "completionstorm_watch.py",
                      "inject_doublerender.py", "doublerender_watch.py",
@@ -1189,6 +1190,11 @@ def start_slice_injector(duration):
     spawn(["inject_slice.py", str(duration)], f"{FARM}/inject_slice.log")
 
 
+def start_backlog_injector(duration):
+    log(f"starting BACKLOG (a few 90k-frame layers, long frames) for {duration}s ...")
+    spawn(["inject_backlog.py", str(duration)], f"{FARM}/inject_backlog.log")
+
+
 def start_showtier_injector(duration):
     log(f"starting SHOWTIER flood (two shows of equal priority, sizes one quarter "
         f"and three quarters of the farm) for {duration}s ...")
@@ -1590,6 +1596,23 @@ def _verify_check(name, gdir, logp, cblog):
                     f"{tm.group(1) if tm else '?'} showB {tm.group(2) if tm else '?'}, "
                     f"gap {tm.group(3) if tm else '?'}, peak util "
                     f"{um.group(1) if um else '?'}%")
+    if name in ("BACKLOG", "PLACE", "MEGAHOST"):
+        # The watcher's verdict is the whole check: the watched phase under its
+        # bound with the farm loaded; the tick quantiles ride along as the
+        # row-path baseline. INCONCLUSIVE when the load never arrived.
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        tm = re.search(r"tick p50 (\d+) p95 (\d+) p99 (\d+) mean (\d+) ms over (\d+) ticks", txt)
+        rm = re.search(r"((?:read|place|snapshot) (?:p95|max) \d+ ms[^;]*)", txt)
+        wm = re.search(r"waiting (\d+) at the end", txt)
+        if re.search(r"(?m)^INCONCLUSIVE:", txt) or not tm:
+            return None, "load never arrived or no tick observed"
+        ok = bool(re.search(r"(?m)^PASS:", txt))
+        return ok, (f"tick p50 {tm.group(1)} p95 {tm.group(2)} p99 "
+                    f"{tm.group(3)} mean {tm.group(4)} ms over {tm.group(5)} ticks; "
+                    f"{rm.group(1) if rm else '?'}; waiting {wm.group(1) if wm else '?'}")
     if name == "SLICE":
         # The watcher's verdict is the whole check: every large host's first
         # slice is the accounted size. Fail-first: the per-call cap cuts it.
@@ -1970,6 +1993,27 @@ def run_verify():
         # tick and the host carries phantom reservation.
         ("SLICE", ["--hosts", "3,1,1", "--slice-test", "90"],
          {"SIM_DUR_LONG_S": "20"}),
+        # BACKLOG: four layers of 90k waiting one-core frames on a 5760-core
+        # farm, 60 s frames so ~100 complete per second and every tick places a
+        # few hundred (host, layer) slices against a 300k+ waiting list. The
+        # read phase must not grow with the backlog. Fail-first: the per-host
+        # plan read numbers every waiting frame of the layer once per host.
+        ("BACKLOG", ["--hosts", "25,30,100", "--backlog-test", "900"],
+         {"SIM_DUR_LONG_S": "60"}),
+        # PLACE: the full farm split into 120 tag classes (120 host-spec groups)
+        # under a sustained feed. The place phase must not grow with the number
+        # of groups. Fail-first: one candidate query per group rescans every
+        # pending layer of the facility G times per tick.
+        ("PLACE", ["--tags", "120", "--feed", "540", "--place-test", "480"],
+         {"SIM_GENERAL_FRAC": "0.3"}),
+        # MEGAHOST: 10,000 hosts (360k cores) under a deep backlog of 20-minute
+        # frames in 80 layers, hosts reporting every 30 s. The snapshot phase,
+        # which reads every host and every proc each tick, must stay bounded at
+        # this size; the tick quantiles ride along.
+        ("MEGAHOST", ["--hosts", "1500,2000,6500", "--heartbeat-interval", "30",
+                      "--megahost-test", "1500"],
+         {"SIM_DUR_LONG_S": "1200", "SIM_BACKLOG_JOBS": "80",
+          "SIM_BACKLOG_FRAMES": "9000", "SIM_PHASE_LOAD_TIMEOUT_S": "1200"}),
         # SHOWTIER: a subscription's size is a guaranteed share of an
         # allocation and its burst the ceiling. The legacy dispatcher walks
         # shows lowest tier first (cores in use over size), so shows with work
@@ -2351,6 +2395,18 @@ def main():
                          "than the single post-complete worker can file the "
                          "follow-up work, and assert the tick never does that "
                          "filing itself and no acked completion is dropped.")
+    ap.add_argument("--megahost-test", type=int, default=0, metavar="SECS",
+                    help="MEGAHOST test: with --hosts sized to ~10,000 machines, load "
+                         "a deep backlog of long frames and assert the snapshot phase "
+                         "stays bounded (it reads every host and proc each tick).")
+    ap.add_argument("--place-test", type=int, default=0, metavar="SECS",
+                    help="PLACE test: with --tags N and --feed, assert the place "
+                         "phase stays bounded however many host-spec groups the "
+                         "farm splits into (the candidates are read once per tick).")
+    ap.add_argument("--backlog-test", type=int, default=0, metavar="SECS",
+                    help="BACKLOG test: a few 90k-frame layers of long frames; "
+                         "assert the tick p99 stays bounded while 300k+ frames "
+                         "wait (the plan reads must not scale with the backlog).")
     ap.add_argument("--slice-test", type=int, default=0, metavar="SECS",
                     help="SLICE test: one wide one-core layer on three large "
                          "hosts. Assert that the first slice delivered on every "
@@ -2765,6 +2821,8 @@ def main():
         start_strandgrow_injector(args.strandgrow_test)
     if args.slice_test:
         start_slice_injector(args.slice_test)
+    if args.backlog_test or args.megahost_test:
+        start_backlog_injector(args.backlog_test or args.megahost_test)
     if args.showtier_test:
         start_showtier_injector(args.showtier_test)
     if args.completionstorm_test:
@@ -2792,7 +2850,8 @@ def main():
              or args.layercap_solo_test or args.solofill_test or args.pin_test
              or args.health_test or args.strandgrow_test or args.migrate_test
              or args.forward_test
-             or args.slice_test
+             or args.slice_test or args.backlog_test or args.place_test
+             or args.megahost_test
              or args.showtier_test
              or args.completionstorm_test
              or args.doublerender_test
@@ -2893,6 +2952,21 @@ def main():
             f"core grant) for {args.strandgrow_test}s ...")
         subprocess.run([VENV_PY, "strandgrow_watch.py",
                         str(args.strandgrow_test), "5"], cwd=FARM)
+    elif args.backlog_test:
+        log(f"watching BACKLOG (the read phase against a 300k+ waiting list) "
+            f"for {args.backlog_test}s ...")
+        subprocess.run([VENV_PY, "phase_watch.py", "read", "1000", "200000",
+                        str(args.backlog_test), "5"], cwd=FARM)
+    elif args.megahost_test:
+        log(f"watching MEGAHOST (the snapshot phase on a {args.hosts} host farm) "
+            f"for {args.megahost_test}s ...")
+        subprocess.run([VENV_PY, "phase_watch.py", "snapshot", "1000", "200000",
+                        str(args.megahost_test), "10"], cwd=FARM)
+    elif args.place_test:
+        log(f"watching PLACE (the place phase across {args.tags} host-spec groups) "
+            f"for {args.place_test}s ...")
+        subprocess.run([VENV_PY, "phase_watch.py", "place", "1000", "20000",
+                        str(args.place_test), "5"], cwd=FARM)
     elif args.slice_test:
         log(f"watching SLICE (a slice delivers what Maestro accounted) "
             f"for {args.slice_test}s ...")
