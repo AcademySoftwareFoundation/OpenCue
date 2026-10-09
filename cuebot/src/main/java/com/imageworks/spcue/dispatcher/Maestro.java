@@ -1404,11 +1404,6 @@ public class Maestro extends JdbcDaoSupport {
         lastTickStats = stats;
         stats.phaseMs.put("drain", lastDrainMs);
         resetTickOutputs();
-        try {
-            dispatchSupport.sweepOrphanedProcs(10);
-        } catch (RuntimeException e) {
-            logger.warn("Maestro: orphan sweep failed: " + e);
-        }
         clearTickScratch();
 
         // 1. SNAPSHOT all schedulable hosts (UP + OPEN), busy and idle.
