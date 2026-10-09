@@ -601,7 +601,7 @@
     {
       "type": "timeseries",
       "title": "Maestro tick phases (p95)",
-      "description": "p95 wall-clock of each phase of the leader's tick. drain: queued completions applied; snapshot: hosts, procs and pins read; place: candidate queries and scoring; read: plan reads and trims; commit: chunked bookings; usage: live usage and farm-health reads. A tail in the tick histogram shows here as the phase that grew.",
+      "description": "p95 wall-clock of each phase of the leader's tick. drain: queued completions applied; snapshot: hosts, procs and pins read; place: the candidate read and scoring; read: plan reads and trims; commit: chunked bookings; candidates and score split place into its SQL (the tick's one candidate read) and its in-memory half; usage: live usage and farm-health reads. A tail in the tick histogram shows here as the phase that grew.",
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,

@@ -16,6 +16,7 @@ package com.imageworks.spcue.dispatcher;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,7 @@ import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Legacy-vs-scheduler booking parity on the repo's fixture jobs: both paths must find, and refuse,
@@ -142,6 +144,84 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
                 return true;
         }
         return false;
+    }
+
+    // The per-group candidate query the in-memory group cut replaced, kept here as the
+    // oracle: for every host-spec group of the fixture farm, the layers the SQL admits must
+    // be exactly the layers readLayerCandidatesForGroup admits.
+    // spotless:off
+    private static final String SQL_CANDIDATES_FOR_GROUP =
+            "SELECT l.pk_layer "
+            + "FROM   layer l "
+            + "JOIN   job j           ON j.pk_job  = l.pk_job "
+            + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
+            + "JOIN   show sh         ON sh.pk_show = j.pk_show "
+            + "JOIN   subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = ? "
+            + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
+            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
+            + "LEFT JOIN ("
+            + "    SELECT j2.pk_folder, "
+            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
+            + "    FROM   job j2 "
+            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
+            + "                               AND fr2.int_max_cores <> -1 "
+            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
+            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
+            + "    WHERE  j2.str_state = 'PENDING' "
+            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
+            + "WHERE  j.str_state = 'PENDING' "
+            + "  AND  j.b_paused  = false "
+            + "  AND  (j.str_os IS NULL OR j.str_os = '' "
+            + "        OR j.str_os = ANY(string_to_array(?, ','))) "
+            + "  AND  j.pk_facility = ? "
+            + "  AND  (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) >= ? "
+            + "  AND  ? ~* ('(?x)' || l.str_tags || '\\y') "
+            + "  AND  jr.int_cores  < jr.int_max_cores "
+            + "  AND  sub.int_cores < sub.int_burst "
+            + "  AND  l.int_cores_min <= ? "
+            + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
+            + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
+            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "  AND (? OR sh.b_scheduler_managed = true) ";
+    // spotless:on
+
+    private Set<String> sqlCandidateLayers(Maestro.HostSpecKey spec, int maxCores) {
+        return new HashSet<>(jdbcTemplate.queryForList(SQL_CANDIDATES_FOR_GROUP, String.class,
+                spec.pkAlloc, spec.os, spec.pkFacility, spec.allThreadMode ? 1 : 0,
+                spec.tagsNormalized, maxCores, MaestroMode.facility(springEnv)));
+    }
+
+    /** Every group's in-memory cut admits exactly the layers the per-group SQL admitted. */
+    @Test
+    public void groupCutMatchesTheSqlForEveryGroup() {
+        // A second host on another os and thread mode widens the farm to several groups,
+        // so the os, thread-mode and tag predicates are all exercised.
+        RenderHost other = RenderHost.newBuilder().setName("gamma").setBootTime(1192369572)
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(100).addTags("other")
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", "rhel7,rhel9")
+                .build();
+        hostManager.createHost(other, adminManager.findAllocationDetail("spi", "general"));
+
+        Map<Maestro.HostSpecKey, List<Maestro.BookableHost>> groups =
+                Maestro.groupByHostSpec(maestro.readAllHosts());
+        assertTrue("the fixture farm has several groups", groups.size() >= 2);
+        int compared = 0;
+        for (Map.Entry<Maestro.HostSpecKey, List<Maestro.BookableHost>> e : groups.entrySet()) {
+            int maxCores = 0;
+            for (Maestro.BookableHost h : e.getValue())
+                maxCores = Math.max(maxCores, h.coresTotal);
+            Set<String> fromSql = sqlCandidateLayers(e.getKey(), maxCores);
+            Set<String> fromCut = new HashSet<>();
+            for (Maestro.LayerCandidate c : maestro.readLayerCandidatesForGroup(e.getKey(),
+                    maxCores))
+                fromCut.add(c.layerId);
+            assertEquals("group " + e.getKey(), fromSql, fromCut);
+            if (!fromSql.isEmpty())
+                compared++;
+        }
+        assertTrue("at least one group admitted the fixture job", compared >= 1);
     }
 
     @Test
