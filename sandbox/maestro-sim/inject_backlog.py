@@ -47,11 +47,16 @@ def job(name, frames):
             f'    <layers>\n{layer}\n    </layers>\n  </job>\n')
 
 
-def launch(stub, index):
+def launch(stub, index, launched):
     name = f"sim-test-{TOKEN}-durlong-{index:05d}"
     xml = SPEC_HEAD + job(name, FRAMES) + "</spec>\n"
     t0 = time.time()
-    stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=xml), timeout=1800)
+    try:
+        stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=xml), timeout=1800)
+    except grpc.RpcError as e:
+        print(f"BACKLOG: {name} launch failed: {e.code()} {e.details()}", flush=True)
+        return
+    launched.append(name)
     print(f"BACKLOG: {name} launched ({FRAMES} frames) in {time.time() - t0:.0f}s",
           flush=True)
 
@@ -62,13 +67,15 @@ def main():
     stub = job_pb2_grpc.JobInterfaceStub(chan)
     # Launches are serial inserts inside cuebot; run them concurrently so the
     # backlog is up in minutes, not tens of minutes.
-    threads = [threading.Thread(target=launch, args=(stub, i + 1)) for i in range(JOBS)]
+    launched = []
+    threads = [threading.Thread(target=launch, args=(stub, i + 1, launched))
+               for i in range(JOBS)]
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    print(f"BACKLOG: {JOBS} jobs x {FRAMES} one-core long frames submitted, "
-          f"staying up {DURATION}s.", flush=True)
+    print(f"BACKLOG: {len(launched)} of {JOBS} jobs x {FRAMES} one-core long frames "
+          f"submitted, staying up {DURATION}s.", flush=True)
     t0 = time.time()
     while time.time() - t0 < DURATION:
         time.sleep(5)

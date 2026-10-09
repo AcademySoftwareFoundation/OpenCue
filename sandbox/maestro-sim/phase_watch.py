@@ -137,7 +137,7 @@ def main():
     last = first
     while time.time() - t0 < DURATION:
         time.sleep(INTERVAL)
-        last = scrape()
+        last = scrape() or last  # a scrape that times out keeps the previous sample
         waiting = scalar("SELECT COALESCE(sum(int_waiting_count), 0) FROM layer_stat;")
         running = scalar("SELECT count(*) FROM proc;")
         tq = quantiles(first, last, TICK)

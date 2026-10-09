@@ -1607,8 +1607,10 @@ def _verify_check(name, gdir, logp, cblog):
         tm = re.search(r"tick p50 (\d+) p95 (\d+) p99 (\d+) mean (\d+) ms over (\d+) ticks", txt)
         rm = re.search(r"((?:read|place|snapshot) (?:p95|max) \d+ ms[^;]*)", txt)
         wm = re.search(r"waiting (\d+) at the end", txt)
-        if re.search(r"(?m)^INCONCLUSIVE:", txt) or not tm:
+        if re.search(r"(?m)^INCONCLUSIVE:", txt):
             return None, "load never arrived or no tick observed"
+        if not tm:
+            return False, "the watcher produced no verdict"
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, (f"tick p50 {tm.group(1)} p95 {tm.group(2)} p99 "
                     f"{tm.group(3)} mean {tm.group(4)} ms over {tm.group(5)} ticks; "
