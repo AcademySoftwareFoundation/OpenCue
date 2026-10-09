@@ -92,11 +92,14 @@ public class MaestroMetrics {
     // instead of a tail to grep logs for: drain (queued completions applied), snapshot
     // (hosts, procs, pins read), place (candidate queries and in-memory scoring), read
     // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
-    // live show-usage and farm-health reads).
+    // live show-usage and farm-health reads). place is also split into candidates (its
+    // SQL, one query per host-spec group) and score (the rest, in memory), so the two
+    // add up to place.
     private static final Histogram tickPhaseDuration =
             Histogram.build().name("cue_maestro_tick_phase_seconds")
                     .help("Maestro tick wall-clock per phase in seconds: drain, snapshot, "
-                            + "place, read, commit, usage")
+                            + "place, read, commit, usage; candidates and score split place "
+                            + "into its SQL and its in-memory half")
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host", "phase").register();
 

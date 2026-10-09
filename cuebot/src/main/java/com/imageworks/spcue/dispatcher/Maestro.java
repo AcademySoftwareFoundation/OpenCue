@@ -356,6 +356,8 @@ public class Maestro extends JdbcDaoSupport {
     private long winWaitTotalMax = 0;
     // Per-tick outputs set by doTick(), folded into the window by runTick().
     private long tickPlanned = 0;
+    // Wall time of this tick's candidate queries (planGroup), the SQL half of the place phase.
+    private long tickCandidatesMs = 0;
     private int tickGranted = 0;
     private int tickBackfilled = 0;
     private long tickBackfilledCores = 0;
@@ -1015,6 +1017,7 @@ public class Maestro extends JdbcDaoSupport {
      */
     private void resetTickOutputs() {
         tickPlanned = 0;
+        tickCandidatesMs = 0;
         tickGranted = 0;
         tickBackfilled = 0;
         tickBackfilledCores = 0;
@@ -1295,7 +1298,9 @@ public class Maestro extends JdbcDaoSupport {
 
         List<LayerCandidate> candidates;
         try {
+            long tQuery = System.currentTimeMillis();
             candidates = readLayerCandidatesForGroup(spec, maxCoresTotalInGroup);
+            tickCandidatesMs += System.currentTimeMillis() - tQuery;
             addPinned(candidates, pinnedByGroup.get(spec), idleGroup);
             // Size threadable layers from their memory before anything scores or fits
             // them, against the memory-per-core ratio (or this group's own derived one).
@@ -1434,6 +1439,10 @@ public class Maestro extends JdbcDaoSupport {
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
         stats.phaseMs.put("place", tPlan - tSnapshot);
+        // The place phase split: its candidate queries (SQL) and everything else (in-memory
+        // scoring, the epilogue, the waitlist tally and the grants).
+        stats.phaseMs.put("candidates", tickCandidatesMs);
+        stats.phaseMs.put("score", tPlan - tSnapshot - tickCandidatesMs);
         List<FrameBooking> planned = planBookings();
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
@@ -1472,10 +1481,11 @@ public class Maestro extends JdbcDaoSupport {
         long tTick = tFlush - tStart;
         if (tTick > 1000) {
             String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
-                    + "ms, place=" + (tPlan - tSnapshot) + "ms, read=" + (tRead - tPlan)
-                    + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage=" + (tFlush - tCommit)
-                    + "ms | placements=" + lastPlacements + " planned=" + planned.size()
-                    + " committed=" + dispatchedNow;
+                    + "ms, place=" + (tPlan - tSnapshot) + "ms (candidates=" + tickCandidatesMs
+                    + "ms, score=" + (tPlan - tSnapshot - tickCandidatesMs) + "ms), read="
+                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
+                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
+                    + planned.size() + " committed=" + dispatchedNow;
             logger.info("Maestro tick breakdown: " + breakdown);
             // Production runs at WARN, so a slow tick carries its own breakdown there.
             if (tTick > SLOW_TICK_WARN_MS)

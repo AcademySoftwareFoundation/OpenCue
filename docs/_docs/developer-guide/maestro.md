@@ -755,7 +755,10 @@ over the snapshot, not database work.
 times each phase of the leader's tick: `drain` (queued completions applied),
 `snapshot` (hosts, procs and pins read), `place` (candidate queries and
 scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
-bookings) and `usage` (the live show-usage and farm-health reads). A growing
+bookings) and `usage` (the live show-usage and farm-health reads). `place` is
+also split into `candidates` (its SQL, one candidate query per host-spec group)
+and `score` (the rest: in-memory placement, the per-candidate epilogue, the
+waitlist tally and the reservation grants), which add up to `place`. A growing
 tail names the phase that grew; the sandbox Maestro dashboard plots the p95 of
 each. The same split is logged at INFO (`Maestro tick breakdown`) for any tick
 over one second, and again at WARN (`Maestro slow tick`) for any tick over
