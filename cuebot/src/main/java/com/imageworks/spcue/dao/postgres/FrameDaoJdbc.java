@@ -365,38 +365,89 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             + "FOR UPDATE OF frame";
     // spotless:on
 
+    // Column of each state in layer_stat and job_stat, in applyBatchCounts' parameter order.
+    private static final List<String> COUNTED_STATES = Arrays.asList("WAITING", "RUNNING", "DEAD",
+            "DEPEND", "EATEN", "SUCCEEDED", "CHECKPOINT");
+
+    // spotless:off
+    private static final String UPDATE_LAYER_STAT_COUNTS =
+            "UPDATE layer_stat SET "
+            + "int_waiting_count = int_waiting_count + ?, "
+            + "int_running_count = int_running_count + ?, "
+            + "int_dead_count = int_dead_count + ?, "
+            + "int_depend_count = int_depend_count + ?, "
+            + "int_eaten_count = int_eaten_count + ?, "
+            + "int_succeeded_count = int_succeeded_count + ?, "
+            + "int_checkpoint_count = int_checkpoint_count + ?, "
+            + "ts_started = CASE WHEN ? THEN COALESCE(ts_started, current_timestamp) "
+            + "                  ELSE ts_started END, "
+            + "ts_stopped = CASE WHEN ? THEN current_timestamp + interval '1' second "
+            + "                  ELSE ts_stopped END "
+            + "WHERE pk_layer = ?";
+    private static final String UPDATE_JOB_STAT_COUNTS =
+            "UPDATE job_stat SET "
+            + "int_waiting_count = int_waiting_count + ?, "
+            + "int_running_count = int_running_count + ?, "
+            + "int_dead_count = int_dead_count + ?, "
+            + "int_depend_count = int_depend_count + ?, "
+            + "int_eaten_count = int_eaten_count + ?, "
+            + "int_succeeded_count = int_succeeded_count + ?, "
+            + "int_checkpoint_count = int_checkpoint_count + ? "
+            + "WHERE pk_job = ?";
+    // spotless:on
+
     /**
-     * Pre-acquire, in a deterministic global order, the layer_stat and job_stat counter rows that
-     * the batch's frame triggers will update. Locks all distinct layer_stat rows first (ordered by
-     * pk_layer), then all distinct job_stat rows (ordered by pk_job), the same "layer-before-job"
-     * order every single-frame transaction follows via the trigger, so this batch can never
-     * deadlock against a concurrent batch. SELECT ... FOR UPDATE inside the batch's transaction;
-     * rows are released at commit.
-     *
-     * Without this, a multi-frame batch is the one writer that interleaves the trigger's order: it
-     * would hold job_stat[J] (taken for an early frame) while still acquiring layer_stat rows for
-     * later frames of the same job, and a concurrent single-frame transaction holding one of those
-     * layer_stat rows and reaching for job_stat[J] closes the deadlock cycle.
-     *
-     * Must run after lockMatchingFrames: a single-frame writer's stat locks come from its frame
-     * trigger, so the batch has to be past its own frame rows before it takes a stat row.
-     *
-     * Callers must already hold a transaction (both batch entry points in DispatchSupportService
-     * are Transactional REQUIRED). Called without one, each SELECT autocommits, the locks release
-     * per statement and the pre-lock silently protects nothing.
+     * Tells the frame state-change trigger to stand aside for this transaction; the batch applies
+     * the counts itself in applyBatchCounts. Callers run inside a transaction (SET LOCAL is scoped
+     * to it), so a crash rolls back frames and counts together.
      */
-    private void lockStatRowsForBatch(
-            java.util.List<com.imageworks.spcue.dispatcher.FrameBooking> bookings,
-            Set<String> lockedFrames) {
-        java.util.SortedSet<String> layerIds = new java.util.TreeSet<>();
-        java.util.SortedSet<String> jobIds = new java.util.TreeSet<>();
-        for (com.imageworks.spcue.dispatcher.FrameBooking b : bookings) {
-            if (lockedFrames.contains(b.frame.getFrameId())) {
-                layerIds.add(b.frame.getLayerId());
-                jobIds.add(b.frame.getJobId());
-            }
+    private void batchCountsOn() {
+        getJdbcTemplate().execute("SET LOCAL cue.batch_counts = on");
+    }
+
+    /**
+     * The counts the skipped trigger would have applied for the frames that left {@code oldState}:
+     * one UPDATE per layer and per job instead of one per frame, with the stat rows locked only
+     * here, at the end of the batch. The new states are read back, so a BEFORE trigger that
+     * redirects a frame (to DEPEND) is counted as it landed.
+     */
+    private void applyBatchCounts(List<String> frameIds, FrameState oldState) {
+        if (frameIds.isEmpty())
+            return;
+        int oldIdx = COUNTED_STATES.indexOf(oldState.toString());
+        java.util.TreeMap<String, int[]> byLayer = new java.util.TreeMap<>();
+        java.util.TreeMap<String, int[]> byJob = new java.util.TreeMap<>();
+        getJdbcTemplate().query(
+                "SELECT pk_layer, pk_job, str_state, count(*) AS n FROM frame "
+                        + "WHERE pk_frame = ANY(?) GROUP BY pk_layer, pk_job, str_state",
+                ps -> ps.setArray(1,
+                        ps.getConnection().createArrayOf("varchar", frameIds.toArray())),
+                rs -> {
+                    int n = rs.getInt("n");
+                    int newIdx = COUNTED_STATES.indexOf(rs.getString("str_state"));
+                    for (int[] delta : new int[][] {
+                            byLayer.computeIfAbsent(rs.getString("pk_layer"), k -> new int[7]),
+                            byJob.computeIfAbsent(rs.getString("pk_job"), k -> new int[7])}) {
+                        delta[oldIdx] -= n;
+                        if (newIdx >= 0)
+                            delta[newIdx] += n;
+                    }
+                });
+        lockStatRows(byLayer.navigableKeySet(), byJob.navigableKeySet());
+        boolean started = oldState == FrameState.WAITING;
+        List<Object[]> layerRows = new ArrayList<>(byLayer.size());
+        for (java.util.Map.Entry<String, int[]> e : byLayer.entrySet()) {
+            int[] d = e.getValue();
+            layerRows.add(new Object[] {d[0], d[1], d[2], d[3], d[4], d[5], d[6], started, !started,
+                    e.getKey()});
         }
-        lockStatRows(layerIds, jobIds);
+        getJdbcTemplate().batchUpdate(UPDATE_LAYER_STAT_COUNTS, layerRows);
+        List<Object[]> jobRows = new ArrayList<>(byJob.size());
+        for (java.util.Map.Entry<String, int[]> e : byJob.entrySet()) {
+            int[] d = e.getValue();
+            jobRows.add(new Object[] {d[0], d[1], d[2], d[3], d[4], d[5], d[6], e.getKey()});
+        }
+        getJdbcTemplate().batchUpdate(UPDATE_JOB_STAT_COUNTS, jobRows);
     }
 
     private void lockStatRows(java.util.SortedSet<String> layerIds,
@@ -424,14 +475,14 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             return won;
         }
 
-        // Lock order: frame rows that still match (sorted), then the stat
-        // counter rows (sorted), the single-frame trigger path's order. A
-        // completion whose frame was killed, eaten, retried or reset in the
-        // meantime does not match and is a clean loser, never locked.
+        batchCountsOn();
+
+        // Lock the frame rows that still match (sorted) before anything else, the
+        // single-frame trigger path's order. A completion whose frame was killed,
+        // eaten, retried or reset in the meantime does not match and is a clean
+        // loser, never locked.
         List<String> frameIds = new ArrayList<>(completions.size());
         List<Integer> versions = new ArrayList<>(completions.size());
-        java.util.SortedSet<String> layerIds = new java.util.TreeSet<>();
-        java.util.SortedSet<String> jobIds = new java.util.TreeSet<>();
         for (com.imageworks.spcue.dispatcher.QueuedFrameCompletion c : completions) {
             frameIds.add(c.frame.getFrameId());
             versions.add(c.frame.getVersion());
@@ -440,13 +491,6 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         if (locked.isEmpty()) {
             return won;
         }
-        for (com.imageworks.spcue.dispatcher.QueuedFrameCompletion c : completions) {
-            if (locked.contains(c.frame.getFrameId())) {
-                layerIds.add(c.frame.getLayerId());
-                jobIds.add(c.frame.getJobId());
-            }
-        }
-        lockStatRows(layerIds, jobIds);
 
         // Version+state-guarded stop for the locked completions in one batch;
         // the guard stays authoritative for the win.
@@ -463,11 +507,15 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                     FrameState.RUNNING.toString(), c.frame.getVersion()});
         }
         int[] counts = getJdbcTemplate().batchUpdate(UPDATE_FRAME_STOPPED, params);
+        List<String> winners = new ArrayList<>(counts.length);
         for (int i = 0; i < counts.length; i++) {
             // SUCCESS_NO_INFO (-2) counts as a win; the WHERE clause matches at
             // most one row.
             won[index.get(i)] = counts[i] != 0;
+            if (won[index.get(i)])
+                winners.add(completions.get(index.get(i)).frame.getFrameId());
         }
+        applyBatchCounts(winners, FrameState.RUNNING);
         return won;
     }
 
@@ -480,12 +528,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             return won;
         }
 
-        // 0. Deadlock-free lock ordering: the frame rows that still match
-        // (sorted), then every stat counter row this batch will touch, all
-        // layer_stat (sorted) then all job_stat (sorted), the same total order
-        // the single-frame trigger path uses, so no cycle can form. The
-        // trigger's later UPDATEs are then no-op re-locks on rows we already
-        // hold. A frame that moved on since the plan is never locked.
+        batchCountsOn();
+
+        // 0. Lock the frame rows that still match (sorted) before anything else, the
+        // single-frame trigger path's order. A frame that moved on since the plan is
+        // never locked.
         List<String> frameIds = new ArrayList<>(bookings.size());
         List<Integer> versions = new ArrayList<>(bookings.size());
         for (com.imageworks.spcue.dispatcher.FrameBooking b : bookings) {
@@ -496,7 +543,6 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
         if (locked.isEmpty()) {
             return won;
         }
-        lockStatRowsForBatch(bookings, locked);
 
         // 1. Version+state-guarded RUNNING transition for the locked frames in
         // one batch. Each row updates 0 (lost the race / limit hit) or 1 (won).
@@ -557,6 +603,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 throw new FrameReservationException(e.getCause());
             }
         }
+        applyBatchCounts(retryWinners, FrameState.WAITING);
         return won;
     }
 
