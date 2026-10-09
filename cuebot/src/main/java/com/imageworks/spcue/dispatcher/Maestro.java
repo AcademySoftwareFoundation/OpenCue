@@ -206,11 +206,7 @@ public class Maestro {
     // at 200 ms held every host of a tick for 27 s. Small, so no one waits long on a host.
     private volatile int drainChunkCompletions = 20;
 
-    // Age, in seconds, past which the leader's per-tick janitor resets a proc whose frame is not
-    // RUNNING (maestro.orphan_sweep_age_seconds).
-    private volatile int orphanSweepAgeSeconds = 10;
-
-    // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
+    // Batched commit, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
 
     // Resolves a host id to a DispatchHost for the plan reads (planBookings).
@@ -476,8 +472,6 @@ public class Maestro {
         priorityExponent = env.getProperty("maestro.priority_exponent", Double.class, 1.5);
         drainChunkCompletions =
                 env.getProperty("maestro.drain_chunk_completions", Integer.class, 20);
-        orphanSweepAgeSeconds =
-                env.getProperty("maestro.orphan_sweep_age_seconds", Integer.class, 10);
         leaderProbeStrikes = env.getProperty("maestro.leader_probe_strikes", Integer.class, 2);
         slowTickWarnMs = env.getProperty("maestro.slow_tick_warn_ms", Long.class, 10_000L);
         groupCountWarnThreshold =
@@ -1135,11 +1129,6 @@ public class Maestro {
         lastTickStats = stats;
         stats.phaseMs.put("drain", lastDrainMs);
         resetTickOutputs();
-        try {
-            dispatchSupport.sweepOrphanedProcs(orphanSweepAgeSeconds);
-        } catch (RuntimeException exception) {
-            logger.warn("Maestro: orphan sweep failed: " + exception);
-        }
         clearTickScratch();
 
         // 1. SNAPSHOT all schedulable hosts (UP + OPEN), busy and idle.

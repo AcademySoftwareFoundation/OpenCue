@@ -55,8 +55,8 @@ Maestro runs a periodic tick (`runTick` → `doTick`). Every Cuebot, leader
 or not, first drains any queued frame-completions (`drainResolvedCompletions`)
 and expires displaced cache-warmth, self-healing that must run regardless of who
 holds the lock. A **leadership gate** follows: only the Cuebot holding the
-planning lock runs the placement pipeline below (the leader also sweeps orphaned
-procs first). That pipeline:
+planning lock runs the placement pipeline below. Orphaned procs are the
+maintenance thread's job (`clearOrphanedProcs`), not the tick's. That pipeline:
 
 1. **Snapshot**: read all hosts in one query (`readAllHosts`,
    `MaestroDao.getSchedulableHosts`): every host that is UP and OPEN, busy or idle. The
@@ -840,7 +840,6 @@ already takes most of the load off it.
 | `maestro.probe_frames` | `8` | Frames an unproven layer (sized to 1 core, no rss reported yet) may run before its rss is known (§3.9). |
 | `maestro.priority_exponent` | `1.5` | Exponent on job priority in the placement and candidate lotteries (weight = priority^exponent, §3.5). 1.0 is proportional to priority. |
 | `maestro.drain_chunk_completions` | `20` | Frame completions applied per drain transaction at the start of each tick. Small, so no booking waits long on a host row the drain holds. |
-| `maestro.orphan_sweep_age_seconds` | `10` | Age past which the leader's per-tick janitor resets a proc whose frame is not RUNNING. |
 | `maestro.leader_probe_strikes` | `2` | Consecutive failed liveness probes of the lock connection before the leader gives up the lock; a closed connection demotes at once (§7). |
 | `maestro.slow_tick_warn_ms` | `10000` | A tick slower than this is logged at WARN with its phase breakdown. |
 | `maestro.group_count_warn_threshold` | `100` | Host-spec group count at which a (5-minute throttled) WARN flags hosts fragmenting into near-per-host groups. |
