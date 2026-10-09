@@ -763,7 +763,7 @@ over the snapshot, not database work.
 **Every tick is split by phase in Prometheus.** Beside the tick histogram
 `cue_maestro_tick_duration_seconds`, `cue_maestro_tick_phase_seconds{phase}`
 times each phase of the leader's tick: `drain` (queued completions applied),
-`snapshot` (hosts, procs and pins read), `place` (candidate queries and
+`snapshot` (hosts, procs and pins read), `place` (the candidate read and
 scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
 bookings) and `usage` (the live show-usage and farm-health reads). `place` is
 also split into `candidates` (its SQL, the tick's one candidate read) and

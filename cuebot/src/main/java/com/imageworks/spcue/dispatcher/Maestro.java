@@ -371,7 +371,10 @@ public class Maestro extends JdbcDaoSupport {
     // Layer tag regexes compiled once per distinct tag string, kept across ticks: most layers
     // share a handful of patterns, and compiling is the cost the per-group SQL paid per row.
     // A pattern Java cannot compile maps to null and its layers are excluded (warned once).
+    // Tag strings that name a host (pins) make the set grow with the farm's history, so the
+    // cache is dropped whole past TAG_PATTERN_CACHE_MAX and rebuilt from the next tick's rows.
     private final Map<String, Optional<Pattern>> tagPatterns = new ConcurrentHashMap<>();
+    static final int TAG_PATTERN_CACHE_MAX = 10_000;
     // group tags + NUL + layer tags -> matched, for this tick (clearTickScratch).
     private final Map<String, Boolean> tagMatches = new HashMap<>();
     private final Set<String> warnedTagPatterns = ConcurrentHashMap.newKeySet();
@@ -1280,6 +1283,10 @@ public class Maestro extends JdbcDaoSupport {
         waitFramesByLayer.clear();
         tickCandidates = null;
         tagMatches.clear();
+        if (tagPatterns.size() > TAG_PATTERN_CACHE_MAX) {
+            tagPatterns.clear();
+            warnedTagPatterns.clear();
+        }
     }
 
     /**

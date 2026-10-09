@@ -90,10 +90,10 @@ public class MaestroMetrics {
 
     // The tick's wall-clock split by phase, so a regression names the phase that grew
     // instead of a tail to grep logs for: drain (queued completions applied), snapshot
-    // (hosts, procs, pins read), place (candidate queries and in-memory scoring), read
+    // (hosts, procs, pins read), place (the candidate read and in-memory scoring), read
     // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
     // live show-usage and farm-health reads). place is also split into candidates (its
-    // SQL, one query per host-spec group) and score (the rest, in memory), so the two
+    // SQL, the tick's one candidate read) and score (the rest, in memory), so the two
     // add up to place.
     private static final Histogram tickPhaseDuration =
             Histogram.build().name("cue_maestro_tick_phase_seconds")
