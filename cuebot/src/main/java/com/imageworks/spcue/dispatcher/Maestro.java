@@ -262,6 +262,9 @@ public class Maestro extends JdbcDaoSupport {
     // pull disjoint frames and deliver exactly what the scoring accounted.
     // layerId -> frames planned for the layer so far this tick (where its next slice starts).
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
+    // Planning stops once the tick interval has elapsed since the tick started; what is
+    // planned by then is committed whole. A large idle farm thus fills over bounded ticks.
+    private long tickPlanDeadline = Long.MAX_VALUE;
     // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
     // count}. A pair holds one slice per slot the draw gave it this tick.
     private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
@@ -1431,11 +1434,16 @@ public class Maestro extends JdbcDaoSupport {
         long tSnapshot = System.currentTimeMillis();
         stats.phaseMs.put("snapshot", tSnapshot - tStart);
 
-        // 3. READ the tick's candidates once, then PLAN each host-spec group in priority order.
+        // 3. READ the tick's candidates once, then PLAN each host-spec group in priority order
+        // until the tick interval is up.
         loadTickCandidates();
+        tickPlanDeadline = tStart + env.getProperty("maestro.interval_ms", Long.class, 3000L);
         int dispatched = 0;
-        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet())
+        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet()) {
+            if (System.currentTimeMillis() >= tickPlanDeadline)
+                break;
             dispatched += planGroup(g.getKey(), g.getValue(), stats);
+        }
         tallyWaitlist(stats);
 
         grantReservations(reservationReqs);
@@ -3018,7 +3026,7 @@ public class Maestro extends JdbcDaoSupport {
             if (candidate.waitingFrameCount > 0)
                 active.add(candidate);
         }
-        while (!active.isEmpty()) {
+        while (!active.isEmpty() && System.currentTimeMillis() < tickPlanDeadline) {
             LayerCandidate head = stampTiers(active, showCoresUsed);
             double weightSum = headWeight(active, head);
             int idx = drawSlot(active, head, ThreadLocalRandom.current().nextDouble() * weightSum);
