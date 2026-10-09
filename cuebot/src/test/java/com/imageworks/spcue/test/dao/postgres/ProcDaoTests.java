@@ -1229,48 +1229,6 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(jobCoresAfterInsert - 100, readJobCores(job.id));
     }
 
-    /**
-     * deleteOrphanedProcs honors both halves of its predicate: a proc is swept only when its frame
-     * is not RUNNING and its booking is older than the cutoff. A fresh proc survives the sweep and
-     * so does an old proc whose frame is genuinely RUNNING.
-     */
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void testDeleteOrphanedProcsHonorsCutoffAndFrameState() {
-        DispatchHost host = createHost();
-        JobDetail job = launchJob();
-        FrameDetail frame1 = frameDao.findFrameDetail(job, "0001-pass_1");
-        FrameDetail frame2 = frameDao.findFrameDetail(job, "0002-pass_1");
-
-        VirtualProc proc1 = buildBatchProc(host, job, frame1, 100);
-        VirtualProc proc2 = buildBatchProc(host, job, frame2, 100);
-        procDao.insertVirtualProc(proc1);
-        procDao.insertVirtualProc(proc2);
-
-        long idleCoresAfterInsert = readHostIdleCores(host.id);
-
-        // Both frames are non-RUNNING, but both bookings are fresh: nothing is swept.
-        assertTrue(procDao.deleteOrphanedProcs(300).isEmpty());
-
-        // Age proc1 past the cutoff: its non-RUNNING frame makes it a corpse.
-        jdbcTemplate.update("UPDATE proc SET ts_booked = current_timestamp - interval '1' hour "
-                + "WHERE pk_proc = ?", proc1.getProcId());
-
-        List<VirtualProc> swept = procDao.deleteOrphanedProcs(300);
-        assertEquals(1, swept.size());
-        assertEquals(proc1.getProcId(), swept.get(0).getProcId());
-        assertEquals(idleCoresAfterInsert + 100, readHostIdleCores(host.id));
-
-        // Age proc2 too, but put its frame in RUNNING: an active render is never swept.
-        jdbcTemplate.update("UPDATE proc SET ts_booked = current_timestamp - interval '1' hour "
-                + "WHERE pk_proc = ?", proc2.getProcId());
-        jdbcTemplate.update("UPDATE frame SET str_state = 'RUNNING' WHERE pk_frame = ?", frame2.id);
-
-        assertTrue(procDao.deleteOrphanedProcs(300).isEmpty());
-        assertEquals(1, countProcsOnHost(host.id));
-    }
-
     /** Proc with the real allocation and accounting keys set, as the batch commit path builds. */
     private VirtualProc buildBatchProc(DispatchHost host, JobDetail job, FrameDetail frame,
             int cores) {

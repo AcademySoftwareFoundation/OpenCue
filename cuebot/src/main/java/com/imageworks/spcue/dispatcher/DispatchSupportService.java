@@ -413,27 +413,6 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public int sweepOrphanedProcs(int olderThanSeconds) {
-        List<VirtualProc> orphans = procDao.deleteOrphanedProcs(olderThanSeconds);
-        if (!orphans.isEmpty()) {
-            // The delete refunded the host and credited the accounting tables.
-            // A swept corpse's render may still be alive; kill it before the
-            // frame is rebooked (the sweep runs before this tick plans).
-            StringBuilder sb = new StringBuilder();
-            for (VirtualProc p : orphans) {
-                sb.append(' ').append(p.frameId);
-                if (p.frameId != null && p.hostName != null) {
-                    killOrphanRender(p, "orphaned proc swept while its frame was not RUNNING");
-                }
-            }
-            logger.warn("janitor swept " + orphans.size() + " orphaned proc(s) whose frames are"
-                    + " no longer RUNNING (crash or failed completion left them); frames:" + sb);
-        }
-        return orphans.size();
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
     public List<FrameBooking> startFramesAndProcsBatch(List<FrameBooking> bookings) {
         if (bookings == null || bookings.isEmpty()) {
             return java.util.Collections.emptyList();

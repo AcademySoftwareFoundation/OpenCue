@@ -145,17 +145,6 @@ public interface ProcDao {
     java.util.List<VirtualProc> deleteStaleProcsByFrames(java.util.List<String> frameIds);
 
     /**
-     * Delete every proc whose frame is no longer RUNNING and that has been in that state for at
-     * least the given age, returning them for host-resource refund. The janitor sweep: an orphaned
-     * proc whose frame never gets planned again (job finished or killed) would otherwise hold its
-     * host's cores forever, invisible to the commit-time eviction.
-     *
-     * @param olderThanSeconds minimum age, so an in-flight booking is never swept
-     * @return the deleted orphans (empty in the normal case)
-     */
-    java.util.List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds);
-
-    /**
      * Batch variant of {@link #clearVirtualProcAssignment(FrameInterface)}: clears the proc
      * assignment of many frames in one round-trip. Used by the scheduler's batched completion flush
      * inside its single stop transaction.
