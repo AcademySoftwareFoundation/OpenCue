@@ -20,6 +20,7 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 import unittest
+from xml.etree import ElementTree as Et
 
 import mock
 
@@ -35,6 +36,7 @@ from opencue_proto import service_pb2
 from opencue_proto import show_pb2
 from opencue_proto import subscription_pb2
 import opencue.api
+import opencue.wrappers.job
 
 
 TEST_SHOW_NAME = 'pipe'
@@ -282,6 +284,96 @@ class JobTests(unittest.TestCase):
         stubMock.LaunchSpecAndWait.assert_called_with(
             job_pb2.JobLaunchSpecAndWaitRequest(spec=spec), timeout=mock.ANY)
         self.assertEqual([TEST_JOB_NAME], [job.name() for job in jobs])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCloneJob(self, getStubMock):
+        origJob = job_pb2.Job(
+            name=TEST_JOB_NAME, facility=TEST_FACILITY_NAME, show=TEST_SHOW_NAME, shot='dev',
+            user='origuser', priority=3, max_cores=10.0, max_gpus=2.0, os='linux')
+        renderLayer = job_pb2.Layer(
+            name='render', type=job_pb2.RENDER, command='render_it -f #IFRAME#',
+            range='1-10', chunk_size=2, min_cores=2.0, is_threadable=True,
+            min_memory=4 * 1048576, min_gpus=1.0, min_gpu_memory=524288,
+            timeout=60, timeout_llu=30, tags=['general', 'gpu'], limits=['mylimit'],
+            services=['shell'])
+        preLayer = job_pb2.Layer(name='pre', type=job_pb2.PRE, command='setup')
+        noCmdLayer = job_pb2.Layer(name='empty', type=job_pb2.UTIL, command='')
+
+        stubMock = mock.Mock()
+        stubMock.GetLayers.return_value = job_pb2.JobGetLayersResponse(
+            layers=job_pb2.LayerSeq(layers=[renderLayer, preLayer, noCmdLayer]))
+        stubMock.LaunchSpecAndWait.return_value = job_pb2.JobLaunchSpecAndWaitResponse(
+            jobs=job_pb2.JobSeq(jobs=[job_pb2.Job(name=TEST_JOB_NAME + '_clone')]))
+        getStubMock.return_value = stubMock
+
+        clonedJobs = opencue.api.cloneJob(opencue.wrappers.job.Job(origJob))
+
+        self.assertEqual([TEST_JOB_NAME + '_clone'], [job.name() for job in clonedJobs])
+
+        sentSpec = stubMock.LaunchSpecAndWait.call_args[0][0].spec
+        specXml = Et.fromstring(sentSpec)
+
+        self.assertEqual(TEST_FACILITY_NAME, specXml.find('facility').text)
+        self.assertEqual(TEST_SHOW_NAME, specXml.find('show').text)
+        self.assertEqual('dev', specXml.find('shot').text)
+        self.assertEqual('origuser', specXml.find('user').text)
+
+        jobEl = specXml.find('job')
+        self.assertEqual(TEST_JOB_NAME + '_clone', jobEl.get('name'))
+        self.assertEqual('3', jobEl.find('priority').text)
+        self.assertEqual('10.0', jobEl.find('maxcores').text)
+        self.assertEqual('2.0', jobEl.find('maxgpus').text)
+        self.assertEqual('linux', jobEl.find('os').text)
+
+        # Only the Render layer with a command should survive; PRE and empty-command
+        # layers are skipped.
+        layerEls = jobEl.find('layers').findall('layer')
+        self.assertEqual(1, len(layerEls))
+        layerEl = layerEls[0]
+        self.assertEqual('render', layerEl.get('name'))
+        self.assertEqual('Render', layerEl.get('type'))
+        self.assertEqual('render_it -f #IFRAME#', layerEl.find('cmd').text)
+        self.assertEqual('1-10', layerEl.find('range').text)
+        self.assertEqual('2', layerEl.find('chunk').text)
+        self.assertEqual('2.0', layerEl.find('cores').text)
+        self.assertEqual('True', layerEl.find('threadable').text)
+        self.assertEqual('4096.0m', layerEl.find('memory').text)
+        self.assertEqual('1', layerEl.find('gpus').text)
+        self.assertEqual('512.0m', layerEl.find('gpu_memory').text)
+        self.assertEqual('60', layerEl.find('timeout').text)
+        self.assertEqual('30', layerEl.find('timeout_llu').text)
+        self.assertEqual('general|gpu', layerEl.find('tags').text)
+        self.assertEqual(['mylimit'], [e.text for e in layerEl.find('limits').findall('limit')])
+        self.assertEqual(['shell'], [e.text for e in layerEl.find('services').findall('service')])
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testCloneJobOverrides(self, getStubMock):
+        origJob = job_pb2.Job(name=TEST_JOB_NAME, show=TEST_SHOW_NAME, shot='dev', user='origuser')
+        layerA = job_pb2.Layer(
+            name='a', type=job_pb2.RENDER, command='cmd_a', range='1-10', services=['shell'])
+        layerB = job_pb2.Layer(
+            name='b', type=job_pb2.RENDER, command='cmd_b', range='1-10', services=['shell'])
+
+        stubMock = mock.Mock()
+        stubMock.GetLayers.return_value = job_pb2.JobGetLayersResponse(
+            layers=job_pb2.LayerSeq(layers=[layerA, layerB]))
+        stubMock.LaunchSpecAndWait.return_value = job_pb2.JobLaunchSpecAndWaitResponse(
+            jobs=job_pb2.JobSeq(jobs=[job_pb2.Job(name='custom-name')]))
+        getStubMock.return_value = stubMock
+
+        opencue.api.cloneJob(
+            opencue.wrappers.job.Job(origJob), name='custom-name', user='newuser',
+            frame_range='1-5', layer_frame_ranges={'b': '20-30'})
+
+        sentSpec = stubMock.LaunchSpecAndWait.call_args[0][0].spec
+        specXml = Et.fromstring(sentSpec)
+
+        self.assertEqual('newuser', specXml.find('user').text)
+        self.assertEqual('custom-name', specXml.find('job').get('name'))
+        layersByName = {
+            el.get('name'): el for el in specXml.find('job').find('layers').findall('layer')}
+        self.assertEqual('1-5', layersByName['a'].find('range').text)
+        self.assertEqual('20-30', layersByName['b'].find('range').text)
 
 
 class LayerTests(unittest.TestCase):
