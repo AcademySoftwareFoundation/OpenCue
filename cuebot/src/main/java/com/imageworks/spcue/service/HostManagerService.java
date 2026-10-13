@@ -19,6 +19,8 @@ import java.util.List;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,7 +66,12 @@ public class HostManagerService implements HostManager {
     private SubscriptionDao subscriptionDao;
     private AllocationDao allocationDao;
 
-    public HostManagerService() {}
+    private Environment env;
+
+    @Autowired
+    public HostManagerService(Environment env) {
+        this.env = env;
+    }
 
     @Override
     public void setHostLock(HostInterface host, LockState lock, Source source) {
@@ -212,7 +219,8 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(RenderHost rhost, AllocationEntity alloc) {
 
-        hostDao.insertRenderHost(rhost, alloc, false);
+        hostDao.insertRenderHost(rhost, alloc,
+                env.getProperty("host.use_long_names", Boolean.class, false));
         DispatchHost host = hostDao.findDispatchHost(rhost.getName());
 
         hostDao.tagHost(host, alloc.tag, HostTagType.ALLOC);
