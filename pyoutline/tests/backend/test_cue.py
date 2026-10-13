@@ -91,6 +91,53 @@ class SerializeTest(unittest.TestCase):
         self.assertEqual(0, len(list(outlineXml.find('depends'))))
 
 
+class SerializeFrameTmpDirTest(unittest.TestCase):
+
+    """Tests that the frame wrapper's TMPDIR root is configurable.
+
+    See https://github.com/AcademySoftwareFoundation/OpenCue/issues/1158 --
+    the wrapper scripts read OL_FRAME_TMPDIR_ROOT (falling back to /mcp) so
+    studios can point it elsewhere via the "frame_tmp_dir" outline.cfg
+    setting instead of the hardcoded /mcp path.
+    """
+
+    def setUp(self):
+        outline.Outline.current = None
+
+    def tearDown(self):
+        outline.config.remove_option('outline', 'frame_tmp_dir')
+
+    def get_layer_env(self, ol):
+        launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
+        outlineXml = ET.fromstring(outline.backend.cue.serialize(launcher))
+        layer = outlineXml.find('job').find('layers').find('layer')
+        return {
+            key_el.get('name'): key_el.text for key_el in layer.find('env')
+        }
+
+    def testDefaultsToMcp(self):
+        outline.config.remove_option('outline', 'frame_tmp_dir')
+        ol = outline.Outline()
+        ol.add_layer(outline.Layer('test'))
+
+        self.assertEqual('/mcp', self.get_layer_env(ol)['OL_FRAME_TMPDIR_ROOT'])
+
+    def testHonorsConfigOverride(self):
+        outline.config.set('outline', 'frame_tmp_dir', '/studio/tmp')
+        ol = outline.Outline()
+        ol.add_layer(outline.Layer('test'))
+
+        self.assertEqual('/studio/tmp', self.get_layer_env(ol)['OL_FRAME_TMPDIR_ROOT'])
+
+    def testLayerEnvOverrideWins(self):
+        ol = outline.Outline()
+        layer = outline.Layer('test')
+        layer.set_env('OL_FRAME_TMPDIR_ROOT', '/layer/specific/tmp')
+        ol.add_layer(layer)
+
+        self.assertEqual('/layer/specific/tmp', self.get_layer_env(ol)['OL_FRAME_TMPDIR_ROOT'])
+
+
 class SerializeFrameRangeTest(unittest.TestCase):
 
     """Tests that large frame ranges serialize compactly.
