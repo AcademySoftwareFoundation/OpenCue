@@ -25,11 +25,11 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install X11 dev libs
         run: |
           # `mold` is a fast linker — cuts a large slice off Rust link time
@@ -61,11 +61,11 @@ jobs:
           cargo test
 
   clippy:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install X11 dev libs
         run: |
           sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev mold
@@ -86,7 +86,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Speed up Windows build (exclude build dirs from Defender)
         shell: pwsh
         run: |
@@ -122,7 +122,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Speed up Windows build (exclude build dirs from Defender)
         shell: pwsh
         run: |
