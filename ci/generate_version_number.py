@@ -75,8 +75,16 @@ def get_current_branch() -> str:
         pass
 
     # Fallback for detached HEAD state (common in CI).
-    # This replicates:
-    # git branch --remote --verbose --no-abbrev --contains | sed -rne 's/^[^\/]*\/([^\ ]+).*$/\1/p'
+    # A commit reachable from master is a master commit (e.g. a release tag), even when
+    # other remote branches created later also contain it.
+    is_on_master = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", "HEAD", "origin/master"],
+        check=False,
+        capture_output=True,
+    )
+    if is_on_master.returncode == 0:
+        return "master"
+
     output = run_command(["git", "branch", "--remote", "--verbose", "--no-abbrev", "--contains"])
     for line in output.splitlines():
         line = line.strip()

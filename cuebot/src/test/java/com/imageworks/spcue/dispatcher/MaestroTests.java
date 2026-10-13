@@ -20,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -40,18 +41,16 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerDetail;
-import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.HostManager;
-import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.rqd.RqdLaunchUnknownOutcomeException;
-import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.util.CueUtil;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
@@ -59,8 +58,10 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -496,20 +497,9 @@ public class MaestroTests {
         assertFalse(Maestro.backfillFits(true, 1, Integer.MAX_VALUE));
     }
 
-    // ---- rss-driven resize: resizeFromLiveMem + LayerLiveMem --------------
+    // ---- memory-driven sizing: sizeFromMemory ------------------------------
 
     private static final long MPC = 4L * CueUtil.GB; // the 4G/core metric
-
-    /** A ledger that has seen {@code n} frames of the layer at the given rss values. */
-    private static LayerLiveMem seen(String layerId, long... rssKbs) {
-        LayerLiveMem mem = new LayerLiveMem();
-        int i = 0;
-        for (long kb : rssKbs) {
-            mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId(layerId)
-                    .setFrameId("f" + (i++)).setMaxRss(kb).setRss(kb).build());
-        }
-        return mem;
-    }
 
     private static Maestro.LayerCandidate grantLayer(String layerId, boolean threadable,
             int coresMin, int coresMax, long memMinKb) {
@@ -520,99 +510,124 @@ public class MaestroTests {
         return c;
     }
 
-    private static Map<String, long[]> resize(Maestro.LayerCandidate c, LayerLiveMem mem) {
+    /** Sizes the candidate after its frames reported {@code maxRssKb} at most (0: none yet). */
+    private static Map<String, long[]> resize(Maestro.LayerCandidate c, long maxRssKb) {
+        c.layerMaxRssKb = maxRssKb;
         Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, MPC, Integer.MAX_VALUE, out);
+        Maestro.sizeFromMemory(Arrays.asList(c), MPC, Integer.MAX_VALUE, out);
         return out;
     }
 
     @Test
-    public void resizeUsesTheMedianOfRecentFrames() {
-        // Four frames near 18G: the layer really is an 18G layer -> 5 cores,
+    public void aLayerSizesFromItsLargestRss() {
+        // Declares 4G, a frame reported 18G: the layer is an 18G layer -> 5 cores,
         // and the memory Maestro packs with is the observed figure.
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, 4L * CueUtil.GB);
-        Map<String, long[]> out = resize(c, seen("hog", g18, g18, g18, g18));
+        Map<String, long[]> out = resize(c, g18);
         assertEquals(500, c.layerCoresMin);
         assertEquals(g18, c.layerMemMin);
         assertTrue(c.rssProven);
-        assertEquals(500, out.get("hog")[0]);
+        assertArrayEquals(new long[] {500, g18}, out.get("hog"));
     }
 
     @Test
-    public void oneHaywireProcessCannotResizeTheLayer() {
-        // Seven honest 2G frames and one 60G leaker: the median stays 2G, the
-        // layer stays at its ask. The leaker is the OOM machinery's problem.
-        long g2 = 2L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("leak", true, 100, 0, g2);
-        LayerLiveMem mem = seen("leak", g2, g2, g2, g2, g2, g2, g2, 60L * CueUtil.GB);
-        resize(c, mem);
-        assertEquals(100, c.layerCoresMin);
+    public void coldLayerSizesItsCoresFromItsMemoryAsk() {
+        // No rss yet: an 18G ask books 5 cores from frame one instead of
+        // stranding cores at 1, and it is not probe-gated.
+        long g18 = 18L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("cold", true, 100, 0, g18);
+        Map<String, long[]> out = resize(c, 0);
+        assertEquals(500, c.layerCoresMin);
+        assertEquals(g18, c.layerMemMin);
         assertTrue(c.rssProven);
+        assertArrayEquals(new long[] {500, g18}, out.get("cold"));
     }
 
     @Test
-    public void resizeWaitsForEnoughSamples() {
-        // Three frames seen (under MIN_SAMPLES): no resize, probe gate armed.
+    public void sizingKeepsTheLayerAndHostCaps() {
         long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("young", true, 100, 0, g18);
-        resize(c, seen("young", g18, g18, g18));
-        assertEquals(100, c.layerCoresMin);
-        assertFalse(c.rssProven);
+        Maestro.LayerCandidate capped = grantLayer("capped", true, 100, 200, g18);
+        resize(capped, 0);
+        assertEquals(200, capped.layerCoresMin);
+
+        Maestro.LayerCandidate big = grantLayer("big", true, 100, 0, 200L * CueUtil.GB);
+        Maestro.sizeFromMemory(Arrays.asList(big), MPC, 1600, new java.util.HashMap<>());
+        assertEquals(1600, big.layerCoresMin);
     }
 
     @Test
-    public void resizeNeverTouchesNonThreadableCores() {
+    public void nonThreadableLayersSizeTheirMemoryOnly() {
         long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("ctrl", false, 100, 0, g18);
-        resize(c, seen("ctrl", g18, g18, g18, g18));
-        assertEquals(100, c.layerCoresMin);
-        assertTrue(c.rssProven); // non-threadable is never probed either
+        Maestro.LayerCandidate cold = grantLayer("ctrl", false, 100, 0, g18);
+        assertTrue(resize(cold, 0).isEmpty());
+        assertEquals(100, cold.layerCoresMin);
+        assertTrue(cold.rssProven); // never probed either
+
+        Maestro.LayerCandidate seen = grantLayer("ctrl2", false, 100, 0, 2L * CueUtil.GB);
+        Map<String, long[]> out = resize(seen, g18);
+        assertEquals(100, seen.layerCoresMin);
+        assertEquals(g18, seen.layerMemMin);
+        assertEquals(g18, out.get("ctrl2")[1]);
     }
 
     @Test
-    public void resizeStopsAtTheLayersMaxCores() {
-        long g18 = 18L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("capped", true, 100, 200, g18);
-        resize(c, seen("capped", g18, g18, g18, g18));
-        assertEquals(200, c.layerCoresMin);
+    public void anOverDeclaredAskKeepsItsWidth() {
+        // Declares 32G, really uses 2G: memory never drops below the declaration,
+        // so the cores follow the declaration, as under the legacy dispatcher.
+        long g32 = 32L * CueUtil.GB;
+        Maestro.LayerCandidate c = grantLayer("fat", true, 100, 0, g32);
+        resize(c, 2L * CueUtil.GB);
+        assertEquals(800, c.layerCoresMin);
+        assertEquals(g32, c.layerMemMin);
+        assertTrue(c.rssProven);
     }
 
     @Test
     public void wideAskAboveTheMetricIsPreserved() {
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("wide", true, 800, 0, g18);
-        resize(c, seen("wide", g18, g18, g18, g18));
+        resize(c, g18);
         assertEquals(800, c.layerCoresMin);
     }
 
     @Test
-    public void ledgerFoldsPerFramePeaksAndForgetsUnknownLayers() {
+    public void aManualLayerKeepsItsAsk() {
+        // Tagged "manual": a person sizes it, as under cue-layer-man.
         long g18 = 18L * CueUtil.GB;
-        LayerLiveMem mem = seen("hog", g18, g18, g18, g18);
-        // The same frame reporting a lower rss later must not add a new sample.
-        mem.recordFinished(RunningFrameInfo.newBuilder().setLayerId("hog").setFrameId("f0")
-                .setMaxRss(1L * CueUtil.GB).build());
-        assertEquals(g18, mem.typicalRssKb("hog"));
-        assertEquals(0, mem.typicalRssKb("never-seen"));
+        Maestro.LayerCandidate c = grantLayer("hand", true, 200, 0, 2L * CueUtil.GB);
+        c.manual = true;
+        resize(c, g18);
+        assertEquals(200, c.layerCoresMin);
+        assertEquals(g18, c.layerMemMin);
+        assertTrue(c.rssProven);
     }
 
     @Test
-    public void oneCoreAskIsGatedRegardlessOfDeclaredMemory() {
-        // cores=1 means "let the system decide": with no evidence the layer
-        // probes, whatever its declaration claims (declarations are untrusted).
+    public void oneCoreAskWithinOneCoresShareIsGated() {
+        // cores=1 means "let the system decide": with no rss seen and an ask that
+        // sizes to 1 core (2G at 4G per core), the layer probes.
         Maestro.LayerCandidate c = grantLayer("comp", true, 100, 0, 2L * CueUtil.GB);
-        resize(c, new LayerLiveMem());
+        resize(c, 0);
         assertEquals(100, c.layerCoresMin);
         assertFalse(c.rssProven);
     }
 
     @Test
+    public void theFirstReportReleasesTheProbe() {
+        // The farm has seen it: small for real, so it runs at its ask, ungated.
+        Maestro.LayerCandidate c = grantLayer("small", true, 100, 0, 2L * CueUtil.GB);
+        resize(c, 2L * CueUtil.GB);
+        assertEquals(100, c.layerCoresMin);
+        assertTrue(c.rssProven);
+    }
+
+    @Test
     public void explicitAskAboveOneBooksAtFullSpeed() {
         // Someone sized this layer (2 cores): never gated, corrected later
-        // only upward when evidence arrives.
-        Maestro.LayerCandidate c = grantLayer("sized", true, 200, 0, 18L * CueUtil.GB);
-        resize(c, new LayerLiveMem());
+        // only upward when a frame reports more.
+        Maestro.LayerCandidate c = grantLayer("sized", true, 200, 0, 4L * CueUtil.GB);
+        resize(c, 0);
         assertEquals(200, c.layerCoresMin);
         assertTrue(c.rssProven);
     }
@@ -625,19 +640,18 @@ public class MaestroTests {
         assertEquals(56L * CueUtil.GB / 16, metric);
         long g18 = 18L * CueUtil.GB;
         Maestro.LayerCandidate c = grantLayer("hog", true, 100, 0, g18);
-        Map<String, long[]> out = new java.util.HashMap<>();
-        Maestro.resizeFromLiveMem(Arrays.asList(c), seen("hog", g18, g18, g18, g18), metric,
-                Integer.MAX_VALUE, out);
+        Maestro.sizeFromMemory(Arrays.asList(c), metric, Integer.MAX_VALUE,
+                new java.util.HashMap<>());
         assertEquals(500, c.layerCoresMin);
     }
 
     @Test
     public void fastLayerIsReleasedAfterProbeCompletions() {
-        // Memory-heavy but its frames complete faster than the report cycle:
-        // a probe's worth of successes with no samples releases the hold.
-        Maestro.LayerCandidate c = grantLayer("fast", true, 100, 0, 18L * CueUtil.GB);
+        // Its frames complete faster than the report cycle: a probe's worth of
+        // successes with no rss seen releases the hold.
+        Maestro.LayerCandidate c = grantLayer("fast", true, 100, 0, 2L * CueUtil.GB);
         c.frameSuccessCount = 8;
-        resize(c, new LayerLiveMem());
+        resize(c, 0);
         assertEquals(100, c.layerCoresMin);
         assertTrue(c.rssProven);
     }
@@ -1393,8 +1407,9 @@ public class MaestroTests {
     @Test
     @SuppressWarnings("unchecked")
     public void aDeletedLayerCostsOnlyItsOwnSlice() throws Exception {
-        // Two layers vanish mid-tick on the host: the third still plans, and
-        // the two failures are counted once for the tick, not warned per layer.
+        // Two layers vanish mid-tick on the host (their frame reads throw): the
+        // third still plans, and the two failures are counted once for the tick,
+        // not warned per layer.
         Maestro s = new Maestro();
         set(s, "env", new MockEnvironment());
         ExecutorService pool = Executors.newFixedThreadPool(1);
@@ -1402,19 +1417,25 @@ public class MaestroTests {
         try {
             HostManager hosts = mock(HostManager.class);
             when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
-            JobManager jobs = mock(JobManager.class);
-            LayerInterface good = mock(LayerInterface.class);
-            when(jobs.getLayer("gone")).thenThrow(new RuntimeException("no such layer"));
-            when(jobs.getLayer("gone2")).thenThrow(new RuntimeException("no such layer"));
-            when(jobs.getLayer("good")).thenReturn(good);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq("gone"), anyInt()))
+                    .thenThrow(new RuntimeException("no such layer"));
+            when(support.findNextDispatchFrames(eq("gone2"), anyInt()))
+                    .thenThrow(new RuntimeException("no such layer"));
+            when(support.findNextDispatchFrames(eq("good"), anyInt())).thenReturn(frames(3));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(good), anyInt(), anyLong(), anyInt(), anyInt()))
+            when(dispatcher.planHost(any(), anyInt(), anyLong(), anyList()))
                     .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
-            s.setJobManager(jobs);
+            s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("gone", "good", "gone2")));
+            Map<String, Integer> wanted =
+                    (Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer");
+            wanted.put("gone", 3);
+            wanted.put("good", 3);
+            wanted.put("gone2", 3);
             List<FrameBooking> planned = s.planBookings();
             assertEquals("the host's other layer stands", 1, planned.size());
             Field f = Maestro.class.getDeclaredField("summaryPlanFailures");
@@ -1425,34 +1446,7 @@ public class MaestroTests {
         }
     }
 
-    // ---- the grant and the ledger ------------------------------------------
-
-    @Test
-    public void aNonThreadableLayerSizesItsMemoryOnly() {
-        long g6 = 6L * CueUtil.GB;
-        Maestro.LayerCandidate c = grantLayer("single", false, 100, 0, 2L * CueUtil.GB);
-        Map<String, long[]> out = resize(c, seen("single", g6, g6, g6, g6));
-        assertEquals(100, c.layerCoresMin);
-        assertEquals(g6, c.layerMemMin);
-        assertEquals(g6, out.get("single")[1]);
-    }
-
-    @Test
-    public void aCompletionReplacesTheFramesRunningSamples() {
-        // Four frames ran at 20G; retried after a scene fix they finish at 4G.
-        long g20 = 20L * CueUtil.GB;
-        long g4 = 4L * CueUtil.GB;
-        LayerLiveMem mem = new LayerLiveMem();
-        List<RunningFrameInfo> running = new ArrayList<>();
-        for (int i = 0; i < 4; i++)
-            running.add(RunningFrameInfo.newBuilder().setLayerId("retry").setFrameId("f" + i)
-                    .setMaxRss(g20).build());
-        mem.record(running);
-        assertEquals(g20, mem.typicalRssKb("retry"));
-        for (RunningFrameInfo frame : running)
-            mem.recordFinished(frame.toBuilder().setMaxRss(g4).build());
-        assertEquals(g4, mem.typicalRssKb("retry"));
-    }
+    // ---- the grant ----------------------------------------------------------
 
     @Test
     @SuppressWarnings("unchecked")
@@ -1464,23 +1458,107 @@ public class MaestroTests {
         try {
             HostManager hosts = mock(HostManager.class);
             when(hosts.getDispatchHost("host1")).thenReturn(new DispatchHost());
-            JobManager jobs = mock(JobManager.class);
-            LayerInterface layer = mock(LayerInterface.class);
-            when(jobs.getLayer("wide")).thenReturn(layer);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq("wide"), eq(5))).thenReturn(frames(5));
             Dispatcher dispatcher = mock(Dispatcher.class);
-            when(dispatcher.planHost(any(), eq(layer), eq(1600), anyLong(), eq(0), eq(5)))
-                    .thenReturn(Arrays.asList(bookingOn("host1")));
+            when(dispatcher.planHost(any(), eq(1600), anyLong(),
+                    argThat((List<DispatchFrame> l) -> l.size() == 5)))
+                            .thenReturn(Arrays.asList(bookingOn("host1")));
             s.setHostManager(hosts);
-            s.setJobManager(jobs);
+            s.setDispatchSupport(support);
             s.setDispatcher(dispatcher);
             ((Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost")).put("host1",
                     new ArrayList<>(Arrays.asList("wide")));
             ((Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer"))
                     .put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 1600})));
+            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("wide", 5);
             assertEquals(1, s.planBookings().size());
         } finally {
             pool.shutdownNow();
         }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    public void aLayerIsReadOnceAndSlicedAmongItsHosts() throws Exception {
+        // Two hosts plan the same layer: one read of all eight frames the placements
+        // accounted for, then each host gets its own disjoint slice of it.
+        Maestro s = new Maestro();
+        set(s, "env", new MockEnvironment());
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        set(s, "readPool", pool);
+        try {
+            HostManager hosts = mock(HostManager.class);
+            when(hosts.getDispatchHost(anyString())).thenReturn(new DispatchHost());
+            List<DispatchFrame> read = frames(8);
+            DispatchSupport support = mock(DispatchSupport.class);
+            when(support.findNextDispatchFrames(eq("wide"), eq(8))).thenReturn(read);
+            Dispatcher dispatcher = mock(Dispatcher.class);
+            List<List<DispatchFrame>> slices = Collections.synchronizedList(new ArrayList<>());
+            when(dispatcher.planHost(any(), anyInt(), anyLong(), anyList())).thenAnswer(inv -> {
+                slices.add(new ArrayList<>(inv.<List<DispatchFrame>>getArgument(3)));
+                return Arrays.asList(bookingOn("h"));
+            });
+            s.setHostManager(hosts);
+            s.setDispatchSupport(support);
+            s.setDispatcher(dispatcher);
+            Map<String, List<String>> byHost =
+                    (Map<String, List<String>>) (Map<?, ?>) map(s, "plannedByHost");
+            byHost.put("host1", new ArrayList<>(Arrays.asList("wide")));
+            byHost.put("host2", new ArrayList<>(Arrays.asList("wide")));
+            Map<String, List<int[]>> bySlice =
+                    (Map<String, List<int[]>>) (Map<?, ?>) map(s, "planSliceByHostLayer");
+            bySlice.put("host1|wide", new ArrayList<>(Arrays.asList(new int[] {0, 5, 100})));
+            bySlice.put("host2|wide", new ArrayList<>(Arrays.asList(new int[] {5, 3, 100})));
+            ((Map<String, Integer>) (Map<?, ?>) map(s, "plannedFramesByLayer")).put("wide", 8);
+
+            assertEquals(2, s.planBookings().size());
+            verify(support, times(1)).findNextDispatchFrames(anyString(), anyInt());
+            verify(support, times(1)).findNextDispatchFrames("wide", 8);
+            assertEquals(2, slices.size());
+            Set<DispatchFrame> seen = new HashSet<>();
+            int total = 0;
+            for (List<DispatchFrame> slice : slices) {
+                total += slice.size();
+                seen.addAll(slice);
+            }
+            assertEquals("the slices cover the read", 8, total);
+            assertEquals("and never share a frame", 8, seen.size());
+            List<DispatchFrame> first = slices.get(0).size() == 5 ? slices.get(0) : slices.get(1);
+            assertEquals("the first slice is the head of the read", read.subList(0, 5), first);
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    private static List<DispatchFrame> frames(int n) {
+        List<DispatchFrame> out = new ArrayList<>();
+        for (int i = 0; i < n; i++) {
+            DispatchFrame f = new DispatchFrame();
+            f.id = "f" + i;
+            out.add(f);
+        }
+        return out;
+    }
+
+    @Test
+    public void aSliceIsClippedToTheFramesTheReadReturned() {
+        // The placements accounted for 8 frames (host1: 0-5, host2: 5-8) but the
+        // layer had only 3 WAITING: the first host gets the 3, the second nothing,
+        // and malformed offsets or counts never throw.
+        List<DispatchFrame> read = frames(3);
+        Maestro.PlannedLayer planned = new Maestro.PlannedLayer("short", read);
+        assertEquals(read, planned.slice(0, 5));
+        assertTrue("an offset past the end is an empty slice", planned.slice(5, 3).isEmpty());
+        assertEquals("a slice inside the read is exact", read.subList(1, 3), planned.slice(1, 2));
+        assertEquals(read, planned.slice(0, 3));
+        assertTrue(planned.slice(3, 1).isEmpty());
+        assertEquals("a negative offset reads from the head", read.subList(0, 2),
+                planned.slice(-4, 2));
+        assertTrue("a negative count is an empty slice", planned.slice(0, -1).isEmpty());
+        assertTrue(planned.slice(-1, -1).isEmpty());
+        assertTrue(
+                new Maestro.PlannedLayer("empty", Collections.emptyList()).slice(0, 5).isEmpty());
     }
 
 
@@ -1489,9 +1567,9 @@ public class MaestroTests {
         Maestro.LayerCandidate c = layer(CORE, GB, 0, 0);
         c.layerId = "big";
         c.threadable = true;
+        c.layerMaxRssKb = 200 * GB;
         // 200G at 4G per core asks 50 cores; the largest host has 16.
-        LayerLiveMem mem = seen("big", 200 * GB, 200 * GB, 200 * GB, 200 * GB);
-        Maestro.resizeFromLiveMem(Arrays.asList(c), mem, 4 * GB, 16 * CORE, new HashMap<>());
+        Maestro.sizeFromMemory(Arrays.asList(c), 4 * GB, 16 * CORE, new HashMap<>());
         assertEquals(16 * CORE, c.layerCoresMin);
         assertEquals(200 * GB, c.layerMemMin);
     }
