@@ -262,6 +262,10 @@ public class Maestro extends JdbcDaoSupport {
     // pull disjoint frames and deliver exactly what the scoring accounted.
     // layerId -> frames planned for the layer so far this tick (where its next slice starts).
     private final Map<String, Integer> plannedFramesByLayer = new HashMap<>();
+    // Planning stops once the tick interval has elapsed since planning started; what is
+    // planned by then is committed whole. A large idle farm thus fills over bounded ticks.
+    private long tickPlanDeadline = Long.MAX_VALUE;
+    private boolean planCutShort = false; // groups skipped: their layers were not seen
     // "hostId|layerId" -> the pair's slices of the layer's waiting list, each {offset, frame
     // count}. A pair holds one slice per slot the draw gave it this tick.
     private final Map<String, List<int[]>> planSliceByHostLayer = new HashMap<>();
@@ -1404,11 +1408,6 @@ public class Maestro extends JdbcDaoSupport {
         lastTickStats = stats;
         stats.phaseMs.put("drain", lastDrainMs);
         resetTickOutputs();
-        try {
-            dispatchSupport.sweepOrphanedProcs(10);
-        } catch (RuntimeException e) {
-            logger.warn("Maestro: orphan sweep failed: " + e);
-        }
         clearTickScratch();
 
         // 1. SNAPSHOT all schedulable hosts (UP + OPEN), busy and idle.
@@ -1436,11 +1435,21 @@ public class Maestro extends JdbcDaoSupport {
         long tSnapshot = System.currentTimeMillis();
         stats.phaseMs.put("snapshot", tSnapshot - tStart);
 
-        // 3. READ the tick's candidates once, then PLAN each host-spec group in priority order.
+        // 3. READ the tick's candidates once, then PLAN each host-spec group in priority order
+        // until the tick interval is up. The interval runs from here, so planning always gets
+        // all of it however long the snapshot took.
         loadTickCandidates();
+        tickPlanDeadline = System.currentTimeMillis()
+                + env.getProperty("maestro.interval_ms", Long.class, 3000L);
+        planCutShort = false;
         int dispatched = 0;
-        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet())
+        for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet()) {
+            if (System.currentTimeMillis() >= tickPlanDeadline) {
+                planCutShort = true;
+                break;
+            }
             dispatched += planGroup(g.getKey(), g.getValue(), stats);
+        }
         tallyWaitlist(stats);
 
         grantReservations(reservationReqs);
@@ -1502,7 +1511,8 @@ public class Maestro extends JdbcDaoSupport {
         }
         dispatched = dispatchedNow;
 
-        sweepStaleReservationState(seenLayerIds);
+        if (!planCutShort) // a skipped group's layers are still there, just not seen
+            sweepStaleReservationState(seenLayerIds);
         return dispatched;
     }
 
@@ -3023,7 +3033,7 @@ public class Maestro extends JdbcDaoSupport {
             if (candidate.waitingFrameCount > 0)
                 active.add(candidate);
         }
-        while (!active.isEmpty()) {
+        while (!active.isEmpty() && System.currentTimeMillis() < tickPlanDeadline) {
             LayerCandidate head = stampTiers(active, showCoresUsed);
             double weightSum = headWeight(active, head);
             int idx = drawSlot(active, head, ThreadLocalRandom.current().nextDouble() * weightSum);

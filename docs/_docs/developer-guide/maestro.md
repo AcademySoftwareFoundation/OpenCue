@@ -55,8 +55,8 @@ Maestro runs a periodic tick (`runTick` → `doTick`). Every Cuebot, leader
 or not, first drains any queued frame-completions (`drainResolvedCompletions`)
 and expires displaced cache-warmth, self-healing that must run regardless of who
 holds the lock. A **leadership gate** follows: only the Cuebot holding the
-planning lock runs the placement pipeline below (the leader also sweeps orphaned
-procs first). That pipeline:
+planning lock runs the placement pipeline below. Orphaned procs are the
+maintenance thread's job (`clearOrphanedProcs`), not the tick's. That pipeline:
 
 1. **Snapshot**: read all hosts in one query (`readAllHosts`,
    `SELECT_ALL_HOSTS`): every host that is UP and OPEN, busy or idle. The
@@ -69,6 +69,9 @@ procs first). That pipeline:
    `SELECT_CANDIDATE_ROWS`) for every dispatchable layer of the shows Maestro
    plans, with the job's facility and os and the layer's tag regex, plus every
    subscription. Nothing in it depends on a group.
+   Planning stops once `maestro.interval_ms` has elapsed since the tick
+   started; what is planned by then is committed whole and the rest waits
+   for the next tick, so a large idle farm fills over bounded ticks.
 4. **For each group:**
    1. **Candidate cut**: the group's candidates, cut from the tick's read in
       memory (`readLayerCandidatesForGroup`, `groupCandidates`): the job's

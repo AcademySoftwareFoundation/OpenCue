@@ -493,20 +493,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return deleted;
     }
 
-    @Override
-    public List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds) {
-        List<VirtualProc> deleted = getJdbcTemplate().query(
-                "DELETE FROM proc p USING frame f, host h WHERE f.pk_frame = p.pk_frame "
-                        + "AND h.pk_host = p.pk_host " + "AND f.str_state <> 'RUNNING' "
-                        + "AND p.ts_booked < now() - CAST(? AS INTERVAL) "
-                        + "RETURNING p.pk_proc, p.pk_host, p.pk_frame, p.pk_show, p.pk_layer, "
-                        + "p.pk_job, p.b_local, h.pk_alloc, h.str_name, p.int_cores_reserved, "
-                        + "p.int_mem_reserved, p.int_gpus_reserved, p.int_gpu_mem_reserved",
-                DELETED_PROC_MAPPER, olderThanSeconds + " seconds");
-        refundAndCreditDeleted(deleted);
-        return deleted;
-    }
-
     /**
      * Row mapper for the evict/sweep DELETE .. RETURNING: everything the shared refund+credit block
      * and the caller's orphan-render kill need.
