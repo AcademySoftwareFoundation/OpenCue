@@ -18,6 +18,8 @@ package com.imageworks.spcue.service;
 import java.util.List;
 
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.dao.HistoricalDao.FrameHistoryBacklog;
+import com.imageworks.spcue.dao.HistoricalDao.FrameHistoryDrain;
 
 public interface HistoricalManager {
 
@@ -34,5 +36,21 @@ public interface HistoricalManager {
      * @param job
      */
     void transferJob(JobInterface job);
+
+    /**
+     * Applies one batch of queued frame history events to frame_history in its own transaction.
+     *
+     * @param limit maximum number of events to drain
+     * @param safe apply each event in its own subtransaction and drop the ones that fail
+     * @return the drain outcome
+     */
+    FrameHistoryDrain drainFrameHistory(int limit, boolean safe);
+
+    /**
+     * Returns the approximate size and age of the frame history queue.
+     *
+     * @return the queue backlog
+     */
+    FrameHistoryBacklog getFrameHistoryBacklog();
 
 }
