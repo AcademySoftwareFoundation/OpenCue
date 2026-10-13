@@ -1291,14 +1291,23 @@ public class MaestroTests {
         s.setRqdClient(rqd);
         FrameBooking fb = bookingOn("a");
         when(support.clearFrame(fb.frame)).thenReturn(true);
-        fb.committedMs = System.currentTimeMillis() - Maestro.LAUNCH_MAX_AGE_MS - 1000;
+        fb.committedMs = System.currentTimeMillis() - s.launchMaxAgeMs - 1000;
         s.launchOne(fb);
         verify(support, never()).runFrame(any(), any());
         verify(support).unbookProc(fb.proc);
         verify(support).clearFrame(fb.frame);
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
         assertTrue("the bound stays inside the orphan age",
-                Maestro.LAUNCH_MAX_AGE_MS < ProcDao.ORPHAN_AGE_SECONDS * 1000L);
+                s.launchMaxAgeMs < ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L);
+    }
+
+    @Test
+    public void launchQueueBoundFollowsTheOrphanAgeProperty() {
+        MockEnvironment env = new MockEnvironment();
+        assertEquals(ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L / 2, Maestro.launchMaxAgeMs(env));
+        env.setProperty(ProcDao.ORPHAN_AGE_PROPERTY, "900");
+        assertEquals(450_000L, Maestro.launchMaxAgeMs(env));
+        assertEquals(ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L / 2, Maestro.launchMaxAgeMs(null));
     }
 
     @Test

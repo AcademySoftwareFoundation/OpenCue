@@ -130,8 +130,8 @@ public class Maestro extends JdbcDaoSupport {
     static final double PRIORITY_EXPONENT = 1.5; // the query's power() and lotteryWeight()
     static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
     static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
-    // consumed by launchOne()
-    static final long LAUNCH_MAX_AGE_MS = ProcDao.ORPHAN_AGE_SECONDS * 1000L / 2;
+    // consumed by launchOne(); half the orphan age, re-read from the environment at pool start
+    volatile long launchMaxAgeMs = launchMaxAgeMs(null);
     // Consecutive failed liveness probes before leaderAlive() gives the lock up. A single
     // isValid(1) timeout on a loaded server must not demote a leader that still holds the lock.
     static final int LEADER_PROBE_STRIKES = 2;
@@ -418,6 +418,7 @@ public class Maestro extends JdbcDaoSupport {
         if (launchPool != null)
             return;
         int launchSize = env.getProperty("maestro.launch_pool_size", Integer.class, 8);
+        launchMaxAgeMs = launchMaxAgeMs(env);
         frameQueryMax = env.getProperty("dispatcher.frame_query_max", Integer.class, 20);
         reservationsEnabled = env.getProperty("maestro.reservations_enabled", Boolean.class, true);
         reservationBlockMs =
@@ -988,11 +989,11 @@ public class Maestro extends JdbcDaoSupport {
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
                         + " | flow committed=%d planned=%d raceLost=%d drained=%d"
-                        + " postQ=%d planFail=%d"
+                        + " completionQ=%d postQ=%d planFail=%d"
                         + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
-                summaryPlanned, raceLost, summaryDrained,
+                summaryPlanned, raceLost, summaryDrained, MaestroCompletionQueue.size(),
                 frameCompleteHandler == null ? 0 : frameCompleteHandler.getPostCompleteQueueDepth(),
                 summaryPlanFailures, reservations.size(), reservedCp / CORE_POINTS_PER_CORE,
                 summaryGranted, lastReservationReqs, summaryBackfilled,
@@ -1908,17 +1909,28 @@ public class Maestro extends JdbcDaoSupport {
      * released: the frame may be running on the host, so DispatchSupport confirms twice that it is
      * not and keeps the booking otherwise, the double-run guard the legacy dispatcher uses. A
      * definite failure, one the request never left with, rolls the booking back (rollbackLaunch). A
-     * launch that waited in the queue longer than LAUNCH_MAX_AGE_MS, half the orphan age
-     * (ProcDao.ORPHAN_AGE_SECONDS), is rolled back unsent and without a kill: at the orphan age the
-     * maintenance pass releases the proc, which never pinged, and the next tick rebooks the frame,
-     * so a later launch would start it a second time. Half leaves the pass cadence, the RPC and the
-     * first host report their time whatever the interval is set to. A booking whose host's launch
-     * breaker opened since the plan is rolled back unsent the same way. Either way the failure is
-     * this launch's alone; the pool goes on with the next.
+     * launch that waited in the queue longer than launchMaxAgeMs, half the orphan age
+     * (ProcDao.ORPHAN_AGE_PROPERTY), is rolled back unsent and without a kill: at the orphan age
+     * the maintenance pass releases the proc, which never pinged, and the next tick rebooks the
+     * frame, so a later launch would start it a second time. Half leaves the pass cadence, the RPC
+     * and the first host report their time whatever the interval is set to. A booking whose host's
+     * launch breaker opened since the plan is rolled back unsent the same way. Either way the
+     * failure is this launch's alone; the pool goes on with the next.
      */
+    /**
+     * How long a committed booking may wait in the launch queue before it is rolled back unsent:
+     * half the orphan age, so the maintenance pass cannot release the proc under a launch that is
+     * still queued. A null environment (bare unit tests) uses the default orphan age.
+     */
+    static long launchMaxAgeMs(Environment env) {
+        long ageS =
+                env == null ? ProcDao.DEFAULT_ORPHAN_AGE_SECONDS : ProcDao.orphanAgeSeconds(env);
+        return ageS * 1000L / 2;
+    }
+
     void launchOne(FrameBooking fb) {
         long waitedMs = fb.committedMs > 0 ? System.currentTimeMillis() - fb.committedMs : 0;
-        if (waitedMs > LAUNCH_MAX_AGE_MS) {
+        if (waitedMs > launchMaxAgeMs) {
             logger.warn("Maestro: launch of " + fb.proc.getName() + " on frame "
                     + fb.frame.getFrameId() + " waited " + waitedMs / 1000
                     + "s in the queue; rolling the booking back unsent");
