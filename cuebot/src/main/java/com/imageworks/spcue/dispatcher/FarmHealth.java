@@ -16,12 +16,14 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import org.springframework.stereotype.Component;
 
 import com.imageworks.spcue.grpc.report.RenderHost;
+import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 
 /**
  * Live farm-health ledger fed by every RQD host report, so health metrics come straight from the
@@ -33,7 +35,8 @@ import com.imageworks.spcue.grpc.report.RenderHost;
  * Kernel time arrives in the report's free-form attributes map under {@code sysTime} (percent of
  * CPU spent in system, the same channel the legacy {@code swapout} hint uses). Agents that do not
  * send it simply contribute no kernel-time sample; swap totals are first-class report fields and
- * are always present.
+ * are always present. Each running frame's {@code pcpu} attribute (percent of one core its
+ * processes use, so core points) sums to the host's busy cores.
  */
 @Component
 public class FarmHealth {
@@ -43,12 +46,15 @@ public class FarmHealth {
         final long swapTotalKb;
         final long swapFreeKb;
         final double sysTimePct;
+        final long busyCorePoints;
         final long atMs;
 
-        HostHealth(long swapTotalKb, long swapFreeKb, double sysTimePct, long atMs) {
+        HostHealth(long swapTotalKb, long swapFreeKb, double sysTimePct, long busyCorePoints,
+                long atMs) {
             this.swapTotalKb = swapTotalKb;
             this.swapFreeKb = swapFreeKb;
             this.sysTimePct = sysTimePct;
+            this.busyCorePoints = busyCorePoints;
             this.atMs = atMs;
         }
     }
@@ -57,17 +63,30 @@ public class FarmHealth {
 
     private final Map<String, HostHealth> byHostName = new ConcurrentHashMap<>();
 
-    /** Record one host report. Never throws into the report path. */
-    public void record(RenderHost host) {
+    /** Record one host report and its running frames. Never throws into the report path. */
+    public void record(RenderHost host, List<RunningFrameInfo> frames) {
         try {
             double sys = -1;
             String s = host.getAttributesMap().get("sysTime");
             if (s != null)
                 sys = Double.parseDouble(s);
+            double busy = 0;
+            for (RunningFrameInfo frame : frames)
+                busy += pcpu(frame);
             byHostName.put(host.getName().toLowerCase(), new HostHealth(host.getTotalSwap(),
-                    host.getFreeSwap(), sys, System.currentTimeMillis()));
+                    host.getFreeSwap(), sys, Math.round(busy), System.currentTimeMillis()));
         } catch (RuntimeException ignored) {
             // a malformed report must never disturb report handling
+        }
+    }
+
+    /** A frame's reported pcpu in core points, 0 when absent, malformed or not finite. */
+    private static double pcpu(RunningFrameInfo frame) {
+        try {
+            double value = Double.parseDouble(frame.getAttributesOrDefault("pcpu", "0"));
+            return Double.isFinite(value) && value > 0 ? value : 0;
+        } catch (NumberFormatException ignored) {
+            return 0;
         }
     }
 

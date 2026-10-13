@@ -435,7 +435,6 @@
     <property name="bookingManager" ref="bookingManager" />
     <property name="jobDao" ref="jobDao" />
     <property name="layerDao" ref="layerDao" />
-    <property name="showDao" ref="showDao" />
     <property name="killQueue" ref="killQueue"/>
     <property name="kafkaEventPublisher" ref="kafkaEventPublisher" />
     <property name="monitoringEventBuilder" ref="monitoringEventBuilder" />
@@ -452,7 +451,6 @@
     <property name="dispatcher"  ref="dispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="hostManager" ref="hostManager" />
-    <property name="jobManager"  ref="jobManager" />
     <property name="rqdClient"   ref="rqdClient" />
     <property name="frameCompleteHandler" ref="frameCompleteHandler" />
     <property name="maestroMetrics" ref="maestroMetrics" />

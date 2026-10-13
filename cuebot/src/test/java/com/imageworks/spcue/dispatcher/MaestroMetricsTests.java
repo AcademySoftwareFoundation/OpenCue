@@ -89,6 +89,7 @@ public class MaestroMetricsTests {
         s.queryError = 1;
         s.tickDurationMs = 250;
         s.runningFrames = 42;
+        s.busyCorePoints = 2550;
         s.strandedCores = 123;
         s.coresByShow.put("smtest_pub", 30.0);
         s.framesByShow.put("smtest_pub", 7);
@@ -97,6 +98,7 @@ public class MaestroMetricsTests {
         assertEquals(5.0, sum("cue_maestro_groups_total"), 0.0001);
         assertEquals(1000.0, sum("cue_maestro_farm_cores_total"), 0.0001);
         assertEquals(42.0, sum("cue_maestro_running_frames"), 0.0001);
+        assertEquals(25.5, sum("cue_maestro_farm_cores_busy"), 0.0001);
         assertEquals(123.0, sum("cue_farm_health_stranded_cores"), 0.0001);
         assertEquals(bookedBefore + 3.0, sample(pass, "reason", "booked"), 0.0001);
         assertEquals(noFitBefore + 2.0, sample(pass, "reason", "no fit"), 0.0001);
@@ -106,6 +108,27 @@ public class MaestroMetricsTests {
         assertEquals(30.0, sample("cue_maestro_show_cores", "show", "smtest_pub"), 0.0001);
         // Histogram observed exactly one tick.
         assertEquals(durCountBefore + 1.0, sum("cue_maestro_tick_duration_seconds_count"), 0.0001);
+    }
+
+    @Test
+    public void tickPhasesAreObservedPerPhase() {
+        MaestroMetrics m = enabledMetrics();
+        String count = "cue_maestro_tick_phase_seconds_count";
+        String total = "cue_maestro_tick_phase_seconds_sum";
+        double drainCountBefore = sample(count, "phase", "drain");
+        double readSumBefore = sample(total, "phase", "read");
+        double commitCountBefore = sample(count, "phase", "commit");
+
+        MaestroMetrics.TickStats s = new MaestroMetrics.TickStats();
+        s.tickDurationMs = 12_500;
+        s.phaseMs.put("drain", 2_000L);
+        s.phaseMs.put("read", 10_000L);
+        m.recordTick(s);
+
+        assertEquals(drainCountBefore + 1.0, sample(count, "phase", "drain"), 0.0001);
+        assertEquals(readSumBefore + 10.0, sample(total, "phase", "read"), 0.0001);
+        assertEquals("a phase the tick did not time is not observed", commitCountBefore,
+                sample(count, "phase", "commit"), 0.0001);
     }
 
     @Test

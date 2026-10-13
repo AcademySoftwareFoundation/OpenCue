@@ -286,17 +286,22 @@ jobs:
   build_web_components:
     needs: integration_test
     strategy:
+      fail-fast: false
       matrix:
         include:
           - component: rest-gateway
             NAME: REST Gateway
             DOCKERFILE: rest_gateway/Dockerfile
             WORKDIR: .
+            # The Docker Hub repository does not exist yet and CI cannot create
+            # it, so a failed push must not fail the pipeline. Drop once created.
+            OPTIONAL_PUSH: true
 
           - component: cueweb
             NAME: CueWeb
             DOCKERFILE: Dockerfile
             WORKDIR: cueweb
+            OPTIONAL_PUSH: true
             # project_root exposes the repo-root VERSION.in to the build, which
             # lives outside the cueweb/ context. NEXT_PUBLIC_GIT_SHA is baked in
             # at build time so the About dialog reports a real SHA; ${GIT_SHA}
@@ -339,11 +344,19 @@ jobs:
         working-directory: ${{ matrix.WORKDIR }}
         run: |
           set -e
+          docker buildx build . -f ${{ matrix.DOCKERFILE }} \
+            ${{ matrix.BUILD_FLAGS }}
+
+      - name: Push Docker image
+        working-directory: ${{ matrix.WORKDIR }}
+        continue-on-error: ${{ matrix.OPTIONAL_PUSH == true }}
+        run: |
+          set -e
           image_name="opencuebuild/${{ matrix.component }}:${BUILD_ID}"
           # --push exports the result straight to the registry. The buildx
           # docker-container driver set up above keeps the image in the build
           # cache rather than the local image store, so a separate docker push
-          # would not find it.
+          # would not find it. Rebuilding here is a cache hit of the step above.
           docker buildx build . -f ${{ matrix.DOCKERFILE }} -t ${image_name} \
             ${{ matrix.BUILD_FLAGS }} \
             --push

@@ -1,12 +1,14 @@
 """STRANDGROW verdict: do memory-heavy threadable frames get their core share?
 
-Companion to inject_strandgrow.py. The flood layer asks 1 core and its frames
-REALLY hold MEM_MB of rss (the fake RQD pins their reported rss; declarations
-are not trusted by design). The scheduler must first probe at the ask (no rss
-evidence yet: it has to wait for the reports), then grow every later launch to
-round(rss / the group's own memory-per-core) cores (3.5-3.875G/core on this
-farm, so 18G -> 500 core-points). The non-threadable control holds the same
-rss and must stay at exactly 100 points forever.
+Companion to inject_strandgrow.py. The flood layer asks 1 core, declares
+only 2G, and its frames REALLY hold MEM_MB of rss (the fake RQD pins their
+reported rss). Its declaration sizes to 1 core, so the scheduler must first
+probe at the ask (no rss evidence yet: it has to wait for the reports), then
+grow every later launch to round(rss / the group's own memory-per-core) cores
+(3.5-3.875G/core on this farm, so 18G -> 500 core-points). The honest layer
+declares the real 18G and must book at 500 from its first frame, with no
+ask-sized probe. The non-threadable control holds the same rss and must stay
+at exactly 100 points forever.
 
 Live sampling narrates; the verdict is judged on the persistent record
 (frame.int_cores survives completion, written at dispatch):
@@ -14,8 +16,9 @@ Live sampling narrates; the verdict is judged on the persistent record
     not blast an unproven layer across the farm), the late launches book at
     the metric grant, the control never grew, and the farm's cores worked
     (peak core utilisation over the floor instead of stranding).
-  - FAIL: the flood stayed at the ask (the production disease), the control
-    grew, or cores stayed stranded.
+  - FAIL: the flood stayed at the ask (the production disease), the honest
+    layer booked any frame at the ask, the control grew, or cores stayed
+    stranded.
   - INCONCLUSIVE: the flood never ramped enough to judge.
 
 usage: strandgrow_watch.py [duration_s] [interval_s]
@@ -105,6 +108,9 @@ def main():
 
     flood = hist("simstrandgrow_flood")
     ctrl = hist("simstrandgrow_ctrl")
+    honest = hist("simstrandgrow_honest")
+    honest_n = sum(honest.values())
+    honest_at_ask = honest.get(100, 0)
     late = late_hist("simstrandgrow_flood", LATE_N)
     started = sum(flood.values())
     med = median_of(flood)
@@ -117,14 +123,20 @@ def main():
     print("\n==== STRANDGROW VERDICT ====", flush=True)
     print(f"flood median {med} pts, {at_exp:.0f}% at {EXP} pts over {started} "
           f"started frames; ask-first wave {waited}; late {late_n} frames "
-          f"{late_at_exp:.0f}% at {EXP}; ctrl max {ctrl_max}; peak core util "
-          f"{peak_util:.1f}%", flush=True)
+          f"{late_at_exp:.0f}% at {EXP}; honest {honest_n} frames, "
+          f"{honest_at_ask} at the ask, median {median_of(honest)} pts; "
+          f"ctrl max {ctrl_max}; peak core util {peak_util:.1f}%", flush=True)
     if started < MIN_STARTED:
         print(f"INCONCLUSIVE: only {started} flood frames ever started "
               f"(under {MIN_STARTED}); nothing to judge.", flush=True)
     elif ctrl and ctrl_max > 100:
         print(f"FAIL: a non-threadable frame was grown to {ctrl_max} "
               f"core-points; the threadable gate leaks.", flush=True)
+    elif honest_n < 1 or honest_at_ask > 0 or median_of(honest) != EXP:
+        print(f"FAIL: the layer declaring its real memory was not sized from "
+              f"it ({honest_n} frames started, {honest_at_ask} at the 100-point "
+              f"ask, median {median_of(honest)} pts; want all at {EXP}).",
+              flush=True)
     elif med <= 100:
         print(f"FAIL: the flood stayed at the ask (median {med} pts) and "
               f"peak core utilisation was {peak_util:.1f}%; memory-heavy "
@@ -137,7 +149,9 @@ def main():
         print(f"PASS: only a probe booked at the ask ({waited} frames while "
               f"the farm gathered rss evidence), later launches booked at the "
               f"{EXP}-point share ({late_at_exp:.0f}% of the last {late_n}), "
-              f"the non-threadable control stayed at 100, and the cores "
+              f"the honest layer booked all {honest_n} frames at {EXP} from "
+              f"its declaration, the non-threadable control stayed at 100, "
+              f"and the cores "
               f"worked (peak util {peak_util:.1f}%).", flush=True)
 
 

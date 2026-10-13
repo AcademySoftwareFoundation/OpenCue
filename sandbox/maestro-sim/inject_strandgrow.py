@@ -1,14 +1,17 @@
 """STRANDGROW workload: memory-heavy 1-core layers that strand host cores.
 
-The production shape: a layer declares big memory (18G) but asks 1 core. A
+The production shape: a layer whose frames really hold 18G asks 1 core. A
 few frames exhaust a host's memory and the rest of its cores sit idle but
-unbookable. With the launch-time core grant on, the scheduler books those
-frames at round(memory / maestro.expand_threadable_mem_per_core) cores
-(18G / 4G = 5 cores) instead of 1, so the cores work instead of stranding.
+unbookable. The scheduler books those frames at round(memory / the group's
+memory-per-core) cores (18G -> 5 cores) instead of 1, so the cores work
+instead of stranding. The rss is pinned by the fake RQD (SIM_RSS_PIN).
 
-Two jobs, one group (same tag):
-  - flood: deep threadable 1-core 18G layer. The patient.
-  - ctrl:  the same but NON-threadable. Must never get more than 1 core.
+Three jobs, one group (same tag):
+  - flood:  deep threadable 1-core layer that UNDER-declares (2G). The
+            patient: only rss evidence can size it, after a probe.
+  - honest: threadable 1-core layer that declares its real 18G. Sized from
+            its declaration on frame one, no probe.
+  - ctrl:   NON-threadable 18G. Must never get more than 1 core.
 
 threadable is hardcoded per layer on purpose: SIM_THREADABLE flips with
 other knobs and would silently change the premise.
@@ -28,7 +31,9 @@ CUEBOT = spec.GRPC
 DURATION = int(sys.argv[1]) if len(sys.argv) > 1 else 240
 FLOOD_FRAMES = int(os.environ.get("SIM_STRANDGROW_FRAMES", "4000"))
 CTRL_FRAMES = int(os.environ.get("SIM_STRANDGROW_CTRL_FRAMES", "25"))
+HONEST_FRAMES = int(os.environ.get("SIM_STRANDGROW_HONEST_FRAMES", "60"))
 MEM_MB = int(os.environ.get("SIM_STRANDGROW_MEM_MB", "18432"))
+DECLARED_MB = int(os.environ.get("SIM_STRANDGROW_DECLARED_MB", "2048"))
 TOKEN = "simstrandgrow"
 
 SPEC_HEAD = ('<?xml version="1.0"?>\n'
@@ -53,13 +58,15 @@ def main():
     chan = grpc.insecure_channel(CUEBOT)
     grpc.channel_ready_future(chan).result(timeout=15)
     stub = job_pb2_grpc.JobInterfaceStub(chan)
-    for body in (job_xml("flood", "hog", FLOOD_FRAMES, 1, MEM_MB),
+    for body in (job_xml("flood", "hog", FLOOD_FRAMES, 1, DECLARED_MB),
+                 job_xml("honest", "hogdeclared", HONEST_FRAMES, 1, MEM_MB),
                  job_xml("ctrl", "hognothread", CTRL_FRAMES, 0, MEM_MB)):
         stub.LaunchSpec(job_pb2.JobLaunchSpecRequest(spec=SPEC_HEAD + body
                                                      + "</spec>\n"))
-    print(f"STRANDGROW: flood {FLOOD_FRAMES} threadable 1-core {MEM_MB}mb "
-          f"frames + {CTRL_FRAMES} non-threadable controls, staying up "
-          f"{DURATION}s.", flush=True)
+    print(f"STRANDGROW: flood {FLOOD_FRAMES} threadable 1-core frames "
+          f"declaring {DECLARED_MB}mb + {HONEST_FRAMES} declaring {MEM_MB}mb "
+          f"+ {CTRL_FRAMES} non-threadable controls, staying up {DURATION}s.",
+          flush=True)
     t0 = time.time()
     while time.time() - t0 < DURATION:
         time.sleep(5)
