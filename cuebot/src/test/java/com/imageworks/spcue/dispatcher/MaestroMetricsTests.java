@@ -24,6 +24,7 @@ import io.prometheus.client.Collector;
 import io.prometheus.client.CollectorRegistry;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Unit tests for {@link MaestroMetrics}. Metrics are static and shared across the JVM, so counters
@@ -66,6 +67,30 @@ public class MaestroMetricsTests {
             }
         }
         return total;
+    }
+
+    @Test
+    public void completionQueueGaugesReadTheQueueAtScrapeTime() {
+        enabledMetrics();
+        MaestroCompletionQueue.drain();
+        assertEquals(0.0, sum("cue_maestro_completion_queue_depth"), 0.0001);
+        assertEquals(0.0, sum("cue_maestro_completion_queue_oldest_age_seconds"), 0.0001);
+
+        // Two queued, the head backdated: no tick recorded anything, yet the
+        // scrape sees both the depth and the head's wait.
+        QueuedFrameCompletion head =
+                new QueuedFrameCompletion(null, null, null, null, null, null, null, 0);
+        MaestroCompletionQueue.offer(head);
+        MaestroCompletionQueue
+                .offer(new QueuedFrameCompletion(null, null, null, null, null, null, null, 0));
+        head.enqueuedAtMs -= 90_000;
+        assertEquals(2.0, sum("cue_maestro_completion_queue_depth"), 0.0001);
+        double age = sum("cue_maestro_completion_queue_oldest_age_seconds");
+        assertTrue("age follows the head: " + age, age >= 90.0 && age < 120.0);
+
+        MaestroCompletionQueue.drain();
+        assertEquals(0.0, sum("cue_maestro_completion_queue_depth"), 0.0001);
+        assertEquals(0.0, sum("cue_maestro_completion_queue_oldest_age_seconds"), 0.0001);
     }
 
     @Test

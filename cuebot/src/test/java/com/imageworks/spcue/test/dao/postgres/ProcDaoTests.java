@@ -493,6 +493,12 @@ public class ProcDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
 
         assertEquals(0, procDao.findOrphanedVirtualProcs().size());
 
+        // A ping a few minutes old is not an orphan: a finished frame whose completion is still
+        // being applied looks exactly like this, and the default age must leave it alone.
+        jdbcTemplate.update("UPDATE proc SET ts_ping = (current_timestamp - interval '5' minute)");
+        assertEquals(0, procDao.findOrphanedVirtualProcs().size());
+        assertFalse(procDao.isOrphan(proc));
+
         /**
          * This is destructive to running jobs
          */

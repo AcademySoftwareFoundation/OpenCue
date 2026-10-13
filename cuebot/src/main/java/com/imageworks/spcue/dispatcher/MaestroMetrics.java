@@ -167,6 +167,21 @@ public class MaestroMetrics {
                             + "(cores, memory or gpu blocks every candidate on that host)")
                     .labelNames("env", "cuebot_host").register();
 
+    // The completion queue, read at scrape time rather than once per tick: the
+    // queue grows exactly when the tick stalls, which is when a per-tick sample
+    // would stop updating. Both children are installed in the constructor.
+    private static final Gauge completionQueueDepth =
+            Gauge.build().name("cue_maestro_completion_queue_depth")
+                    .help("Frame completions this Cuebot has acknowledged and holds for the "
+                            + "tick's drain to apply")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Gauge completionQueueOldestAge = Gauge.build()
+            .name("cue_maestro_completion_queue_oldest_age_seconds")
+            .help("Seconds the oldest queued frame completion has waited for the drain, "
+                    + "0 when the queue is empty; past maintenance.orphaned_proc_age_seconds "
+                    + "the orphan sweep resets finished frames")
+            .labelNames("env", "cuebot_host").register();
+
     private static final String[] WAIT_REASONS =
             {"flowing", "capacity", "no fit", "limit", "no license", "held", "share", "no host"};
     private static final Gauge waitingFrames = Gauge.build().name("cue_maestro_waiting_frames")
@@ -201,6 +216,20 @@ public class MaestroMetrics {
         String de = System.getenv(envKey);
         this.env = de != null ? de : "undefined";
         this.host = hostFromEnv();
+        if (enabled) {
+            completionQueueDepth.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.size();
+                }
+            }, env, host);
+            completionQueueOldestAge.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.oldestAgeMs(System.currentTimeMillis()) / 1000.0;
+                }
+            }, env, host);
+        }
     }
 
     private static String hostFromEnv() {

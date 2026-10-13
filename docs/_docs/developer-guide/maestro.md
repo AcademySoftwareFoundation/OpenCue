@@ -760,6 +760,16 @@ hosts the layer lands on; the per-host work left is in-memory proc building.
 Placement scoring is O(candidates x hosts), but that is in-memory arithmetic
 over the snapshot, not database work.
 
+**The completion queue is a gauge, read at scrape time.**
+`cue_maestro_completion_queue_depth` is the number of frame completions this
+Cuebot has acknowledged and holds for the tick's drain, and
+`cue_maestro_completion_queue_oldest_age_seconds` is how long the head of that
+queue has waited, which is the floor on every completion behind it. Both read
+the queue when Prometheus scrapes rather than once per tick, because the queue
+grows exactly when the tick stalls. The age is the number to alert on: past
+`maintenance.orphaned_proc_age_seconds` the orphan sweep treats a queued
+completion's proc as dead and resets its finished frame to WAITING.
+
 **Every tick is split by phase in Prometheus.** Beside the tick histogram
 `cue_maestro_tick_duration_seconds`, `cue_maestro_tick_phase_seconds{phase}`
 times each phase of the leader's tick: `drain` (queued completions applied),
@@ -902,7 +912,8 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   matched: a clear that matched no row means the frame moved on, and a kill
   addressed by host and frame would hit the new run. A launch that waited
   more than half the orphan age in the pool's queue
-  (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so 150 s) is rolled back unsent and
+  (`maintenance.orphaned_proc_age_seconds`, 600 s by default, so 300 s) is
+  rolled back unsent and
   without a kill: at the orphan age the maintenance pass releases the proc
   and the next tick rebooks the frame. A host whose launch breaker is open
   (`grpc.rqd_launch_breaker_failures` consecutive launches with unknown

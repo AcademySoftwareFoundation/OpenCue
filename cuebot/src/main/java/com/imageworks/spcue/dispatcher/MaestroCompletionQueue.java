@@ -47,8 +47,19 @@ public final class MaestroCompletionQueue {
 
     /** Ack-path enqueue: never blocks, never throws, never refuses. */
     public static void offer(QueuedFrameCompletion completion) {
+        completion.enqueuedAtMs = System.currentTimeMillis();
         QUEUE.offer(completion);
         SIZE.incrementAndGet();
+    }
+
+    /**
+     * How long the oldest queued completion has waited, in ms; 0 when the queue is empty. The head
+     * is the oldest (arrival order), so this is the queue's current latency floor: every completion
+     * behind it waits at least as long.
+     */
+    public static long oldestAgeMs(long nowMs) {
+        QueuedFrameCompletion head = QUEUE.peek();
+        return head == null ? 0 : Math.max(0, nowMs - head.enqueuedAtMs);
     }
 
     /**
