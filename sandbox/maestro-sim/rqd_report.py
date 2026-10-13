@@ -67,6 +67,8 @@ PSQL = spec.psql_cmd(tab=True)
 SWAP_KB = int(float(os.environ.get("SIM_SWAP_GB", "8")) * spec.GB_KB)
 # Deadlock-pressure: over-report every frame's RSS by this factor (0 = honest).
 OVERREPORT = float(os.environ.get("SIM_RSS_OVERREPORT", "0"))
+# Share of its booked cores a frame really uses (its reported pcpu).
+CPU_EFF = float(os.environ.get("SIM_CPU_EFF", "0.8"))
 
 HOSTS = list(spec.all_hosts())                    # (name, cores, mem_kb)
 HOST_INFO = {n: (c, m) for n, c, m in HOSTS}
@@ -134,7 +136,8 @@ def frame_info(rec, rss_kb, used_swap_kb, now):
         num_cores=core_pts, num_gpus=gpus, start_time=now - 1,
         rss=rss_kb, max_rss=rss_kb, vsize=rss_kb, max_vsize=rss_kb,
         used_swap_memory=used_swap_kb,
-        used_gpu_memory=0, max_used_gpu_memory=0, llu_time=now)
+        used_gpu_memory=0, max_used_gpu_memory=0, llu_time=now,
+        attributes={"pcpu": str(core_pts * CPU_EFF)})
 
 
 def _send_one(stub, name, cores, mem_kb, frames, now):
