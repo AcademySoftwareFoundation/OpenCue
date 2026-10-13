@@ -605,7 +605,7 @@
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
-        "w": 24,
+        "w": 12,
         "x": 0,
         "y": 30
       },
@@ -637,6 +637,69 @@
           "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_phase_seconds_bucket[5m])) by (le, phase))",
           "legendFormat": "{{phase}}",
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Completion queue",
+      "description": "Frame completions acknowledged and waiting for the tick's drain (depth, left axis) and how long the oldest has waited (right axis). Read at scrape time, so it keeps moving when the tick stalls. Age past maintenance.orphaned_proc_age_seconds means the orphan sweep is resetting finished frames.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "oldest age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(cue_maestro_completion_queue_depth)",
+          "legendFormat": "depth",
+          "refId": "A"
+        },
+        {
+          "expr": "max(cue_maestro_completion_queue_oldest_age_seconds)",
+          "legendFormat": "oldest age",
+          "refId": "B"
         }
       ]
     },
