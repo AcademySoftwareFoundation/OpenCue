@@ -244,6 +244,26 @@ Key configuration sections:
 - Frame recovery across restarts (see below)
 - Log-based exit-status rules (see below)
 
+### Command-Line Overrides
+
+`openrqd` also accepts flags for pointing at a config file or overriding individual values
+without editing YAML:
+
+```bash
+# Show all available flags
+openrqd --help
+
+# Use a specific config file (same effect as OPENCUE_RQD_CONFIG)
+openrqd --config /path/to/rqd.yaml
+
+# Override one or more config values (equivalent to OPENRQD__SECTION__FIELD env vars)
+openrqd --set grpc.rqd_port=8444 --set machine.nimby_mode=true
+```
+
+`--set` keys are dotted section.field paths matching the YAML structure (e.g. `grpc.rqd_port`,
+`machine.nimby_mode`); each is applied as the corresponding `OPENRQD__SECTION__FIELD`
+environment variable, so `--set` and `--env` overrides can be mixed freely.
+
 ### Frame Recovery Across Restarts
 
 RQD can be restarted — for an upgrade, or for a config change that is not live-reloadable — without losing the frames running on the host. Frames are spawned in their own session (`setsid`), so they outlive the RQD process, and every running frame is snapshotted to `runner.snapshots_path`. On startup RQD reads those snapshots back and re-attaches to the frames it left behind.
