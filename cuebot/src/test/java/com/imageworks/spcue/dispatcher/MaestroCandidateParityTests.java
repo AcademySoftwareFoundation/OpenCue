@@ -15,10 +15,14 @@
 package com.imageworks.spcue.dispatcher;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import javax.annotation.Resource;
 
@@ -222,6 +226,154 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
                 compared++;
         }
         assertTrue("at least one group admitted the fixture job", compared >= 1);
+    }
+
+    // The pinned read the in-memory pin resolution replaced, kept here as the oracle: one row
+    // per (layer, named host) for the waiting layers whose tags are not all spec tags, the host
+    // resolved and checked in SQL, and one null-host row for a layer none of whose names
+    // resolves. Binds: thread mode ALL, the spec tags (csv, lower case), the facility-mode
+    // flag. The lottery and the row cap are left out: they are drawn per group now, and the
+    // comparison is on sets with the cap set high.
+    // spotless:off
+    private static final String SQL_PINNED_ROWS =
+            "SELECT l.pk_layer, h.pk_host AS pin_host, l.str_tags "
+            + "FROM   layer l "
+            + "JOIN   job j           ON j.pk_job  = l.pk_job "
+            + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
+            + "JOIN   show sh         ON sh.pk_show = j.pk_show "
+            + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
+            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
+            + "LEFT JOIN ("
+            + "    SELECT j2.pk_folder, "
+            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
+            + "    FROM   job j2 "
+            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
+            + "                               AND fr2.int_max_cores <> -1 "
+            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
+            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
+            + "    WHERE  j2.str_state = 'PENDING' "
+            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
+            + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
+            + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
+            + "       ON lower(h.str_name) = "
+            + "          ANY(string_to_array(lower(replace(l.str_tags, ' ', '')), '|')) "
+            + "      AND hs.str_state = 'UP' "
+            + "      AND h.str_lock_state = 'OPEN' "
+            + "      AND j.pk_facility = a.pk_facility "
+            + "      AND (j.str_os IS NULL OR j.str_os = '' "
+            + "           OR j.str_os = ANY(string_to_array(hs.str_os, ','))) "
+            + "      AND (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) "
+            + "          >= (CASE WHEN h.int_thread_mode = ? THEN 1 ELSE 0 END) "
+            + "      AND l.int_cores_min <= h.int_cores "
+            + "LEFT JOIN subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = h.pk_alloc "
+            + "WHERE  j.str_state = 'PENDING' "
+            + "  AND  j.b_paused  = false "
+            + "  AND  NOT (string_to_array(lower(replace(l.str_tags, ' ', '')), '|') "
+            + "            <@ string_to_array(?, ',')) "
+            + "  AND  (h.pk_host IS NULL "
+            + "        OR (sub.pk_subscription IS NOT NULL AND sub.int_cores < sub.int_burst)) "
+            + "  AND  jr.int_cores  < jr.int_max_cores "
+            + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
+            + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
+            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "  AND (? OR sh.b_scheduler_managed = true) ";
+    // spotless:on
+
+    private void createPinHost(String name, String alloc, String tag, String os) {
+        RenderHost host = RenderHost.newBuilder().setName(name).setBootTime(1192369572)
+                .setFreeMcp(CueUtil.GB).setFreeMem(53500).setFreeSwap(20760).setLoad(1)
+                .setTotalMcp(CueUtil.GB4).setTotalMem(8173264).setTotalSwap(20960)
+                .setNimbyEnabled(false).setNumProcs(2).setCoresPerProc(100).addTags(tag)
+                .setState(HardwareState.UP).setFacility("spi").putAttributes("SP_OS", os).build();
+        hostManager.createHost(host,
+                adminManager.findAllocationDetail(alloc.split("\\.")[0], alloc.split("\\.")[1]));
+    }
+
+    /** The (layer, host) pairs and the dead layers of one tag assignment, from the SQL oracle. */
+    private void sqlPins(Set<String> specTags, Set<String> pairs, Set<String> dead) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(SQL_PINNED_ROWS,
+                ThreadMode.ALL_VALUE, String.join(",", specTags), MaestroMode.facility(springEnv));
+        for (Map<String, Object> r : rows) {
+            String layer = (String) r.get("pk_layer");
+            Object host = r.get("pin_host");
+            if (host != null)
+                pairs.add(layer + "|" + host);
+            else if (!Maestro.namesSpecTag((String) r.get("str_tags"), specTags))
+                dead.add(layer);
+        }
+    }
+
+    /**
+     * Every shape of the pin parity table, cycled over the fixture's three waiting layers: for each
+     * assignment the in-memory resolution must produce exactly the (layer, host) pairs and the "no
+     * host" layers the pinned SQL produced.
+     */
+    @Test
+    public void pinResolutionMatchesThePinnedSqlForEveryShape() {
+        createPinHost("pina", "spi.general", "test", "Linux");
+        createPinHost("pinb", "spi.general", "test", "Linux");
+        createPinHost("pinother", "spi.general", "other", "Linux"); // a second spec
+        createPinHost("pinos", "spi.general", "test", "rhel9"); // os misfit
+        createPinHost("pinall", "spi.general", "test", "Linux"); // thread mode ALL below
+        createPinHost("pinsmall", "spi.general", "test", "Linux"); // too small below
+        createPinHost("pinlax", "lax.general", "test", "Linux"); // other facility
+        createPinHost("pindesk", "spi.desktop", "test", "Linux"); // subscription at burst below
+        jdbcTemplate.update("UPDATE host SET int_thread_mode=? WHERE str_name='pinall'",
+                ThreadMode.ALL_VALUE);
+        jdbcTemplate.update("UPDATE host SET int_cores=50 WHERE str_name='pinsmall'");
+        jdbcTemplate.update("UPDATE subscription SET int_cores=int_burst WHERE pk_alloc="
+                + "(SELECT pk_alloc FROM alloc WHERE str_name='spi.desktop')");
+        List<String> layers = jdbcTemplate.queryForList("SELECT l.pk_layer FROM layer l "
+                + "JOIN job j ON j.pk_job = l.pk_job WHERE j.str_name LIKE ? ORDER BY l.pk_layer",
+                String.class, "pipe-dev.cue-testuser_shell_dispatch_test_%");
+        assertEquals("the fixture's layers", 3, layers.size());
+        // The non-threadable layer meets the ALL-mode host in the third round.
+        jdbcTemplate.update("UPDATE layer SET b_threadable=false WHERE pk_layer=?", layers.get(0));
+        List<List<String>> rounds =
+                Arrays.asList(Arrays.asList("PinA | pina | pinb |", "test | pina", "nosuchhost"),
+                        Arrays.asList("pinother | pina", "pindesk", "pinlax | pinos | pinsmall"),
+                        Arrays.asList("pinall", "pinall", "test | nosuchhost"),
+                        Arrays.asList("pinos | nosuchhost", "pindesk | pinb", "pinlax"));
+
+        int comparedPairs = 0, comparedDead = 0;
+        for (List<String> round : rounds) {
+            for (int i = 0; i < layers.size(); i++)
+                jdbcTemplate.update("UPDATE layer SET str_tags=? WHERE pk_layer=?", round.get(i),
+                        layers.get(i));
+            Map<Maestro.HostSpecKey, List<Maestro.BookableHost>> groups =
+                    Maestro.groupByHostSpec(maestro.readAllHosts());
+            Set<String> specTags = new HashSet<>();
+            Map<String, Maestro.BookableHost> hostByName = new HashMap<>();
+            for (Map.Entry<Maestro.HostSpecKey, List<Maestro.BookableHost>> e : groups.entrySet()) {
+                for (String t : e.getKey().tagsNormalized.split("\\s+"))
+                    if (!t.isEmpty())
+                        specTags.add(t.toLowerCase());
+                for (Maestro.BookableHost h : e.getValue())
+                    hostByName.put(h.hostName.toLowerCase(), h);
+            }
+            Set<String> sqlPairs = new HashSet<>(), sqlDead = new HashSet<>();
+            sqlPins(specTags, sqlPairs, sqlDead);
+
+            Map<String, String> reason = new HashMap<>();
+            Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> pins =
+                    Maestro.resolvePins(maestro.readTickCandidates(), hostByName, specTags, 100000,
+                            new Random(1), reason, new HashMap<>());
+            Set<String> javaPairs = new HashSet<>();
+            for (Map.Entry<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> e : pins.entrySet())
+                for (Maestro.LayerCandidate c : e.getValue())
+                    for (Maestro.BookableHost h : c.pinnedHosts) {
+                        assertEquals("filed under its hosts' group", e.getKey(),
+                                Maestro.hostSpecKey(h));
+                        javaPairs.add(c.layerId + "|" + h.hostId);
+                    }
+
+            assertEquals("pairs for " + round, sqlPairs, javaPairs);
+            assertEquals("dead layers for " + round, sqlDead, reason.keySet());
+            comparedPairs += sqlPairs.size();
+            comparedDead += sqlDead.size();
+        }
+        assertTrue("the oracle produced pins to compare", comparedPairs >= 6);
+        assertTrue("and dead layers to compare", comparedDead >= 3);
     }
 
     @Test

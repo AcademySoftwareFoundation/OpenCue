@@ -734,45 +734,6 @@ public class MaestroTests {
         return c;
     }
 
-    private static Maestro.PinRow pinRow(String layerId, String hostId, String tags) {
-        return new Maestro.PinRow(pinnedLayer(layerId, 30), hostId, tags);
-    }
-
-    @Test
-    public void attachPinsFilesEachLayerUnderTheGroupsOfItsHosts() {
-        Maestro.BookableHost a = specHost("a", "general capa");
-        Maestro.BookableHost b = specHost("b", "general capa");
-        Maestro.BookableHost c = specHost("c", "general capb");
-        Map<String, Maestro.BookableHost> byId = new HashMap<>();
-        for (Maestro.BookableHost h : Arrays.asList(a, b, c))
-            byId.put(h.hostId, h);
-        Set<String> spec = new HashSet<>(Arrays.asList("general", "capa", "capb"));
-        Map<String, String> reason = new HashMap<>();
-        Map<String, Integer> frames = new HashMap<>();
-        List<Maestro.PinRow> rows = Arrays.asList(pinRow("L1", "a", "hosta | hostb | hostc"),
-                pinRow("L1", "b", "hosta | hostb | hostc"),
-                pinRow("L1", "c", "hosta | hostb | hostc"), pinRow("L2", null, "nosuchhost"),
-                pinRow("L3", null, "general | nosuchhost"), pinRow("L4", "zz", "hostzz"));
-        Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> out =
-                Maestro.attachPins(rows, byId, spec, reason, frames);
-
-        // L1 spans two specs: one candidate per group, each with that group's pins.
-        List<Maestro.LayerCandidate> inA = out.get(Maestro.hostSpecKey(a));
-        List<Maestro.LayerCandidate> inC = out.get(Maestro.hostSpecKey(c));
-        assertEquals(1, inA.size());
-        assertEquals(Arrays.asList(a, b), inA.get(0).pinnedHosts);
-        assertTrue(inA.get(0).pinnedIds.containsAll(Arrays.asList("a", "b")));
-        assertEquals(1, inC.size());
-        assertEquals(Arrays.asList(c), inC.get(0).pinnedHosts);
-        assertEquals(2, out.size());
-        // A dead pin waits with its reason; a spec-tagged layer is a group candidate, not dead;
-        // a host outside the tick's snapshot resolves nothing.
-        assertEquals("no host", reason.get("L2"));
-        assertEquals(Integer.valueOf(30), frames.get("L2"));
-        assertNull(reason.get("L3"));
-        assertEquals("no host", reason.get("L4"));
-    }
-
     @Test
     public void addPinnedSkipsLayersTheGroupHasAndVisitsOnlyIdlePins() {
         Maestro.BookableHost a = specHost("a", "general");
