@@ -1346,10 +1346,11 @@ public class Maestro extends JdbcDaoSupport {
         // read fresh into their fields; the cap/license/reservation scratch fields were reset
         // in clearTickScratch.
         Map<String, BookableHost> hostById = new HashMap<>();
-        Map<String, BookableHost> hostByName = new HashMap<>();
+        Map<String, List<BookableHost>> hostByName = new HashMap<>();
         for (BookableHost h : allHosts) {
             hostById.put(h.hostId, h);
-            hostByName.put(h.hostName.toLowerCase(Locale.ROOT), h);
+            hostByName.computeIfAbsent(h.hostName.toLowerCase(Locale.ROOT), x -> new ArrayList<>())
+                    .add(h);
         }
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
@@ -2785,7 +2786,7 @@ public class Maestro extends JdbcDaoSupport {
      * Bound: O(candidate rows x tag tokens) hash lookups, independent of the host count.
      */
     private void resolveTickPins(Map<HostSpecKey, List<BookableHost>> groups,
-            Map<String, BookableHost> hostByName) {
+            Map<String, List<BookableHost>> hostByName) {
         long t0 = System.currentTimeMillis();
         Set<String> specTags = new HashSet<>();
         for (HostSpecKey k : groups.keySet())
@@ -2805,18 +2806,20 @@ public class Maestro extends JdbcDaoSupport {
      * The pins of the tick's candidate read, pure: one candidate per (layer, host-spec group), each
      * holding the pinned hosts of that group, filed under the group's key. A row takes part when
      * its tag tokens (the tag string with spaces removed, lower-cased, split on '|', empty tokens
-     * kept) are not all spec tags. Each token is looked up as a host name; a host is a pin when it
-     * is in the job's facility, advertises the job's OS, passes the thread-mode rule, is big enough
-     * for one frame, and the show subscribes to the host's allocation and is under its burst there
-     * (the candidate carries that subscription's figures). A host that fits but whose subscription
-     * blocks it yields no pin; a layer none of whose names fits, and that has no spec tag either,
-     * is filed under the waitlist reason "no host" with its waiting frames. A name repeated in the
-     * tags adds its host once; an empty tag string names nothing and is no pin. Each group then
-     * keeps at most limit candidates, drawn by the priority lottery as the group cut does.
+     * kept) are not all spec tags. Each token is looked up as a host name (lower-cased, so hosts
+     * whose names differ only by case all answer to it, as the SQL's lower() did); a host is a pin
+     * when it is in the job's facility, advertises the job's OS, passes the thread-mode rule, is
+     * big enough for one frame, and the show subscribes to the host's allocation and is under its
+     * burst there (the candidate carries that subscription's figures). A host that fits but whose
+     * subscription blocks it yields no pin; a layer none of whose names fits, and that has no spec
+     * tag either, is filed under the waitlist reason "no host" with its waiting frames. A name
+     * repeated in the tags adds its host once; an empty tag string names nothing and is no pin.
+     * Each group then keeps at most limit candidates, drawn by the priority lottery as the group
+     * cut does.
      */
     static Map<HostSpecKey, List<LayerCandidate>> resolvePins(TickCandidates tick,
-            Map<String, BookableHost> hostByName, Set<String> specTags, int limit, Random random,
-            Map<String, String> waitReason, Map<String, Integer> waitFrames) {
+            Map<String, List<BookableHost>> hostByName, Set<String> specTags, int limit,
+            Random random, Map<String, String> waitReason, Map<String, Integer> waitFrames) {
         Map<HostSpecKey, Map<String, LayerCandidate>> byGroup = new LinkedHashMap<>();
         for (CandidateRow r : tick.rows) {
             if (r.tags == null || r.tags.replace(" ", "").isEmpty())
@@ -2824,38 +2827,16 @@ public class Maestro extends JdbcDaoSupport {
             String[] tokens = r.tags.replace(" ", "").toLowerCase(Locale.ROOT).split("\\|", -1);
             if (specTags.containsAll(Arrays.asList(tokens)))
                 continue;
-            LayerCandidate c = r.row;
             boolean fits = false;
             for (String t : tokens) {
-                BookableHost h = hostByName.get(t);
-                if (h == null)
-                    continue;
-                if (!Objects.equals(r.facilityId, h.pkFacility) || !jobOsAllowed(r.jobOs, h.os)
-                        || (h.threadMode == ThreadMode.ALL_VALUE && !c.threadable)
-                        || c.layerCoresMin > h.coresTotal)
-                    continue;
-                fits = true;
-                long[] sub = tick.subscriptions.get(subKey(c.showId, h.pkAlloc));
-                if (sub == null || sub[0] >= sub[1])
-                    continue;
-                Map<String, LayerCandidate> inGroup =
-                        byGroup.computeIfAbsent(hostSpecKey(h), x -> new LinkedHashMap<>());
-                LayerCandidate pin = inGroup.get(c.layerId);
-                if (pin == null) {
-                    pin = c.copyForGroup();
-                    pin.showCoresInUse = (int) sub[0];
-                    pin.showBurstCores = (int) sub[1];
-                    pin.showSizeCores = (int) sub[2];
-                    pin.pinnedHosts = new ArrayList<>();
-                    pin.pinnedIds = new HashSet<>();
-                    inGroup.put(c.layerId, pin);
-                }
-                if (pin.pinnedIds.add(h.hostId))
-                    pin.pinnedHosts.add(h);
+                List<BookableHost> named = hostByName.get(t);
+                if (named != null)
+                    for (BookableHost h : named)
+                        fits |= pinHost(r, h, tick, byGroup);
             }
             if (!fits && !namesSpecTag(r.tags, specTags)) {
-                waitReason.put(c.layerId, "no host");
-                waitFrames.put(c.layerId, c.waitingFrameCount);
+                waitReason.put(r.row.layerId, "no host");
+                waitFrames.put(r.row.layerId, r.row.waitingFrameCount);
             }
         }
         Map<HostSpecKey, List<LayerCandidate>> out = new HashMap<>();
@@ -2863,6 +2844,38 @@ public class Maestro extends JdbcDaoSupport {
             out.put(e.getKey(),
                     drawByPriority(new ArrayList<>(e.getValue().values()), limit, random));
         return out;
+    }
+
+    /**
+     * One named host against one candidate row: whether the host fits the row (the SQL's host
+     * join), and when it does and the show's subscription in its allocation is under burst, the
+     * host is added to the row's pin in the host's group.
+     */
+    private static boolean pinHost(CandidateRow r, BookableHost h, TickCandidates tick,
+            Map<HostSpecKey, Map<String, LayerCandidate>> byGroup) {
+        LayerCandidate c = r.row;
+        if (!Objects.equals(r.facilityId, h.pkFacility) || !jobOsAllowed(r.jobOs, h.os)
+                || (h.threadMode == ThreadMode.ALL_VALUE && !c.threadable)
+                || c.layerCoresMin > h.coresTotal)
+            return false;
+        long[] sub = tick.subscriptions.get(subKey(c.showId, h.pkAlloc));
+        if (sub == null || sub[0] >= sub[1])
+            return true;
+        Map<String, LayerCandidate> inGroup =
+                byGroup.computeIfAbsent(hostSpecKey(h), x -> new LinkedHashMap<>());
+        LayerCandidate pin = inGroup.get(c.layerId);
+        if (pin == null) {
+            pin = c.copyForGroup();
+            pin.showCoresInUse = (int) sub[0];
+            pin.showBurstCores = (int) sub[1];
+            pin.showSizeCores = (int) sub[2];
+            pin.pinnedHosts = new ArrayList<>();
+            pin.pinnedIds = new HashSet<>();
+            inGroup.put(c.layerId, pin);
+        }
+        if (pin.pinnedIds.add(h.hostId))
+            pin.pinnedHosts.add(h);
+        return true;
     }
 
     /** Whether any token of a layer's tag regex is a host-spec tag (case-insensitive). */

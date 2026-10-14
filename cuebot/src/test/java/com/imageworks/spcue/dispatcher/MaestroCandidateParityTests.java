@@ -312,6 +312,7 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
     public void pinResolutionMatchesThePinnedSqlForEveryShape() {
         createPinHost("pina", "spi.general", "test", "Linux");
         createPinHost("pinb", "spi.general", "test", "Linux");
+        createPinHost("PINB", "spi.general", "test", "Linux"); // str_name is unique raw, not lower
         createPinHost("pinother", "spi.general", "other", "Linux"); // a second spec
         createPinHost("pinos", "spi.general", "test", "rhel9"); // os misfit
         createPinHost("pinall", "spi.general", "test", "Linux"); // thread mode ALL below
@@ -343,13 +344,14 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
             Map<Maestro.HostSpecKey, List<Maestro.BookableHost>> groups =
                     Maestro.groupByHostSpec(maestro.readAllHosts());
             Set<String> specTags = new HashSet<>();
-            Map<String, Maestro.BookableHost> hostByName = new HashMap<>();
+            Map<String, List<Maestro.BookableHost>> hostByName = new HashMap<>();
             for (Map.Entry<Maestro.HostSpecKey, List<Maestro.BookableHost>> e : groups.entrySet()) {
                 for (String t : e.getKey().tagsNormalized.split("\\s+"))
                     if (!t.isEmpty())
                         specTags.add(t.toLowerCase());
                 for (Maestro.BookableHost h : e.getValue())
-                    hostByName.put(h.hostName.toLowerCase(), h);
+                    hostByName.computeIfAbsent(h.hostName.toLowerCase(), x -> new ArrayList<>())
+                            .add(h);
             }
             Set<String> sqlPairs = new HashSet<>(), sqlDead = new HashSet<>();
             sqlPins(specTags, sqlPairs, sqlDead);

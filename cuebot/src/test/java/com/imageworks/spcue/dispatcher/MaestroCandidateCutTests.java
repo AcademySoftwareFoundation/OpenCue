@@ -227,10 +227,10 @@ public class MaestroCandidateCutTests {
         return host(name, "alloc", "fac", "general", "rhel9", 800, false);
     }
 
-    private static Map<String, Maestro.BookableHost> byName(Maestro.BookableHost... hosts) {
-        Map<String, Maestro.BookableHost> m = new HashMap<>();
+    private static Map<String, List<Maestro.BookableHost>> byName(Maestro.BookableHost... hosts) {
+        Map<String, List<Maestro.BookableHost>> m = new HashMap<>();
         for (Maestro.BookableHost h : hosts)
-            m.put(h.hostName.toLowerCase(), h);
+            m.computeIfAbsent(h.hostName.toLowerCase(), x -> new ArrayList<>()).add(h);
         return m;
     }
 
@@ -276,6 +276,23 @@ public class MaestroCandidateCutTests {
         assertEquals(500, pin.showSizeCores);
         assertTrue("a layer whose tags are all spec tags, or empty, is no pin and not dead",
                 reason.isEmpty() && frames.isEmpty());
+    }
+
+    /** host.str_name is unique raw, not lower-cased, so "foo" and "FOO" can both exist. */
+    @Test
+    public void hostsWhoseNamesDifferOnlyByCaseAllAnswerToTheName() {
+        Maestro.BookableHost lower = general("hostx");
+        Maestro.BookableHost upper = general("HOSTX");
+        List<Maestro.CandidateRow> rows = new ArrayList<>();
+        rows.add(row("L1", "show", "fac", "", "hostx", 100, true, 50));
+        Maestro.TickCandidates t = tick(rows, "show", "alloc", 100, 1000, 500);
+
+        Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> pins =
+                Maestro.resolvePins(t, byName(lower, upper), specTags("general"), 2000,
+                        new Random(1), new HashMap<>(), new HashMap<>());
+
+        assertEquals("the SQL's lower(str_name) matched both", Arrays.asList(lower, upper),
+                pinIn(pins, lower).pinnedHosts);
     }
 
     @Test
@@ -415,13 +432,24 @@ public class MaestroCandidateCutTests {
         assertTrue(reason.isEmpty());
     }
 
-    /** A guard on the bound, not a benchmark: the resolution must not depend on the host count. */
+    /**
+     * A guard on the bound, not a benchmark: the resolution is one name lookup per tag token of
+     * each participating row, whatever the host count. The SQL this replaced was layers x hosts.
+     */
     @Test
-    public void resolvingThousandsOfRowsAgainstThousandsOfHostsStaysCheap() {
+    public void resolvingThousandsOfRowsCostsOneLookupPerTagTokenWhateverTheHostCount() {
         Maestro.BookableHost[] hosts = new Maestro.BookableHost[5000];
         for (int i = 0; i < hosts.length; i++)
             hosts[i] = general("host" + i);
-        Map<String, Maestro.BookableHost> names = byName(hosts);
+        int[] lookups = new int[1];
+        Map<String, List<Maestro.BookableHost>> names =
+                new HashMap<String, List<Maestro.BookableHost>>(byName(hosts)) {
+                    @Override
+                    public List<Maestro.BookableHost> get(Object key) {
+                        lookups[0]++;
+                        return super.get(key);
+                    }
+                };
         List<Maestro.CandidateRow> rows = new ArrayList<>();
         for (int i = 0; i < 3000; i++)
             rows.add(
@@ -430,16 +458,12 @@ public class MaestroCandidateCutTests {
                                     : "host" + (i % 5000) + " | host" + ((i * 7) % 5000),
                             100, true, 50));
         Maestro.TickCandidates t = tick(rows, "show", "alloc", 0, 100000, 500);
-        Set<String> spec = specTags("general");
 
-        Maestro.resolvePins(t, names, spec, 2000, new Random(1), new HashMap<>(), new HashMap<>()); // warm
-                                                                                                    // up
-        long t0 = System.nanoTime();
         Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> pins = Maestro.resolvePins(t, names,
-                spec, 2000, new Random(1), new HashMap<>(), new HashMap<>());
-        long ms = (System.nanoTime() - t0) / 1_000_000;
+                specTags("general"), 2000, new Random(1), new HashMap<>(), new HashMap<>());
 
         assertEquals(2000, pins.get(Maestro.hostSpecKey(hosts[0])).size());
-        assertTrue("resolved 3000 rows against 5000 hosts in " + ms + "ms", ms < 250);
+        assertEquals("two tokens per row, every row participates (rhel75 is no spec tag)", 3000 * 2,
+                lookups[0]);
     }
 }
