@@ -385,6 +385,7 @@ WORKLOAD_PATTERNS = ["feed.py", "inject_big.py", "inject_priority_starve.py",
                      "strand_dur_watch.py", "priority_starve_watch.py",
                      "priority_spread_watch.py", "inject_limit.py",
                      "limit_watch.py", "inject_folder.py", "folder_watch.py",
+                     "inject_foldertrig.py", "foldertrig_watch.py",
                      "inject_license.py", "license_watch.py", "fake_license.py",
                      "license_reporter.py",
                      "inject_capdrop.py", "capdrop_watch.py",
@@ -1261,6 +1262,13 @@ def start_folder_injector(duration):
     spawn(["inject_folder.py", str(duration)], f"{FARM}/inject_folder.log")
 
 
+def start_foldertrig_injector(duration):
+    log(f"starting FOLDERTRIG injector (folder-cap trigger on frame, a capped folder "
+        f"at {os.environ.get('SIM_FOLDERTRIG_MAX','30')} cores beside the uncapped "
+        f"default, both flooded; the watcher cuts the cap mid-run, for {duration}s) ...")
+    spawn(["inject_foldertrig.py", str(duration)], f"{FARM}/inject_foldertrig.log")
+
+
 def start_parity_injector(duration, mode):
     log(f"starting PARITY injector (archetype battery, mode={mode}, hosts "
         f"advertise SP_OS='{os.environ.get('SIM_HOST_OS','')}', for {duration}s) ...")
@@ -1735,6 +1743,31 @@ def _verify_check(name, gdir, logp, cblog):
         peak = int(pm.group(1)) if pm else -1
         ok = bool(re.search(r"(?m)^PASS:", txt))
         return ok, f"peak folder running {peak} vs cap {cap} cores"
+    if name == "FOLDERTRIG":
+        # One folder over its cap under a site trigger that rejects its frame
+        # starts: the watcher's verdict (uncapped folder kept booking, nothing
+        # booked over the cap, every dropped piece named only the capped folder),
+        # plus no dropped piece in the cuebot log may span several hosts: a
+        # rejected frame may cost its host's bookings, never a multi-host chunk
+        # (a multi-host drop means the split budget ran out or the lock was lost).
+        try:
+            txt = open(logp, errors="ignore").read()
+        except Exception:
+            txt = ""
+        cm = re.search(r"cuts=(\d+)", txt)
+        rm = re.search(r"over-cap rises=(\d+)", txt)
+        sm = re.search(r"worst free stall=(\d+)", txt)
+        dm = re.search(r"dropped WARNs=(\d+)", txt)
+        xm = re.search(r"collateral drops=(\d+)", txt)
+        multi = sum(1 for h in re.findall(
+            r"Maestro: commit of \d+ booking\(s\) on host\(s\) \[([^\]]*)\]", cb)
+            if "," in h)
+        ok = bool(re.search(r"(?m)^PASS:", txt)) and multi == 0
+        return ok, (f"cap cuts {cm.group(1) if cm else '?'}; over-cap rises "
+                    f"{rm.group(1) if rm else '?'}; worst uncapped-folder stall "
+                    f"{sm.group(1) if sm else '?'} samples; dropped pieces "
+                    f"{dm.group(1) if dm else '?'} (collateral "
+                    f"{xm.group(1) if xm else '?'}); multi-host drops {multi}")
     if name in ("PARITY_OLD", "PARITY_NEW"):
         # inject_parity.py wrote the per-mode booked sets to files that outlive
         # the scenario teardown; parse both back.
@@ -2054,6 +2087,13 @@ def run_verify():
         # sim folder at 50 cores and flood narrow work into it on a small farm that
         # could run far more, and assert folder running cores never exceed the cap.
         ("FOLDER", ["--hosts", "3,4,10", "--folder-test", str(D)]),
+        # FOLDERTRIG: the 2026-10-13 production stall. A site trigger on frame
+        # rejects a frame start once its folder is over its core cap; the
+        # watcher lowers a busy folder's cap under it, repeatedly. Maestro must
+        # keep booking the uncapped folder on every tick, never book the over-cap
+        # folder, and a rejected frame may cost only its own host's bookings
+        # (the chunk is split and retried), never a whole 500-booking chunk.
+        ("FOLDERTRIG", ["--hosts", "3,4,10", "--foldertrig-test", str(D)]),
         # PARITY: the legacy-vs-scheduler eligibility drift detector. The same
         # archetype battery (plain / os-pinned on multi-OS hosts / tag
         # alternation / other-facility) runs once under the LEGACY dispatcher
@@ -2511,6 +2551,14 @@ def main():
                          "(folder_resource.int_max_cores) and flood work into it; "
                          "check the scheduler never runs more than the cap. FAILs if "
                          "folder running cores exceed the cap (dept/group core ceiling).")
+    ap.add_argument("--foldertrig-test", type=int, default=0, metavar="SECS",
+                    help="FOLDERTRIG test: install the site folder-cap trigger on frame "
+                         "(rejects a frame start once its folder is over "
+                         "folder_resource.int_max_cores), flood a capped folder "
+                         "(SIM_FOLDERTRIG_MAX=30 cores) and the uncapped default folder, "
+                         "and lower the cap under load mid-run. FAILs if the uncapped "
+                         "folder stalls, a booking lands over the cap, or a dropped "
+                         "commit piece names a job outside the capped folder.")
     ap.add_argument("--parity-test", type=int, default=0, metavar="SECS",
                     help="PARITY test: hosts advertise a multi-OS SP_OS "
                          "(SIM_HOST_OS, default rhel7,rhel9) and inject_parity.py "
@@ -2775,6 +2823,8 @@ def main():
         start_license_injector(lic_secs)
     if args.folder_test:
         start_folder_injector(args.folder_test)
+    if args.foldertrig_test:
+        start_foldertrig_injector(args.foldertrig_test)
     if args.parity_test:
         start_parity_injector(args.parity_test, args.mode)
 
@@ -2796,7 +2846,7 @@ def main():
              or args.showtier_test
              or args.completionstorm_test
              or args.doublerender_test
-             or args.folder_test or args.locality_test
+             or args.folder_test or args.foldertrig_test or args.locality_test
              or args.depend_test or args.failover_test or args.tag_gpu_test
              or args.tagmax_test
              or args.parity_test or args.stats or args.metrics or args.feed)
@@ -2938,6 +2988,12 @@ def main():
         csv = f"{graph_dir}/run_folder.csv" if graph_dir else ""
         subprocess.run([VENV_PY, "folder_watch.py", str(args.folder_test), "3"],
                        cwd=FARM, env=dict(os.environ, SIM_FOLDER_CSV=csv))
+    elif args.foldertrig_test:
+        log(f"watching FOLDERTRIG (an over-cap folder under the site trigger vs the "
+            f"rest of the farm) for {args.foldertrig_test}s ...")
+        csv = f"{graph_dir}/run_foldertrig.csv" if graph_dir else ""
+        subprocess.run([VENV_PY, "foldertrig_watch.py", str(args.foldertrig_test), "3"],
+                       cwd=FARM, env=dict(os.environ, SIM_FOLDERTRIG_CSV=csv))
     elif args.parity_test:
         # The injector does the watching (polls bookings, writes the per-mode
         # result file); the run just has to stay alive for the window.

@@ -75,6 +75,20 @@ public class MaestroMetrics {
             .help("Whole cores in use per show, summed from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
+    // The commit's split-and-retry (Maestro.commitContained): retry transactions spent
+    // splitting failed chunks, and bookings dropped because their piece could not be
+    // split further or the tick's split budget ran out. Both stay near zero on a healthy
+    // farm; a steady dropped rate names a commit-time gate Maestro does not model.
+    private static final Counter commitRetryTx =
+            Counter.build().name("cue_maestro_commit_retry_tx_total")
+                    .help("Retry transactions spent splitting failed commit chunks")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Counter commitDroppedBookings =
+            Counter.build().name("cue_maestro_commit_dropped_bookings_total")
+                    .help("Planned bookings dropped because their commit piece kept failing; "
+                            + "the frames stay WAITING for the next tick")
+                    .labelNames("env", "cuebot_host").register();
+
     // Frames booked per show; rate() = throughput.
     private static final Counter framesDispatched =
             Counter.build().name("cue_maestro_frames_dispatched_total")
@@ -267,6 +281,10 @@ public class MaestroMetrics {
             incReason("no work", s.noWork);
             incReason("query error", s.queryError);
             tickDuration.labels(env, host).observe(s.tickDurationMs / 1000.0);
+            if (s.commitRetryTx > 0)
+                commitRetryTx.labels(env, host).inc(s.commitRetryTx);
+            if (s.commitDroppedBookings > 0)
+                commitDroppedBookings.labels(env, host).inc(s.commitDroppedBookings);
             for (Map.Entry<String, Long> e : s.phaseMs.entrySet())
                 tickPhaseDuration.labels(env, host, e.getKey()).observe(e.getValue() / 1000.0);
             // Cores per show: SET from this tick's live read, then zero any show
@@ -345,6 +363,8 @@ public class MaestroMetrics {
         public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
+        public long commitRetryTx;
+        public long commitDroppedBookings;
         public final Map<String, Long> phaseMs = new HashMap<>();
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();

@@ -274,4 +274,20 @@ public class MaestroMetricsTests {
         assertEquals(coldBefore, sample("cue_maestro_booked_frames_locality_total", "kind", "cold"),
                 0.0001);
     }
+
+    @Test
+    public void theCommitSplitCountersFollowTheTick() {
+        MaestroMetrics m = enabledMetrics();
+        double retryBefore = sum("cue_maestro_commit_retry_tx_total");
+        double droppedBefore = sum("cue_maestro_commit_dropped_bookings_total");
+        MaestroMetrics.TickStats s = new MaestroMetrics.TickStats();
+        s.commitRetryTx = 6;
+        s.commitDroppedBookings = 3;
+        m.recordTick(s);
+        assertEquals(6.0, sum("cue_maestro_commit_retry_tx_total") - retryBefore, 0.0001);
+        assertEquals(3.0, sum("cue_maestro_commit_dropped_bookings_total") - droppedBefore, 0.0001);
+        // A healthy tick adds nothing, and creates no series it has to zero.
+        m.recordTick(new MaestroMetrics.TickStats());
+        assertEquals(6.0, sum("cue_maestro_commit_retry_tx_total") - retryBefore, 0.0001);
+    }
 }
