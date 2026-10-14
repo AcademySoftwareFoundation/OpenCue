@@ -93,13 +93,13 @@ public class MaestroMetrics {
     // (hosts, procs, pins read), place (the candidate read and in-memory scoring), read
     // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
     // live show-usage and farm-health reads). place is also split into candidates (its
-    // SQL, the tick's one candidate read) and score (the rest, in memory), so the two
-    // add up to place.
+    // SQL, the tick's one candidate read), pins (the in-memory pin resolution over it) and
+    // score (the rest, in memory), so the three add up to place.
     private static final Histogram tickPhaseDuration =
             Histogram.build().name("cue_maestro_tick_phase_seconds")
                     .help("Maestro tick wall-clock per phase in seconds: drain, snapshot, "
-                            + "place, read, commit, usage; candidates and score split place "
-                            + "into its SQL and its in-memory half")
+                            + "place, read, commit, usage; candidates, pins and score split place "
+                            + "into its SQL, its pin resolution and the rest")
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host", "phase").register();
 
