@@ -97,9 +97,11 @@ procs first). That pipeline:
    (`planHost`, read-only), then write them in host-aligned chunks of about
    `COMMIT_CHUNK_FRAMES` frames (`commitInChunks`). Each chunk is its own
    transaction (`startFramesAndProcsBatch`), published and handed to the
-   launch pool as soon as it lands. A chunk that fails rolls back alone: its
-   frames stay WAITING for the next tick, and the chunks before and after it
-   still commit. One failed chunk never aborts the tick.
+   launch pool as soon as it lands. A chunk that fails is split on a host
+   boundary and each half retried in its own transaction, recursively
+   (`commitContained`), so only the bookings that actually fail stay WAITING
+   for the next tick; everything else in the chunk lands in the same tick. One
+   failed booking never aborts the tick.
 6. **Sweep**: drop reservations whose layer no longer appears in any
    candidate set.
 
@@ -306,8 +308,9 @@ host-aligned chunks (`commitInChunks`), each
 chunk one batched transaction (`startFramesAndProcsBatch`: batched frame UPDATE
 + proc INSERT + host UPDATE) that is launched as soon as it lands. Frames lost
 to a `frame.int_version` race are dropped from the chunk and retried next tick;
-a chunk whose transaction fails rolls back alone and its frames wait the same
-way. The RQD launches run on a launch pool, so a slow RQD never stalls the
+a chunk whose transaction fails is bisected on host boundaries and retried, and
+only the host pieces that keep failing wait the same way. The RQD launches run
+on a launch pool, so a slow RQD never stalls the
 tick. Each frame reserves exactly the layer's requested cores: `planHost` builds
 procs with the dispatcher's thread-mode idle-core expansion (grab-idle) turned
 off, so the cores committed match the cores Maestro scored and decremented.
@@ -830,6 +833,7 @@ already takes most of the load off it.
 | `maestro.layer_host_max_frac` | `0.25` | SOFT per-host layer cap: one layer may hold at most this fraction of a host's cores (as frames, floor 8), so a flood spills across hosts instead of blanketing one. The cap yields when it is the only blocker: a fitting idle host that only the cap refuses is given to the layer (rss-proven layers only), so a lone farm-sized layer fills the farm instead of stranding it. On a busy farm no such host exists and the cap holds. 0 disables. |
 | `maestro.mem_per_core` | `0` | Memory-per-core ratio (KB) for rss-driven layer sizing (§3.9). 0 (the default) derives it from each group's own hosts; set e.g. 4194304 to pin 4G/core studio-wide. |
 | `maestro.plan_zero_warn_ticks` | `40` | Consecutive ticks a layer may plan but commit zero frames before a WARN names it (a commit-time gate Maestro does not model is rejecting it). |
+| `maestro.commit_split_max_tx` | `64` | Retry transactions one tick may spend containing failed commit chunks (`commitContained`). A split costs two; a bad booking in a chunk of H hosts costs about 2·log₂(H). When spent, a failing piece is dropped whole (the old whole-chunk behaviour), which bounds a tick in which everything fails. Healthy ticks spend nothing. |
 | `maestro.forward_completions_to` | *(empty)* | Completion-forward relay (rollout scaffolding, read only when `maestro.enabled=no`): comma-separated `host:port` report endpoints of the isolated Maestro deployment (leader and standby). When set, a legacy cuebot forwards a scheduler-managed show's `FrameCompleteReport`s there unmodified over the report gRPC; any failure processes the report locally through the legacy path. Empty disables the relay (see §6.2). |
 | `maestro.forward_deadline_ms` | `1500` | gRPC deadline for one forward attempt; exactly one attempt per report, then the local fallback. |
 | `maestro.forward_breaker_failures` | `3` | Consecutive forward failures that open the breaker. |
@@ -909,9 +913,19 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   thread, so a slow database delays the next tick directly (no worker pool
   hides it). The chunk bounds the lock window and the wait. This is the one
   place where DB latency gates the tick rate.
-- **Failed chunk**: the chunk rolls back alone and is logged. Its frames stay
-  WAITING for the next tick, the chunks before it keep their procs and
-  launches, and the chunks after it still commit. The tick goes on.
+- **Failed chunk**: the chunk rolls back alone, then is split at the host
+  boundary nearest its middle and each half committed in its own transaction,
+  recursively (`commitContained`), until the failure is down to one host's
+  bookings, which are dropped: their frames stay WAITING for the next tick and
+  one WARN names the host, the jobs and the root cause (the SQL error behind
+  the wrappers). Every other booking of the chunk lands in the same tick. The
+  retry is safe because a failed transaction rolled back whole and the retry
+  goes through the same frame-version guard. Splitting is bounded by
+  `maestro.commit_split_max_tx` per tick and stops when the leader lost the
+  lock; a piece that cannot be retried is dropped whole. Exposed as
+  `cue_maestro_commit_retry_tx_total` and
+  `cue_maestro_commit_dropped_bookings_total`, and on the slow-tick line as
+  `splits=N dropped=M`. The tick goes on.
 - **Failed launch**: a launch whose RPC failed without proof that the frame
   never started is resolved before anything is released (`launchOne`): the
   frame may be running on the host, so two not-running polls are required,
@@ -942,7 +956,8 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   one takeover and a rebuilt planner memory cost less than a chunk committed
   without the lock.
 - **Failed chunk, second order**: a flush that fails leaves nothing for the
-  next chunk; the deltas of a rolled-back chunk are discarded with it.
+  next piece; the deltas of a rolled-back attempt are discarded with it, so a
+  retry credits only its own procs.
 - **Slow RQD launch**: absorbed by the launch pool. Its queue is unbounded, so
   a committed booking is always launched and a slow RQD shows as launch
   latency, never as lost work. A launch is refused only while the pool shuts

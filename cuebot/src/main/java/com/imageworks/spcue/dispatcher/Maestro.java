@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -141,6 +142,10 @@ public class Maestro extends JdbcDaoSupport {
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
     // pool so placement packs limited work onto the fewest hosts. Sized above the E-PVM spread.
     private volatile double limitSeatBonus = 16.0;
+
+    // Retry transactions a tick may spend splitting failed commit chunks
+    // (maestro.commit_split_max_tx); see commitContained.
+    private volatile int commitSplitMaxTx = 64;
 
     // Spring config; scheduler.* properties read once in startSchedulerPoolsIfNeeded().
     @Autowired
@@ -361,6 +366,9 @@ public class Maestro extends JdbcDaoSupport {
     private long winWaitTotalMax = 0;
     // Per-tick outputs set by doTick(), folded into the window by runTick().
     private long tickPlanned = 0;
+    // The last commitInChunks: chunk splits made and bookings dropped (commitContained).
+    int lastCommitSplits = 0;
+    int lastCommitDropped = 0;
     // Wall time of this tick's candidate read (loadTickCandidates), the SQL half of the place
     // phase, and of the pin resolution over it (resolveTickPins).
     private long tickCandidatesMs = 0;
@@ -436,6 +444,7 @@ public class Maestro extends JdbcDaoSupport {
         // Property name kept from the per-host-limit feature this supersedes, so
         // any site already setting it keeps its value.
         limitSeatBonus = env.getProperty("maestro.host_limit_seat_bonus", Double.class, 16.0);
+        commitSplitMaxTx = env.getProperty("maestro.commit_split_max_tx", Integer.class, 64);
         wCores = env.getProperty("maestro.score_weight_cores", Double.class, 1.0);
         wMem = env.getProperty("maestro.score_weight_mem", Double.class, 1.0);
         wGpus = env.getProperty("maestro.score_weight_gpus", Double.class, 4.0);
@@ -573,10 +582,10 @@ public class Maestro extends JdbcDaoSupport {
             + "  (SELECT string_agg(ll.pk_limit_record, ',') "
             + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
             // Folder (group/dept) core cap: the job's folder, its ceiling, and the
-            // folder's current running cores (ground truth = SUM of the folder's jobs).
+            // folder's running cores as the database counts them (see the fr join).
             + "  j.pk_folder AS folder_id, "
             + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
-            + "  COALESCE(fu.folder_cores, 0)   AS folder_running "
+            + "  COALESCE(fr.int_cores, 0)      AS folder_running "
             + "FROM   layer l "
             + "JOIN   job j           ON j.pk_job  = l.pk_job "
             + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
@@ -584,28 +593,15 @@ public class Maestro extends JdbcDaoSupport {
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_mem   lm ON lm.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
-            // Folder core ceiling + the folder's current running cores. Derived from
-            // layer_stat.int_running_count (running frames x per-frame cores), the
-            // same trigger-maintained counter the limit cap uses. It is robust to frame
-            // completion (int_running_count drops automatically) and, at a tick
-            // boundary, equals SUM(job_resource.int_cores) (one proc per running
-            // frame), the figure the folder cap is measured against. Computed once,
-            // not per row.
+            // Folder core ceiling + the folder's running cores, both from
+            // folder_resource. int_cores is the cores the folder's procs reserve: the
+            // commit adds each booking's real reservation to it (flushJobDeltas) and
+            // every proc release subtracts it, and it is the figure the folder cap is
+            // enforced against in the database. A layer's int_cores_min is only a
+            // floor on what a frame reserves (memory sizing books threadable layers
+            // wider), so a count built from running frames x int_cores_min undercounts
+            // a folder and lets the plan carry it past a cap the commit then rejects.
             + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
-            + "LEFT JOIN ("
-            + "    SELECT j2.pk_folder, "
-            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
-            + "    FROM   job j2 "
-            // Only aggregate capped folders (int_max_cores <> -1). Every job has a
-            // folder but almost none are capped, so without this join the subquery
-            // would sum layer_stat across the whole farm every tick; this keeps it
-            // empty (free) when no folder has a ceiling.
-            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
-            + "                               AND fr2.int_max_cores <> -1 "
-            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
-            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
-            + "    WHERE  j2.str_state = 'PENDING' "
-            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
             + "WHERE  j.str_state = 'PENDING' "
             + "  AND  j.b_paused  = false "
             + "  AND  jr.int_cores  < jr.int_max_cores "
@@ -624,7 +620,7 @@ public class Maestro extends JdbcDaoSupport {
             // unlike this filter, also binds the frames planHost books in the tick
             // that crosses the cap.
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "       OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) ";
 
     // Every subscription, read once per tick beside the candidate rows: a show is a
@@ -993,7 +989,7 @@ public class Maestro extends JdbcDaoSupport {
      * drop any that would cross the cap, counting up from the folder's running cores at tick start.
      * Folders with no cap are never touched. Returns the kept bookings.
      */
-    private List<FrameBooking> trimOverFolderCeiling(List<FrameBooking> planned,
+    List<FrameBooking> trimOverFolderCeiling(List<FrameBooking> planned,
             Map<String, Integer> folderMaxCp, Map<String, Integer> folderRunSeed,
             Map<String, String> jobFolderCap) {
         if (folderMaxCp.isEmpty() || planned.isEmpty())
@@ -1396,6 +1392,8 @@ public class Maestro extends JdbcDaoSupport {
         List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
         stats.phaseMs.put("commit", tCommit - tRead);
+        stats.commitRetryTx = 2L * lastCommitSplits;
+        stats.commitDroppedBookings = lastCommitDropped;
         recordCommitted(committed, stats);
         // Read live usage AFTER this tick's bookings landed. Reading at tick start
         // would sample the post-drain trough, where a fast-completing farm reads as
@@ -1420,7 +1418,8 @@ public class Maestro extends JdbcDaoSupport {
                     + (tPlan - tSnapshot - tickCandidatesMs - tickPinsMs) + "ms), read="
                     + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
                     + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow;
+                    + planned.size() + " committed=" + dispatchedNow + " splits=" + lastCommitSplits
+                    + " dropped=" + lastCommitDropped;
             logger.info("Maestro tick breakdown: " + breakdown);
             // Production runs at WARN, so a slow tick carries its own breakdown there.
             if (tTick > SLOW_TICK_WARN_MS)
@@ -1439,14 +1438,16 @@ public class Maestro extends JdbcDaoSupport {
      * once; one transaction for all of it would hold every booked host row and stat row for minutes
      * and show nothing until the end. A chunk holds its locks for a bounded window, lands its procs
      * as it goes, and launches them as it goes. Each chunk commits with its own resource deltas, so
-     * procs and their mirrors still land together or not at all. A chunk is one unit of failure:
-     * one that fails rolls back alone (commitChunk) and the loop goes on, so one failed chunk never
-     * aborts the tick. A leader that lost the planning lock stops before its next chunk: the frames
-     * left stay WAITING for the next leader, which plans from the database, so two Maestros never
-     * commit the same plan.
+     * procs and their mirrors still land together or not at all. A chunk that fails is split on a
+     * host boundary and each half retried in its own transaction (commitContained), so one bad
+     * booking costs the tick its host's bookings, not the chunk's, and never aborts the tick. A
+     * leader that lost the planning lock stops before its next chunk: the frames left stay WAITING
+     * for the next leader, which plans from the database, so two Maestros never commit the same
+     * plan.
      */
     List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
         List<FrameBooking> committed = new ArrayList<>();
+        SplitBudget budget = new SplitBudget(commitSplitMaxTx);
         int start = 0;
         while (start < planned.size()) {
             if (!leaderAlive()) {
@@ -1456,9 +1457,11 @@ public class Maestro extends JdbcDaoSupport {
                 break;
             }
             int end = chunkEnd(planned, start);
-            committed.addAll(commitChunk(new ArrayList<>(planned.subList(start, end))));
+            committed.addAll(commitContained(planned.subList(start, end), budget));
             start = end;
         }
+        lastCommitSplits = budget.splits;
+        lastCommitDropped = budget.dropped;
         return committed;
     }
 
@@ -1476,30 +1479,107 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Commit one chunk in its own transaction, then publish and launch it outside that transaction:
-     * a slow publish never extends the lock window, and the frames start while the later chunks are
-     * still committing instead of after the last. A chunk whose transaction fails rolls back alone:
-     * its frames stay WAITING for the next tick, the chunks committed before it keep their procs,
-     * deltas and launches, and the chunks after it still commit. The in-memory snapshot stays
-     * decremented for the rest of the tick, the same under-booking a lost version race leaves, and
-     * the next snapshot corrects it. The resource deltas a failed flush left in the buffers are
-     * discarded with the chunk, so the next chunk credits only its own procs. A failed event
-     * publish is logged and never keeps a committed chunk from its launch.
+     * The host boundary nearest the middle of piece, or -1 when every booking is on one host. The
+     * same rule chunkEnd applies: a host's bookings never split, because the capacity gate in the
+     * commit is per host.
      */
-    private List<FrameBooking> commitChunk(final List<FrameBooking> chunk) {
+    static int hostAlignedMid(List<FrameBooking> piece) {
+        int n = piece.size();
+        int target = n / 2;
+        int best = -1;
+        for (int i = 1; i < n; i++) {
+            if (!piece.get(i).proc.getHostId().equals(piece.get(i - 1).proc.getHostId())
+                    && (best < 0 || Math.abs(i - target) < Math.abs(best - target)))
+                best = i;
+        }
+        return best;
+    }
+
+    /**
+     * The retry transactions one commitInChunks may spend, shared by all its chunks, and the tally
+     * of what the splitting did. A healthy tick spends nothing. A split costs two transactions, one
+     * per half, so a bad booking in a chunk of H hosts costs about 2 * log2(H) of the budget; when
+     * it runs out a failing piece is dropped whole, which bounds a tick in which every booking
+     * fails (a trigger rejecting everything, a database gone away).
+     */
+    static final class SplitBudget {
+        private int left;
+        int splits;
+        int dropped;
+
+        SplitBudget(int retryTx) {
+            this.left = retryTx;
+        }
+
+        /** Take the two transactions of one split; false, and nothing taken, when short. */
+        boolean takeSplit() {
+            if (left < 2)
+                return false;
+            left -= 2;
+            splits++;
+            return true;
+        }
+    }
+
+    /**
+     * Commit one piece of the plan in its own transaction (commitPiece), containing a failure to
+     * the bookings that cause it: a piece whose transaction fails is split at the host boundary
+     * nearest its middle and each half committed the same way, recursively, until the failure is
+     * down to one host's bookings, which are dropped (dropPiece). Only those frames stay WAITING;
+     * every other booking of the chunk lands this tick. Retrying is safe because a failed
+     * transaction rolled back whole (no frame changed version, no proc exists, no delta landed) and
+     * the retry goes through the same frame-version guard as the first attempt. The in-memory host
+     * snapshot stays decremented for the rest of the tick either way, the under-booking a lost
+     * version race leaves, and the next snapshot corrects it. The deltas a failed flush left in the
+     * buffers are discarded with the failed attempt, so a retry credits only its own procs. A split
+     * is bounded by the budget and stops when the leader lost the lock: a piece that cannot be
+     * retried is dropped whole, today's behaviour for a whole chunk.
+     */
+    List<FrameBooking> commitContained(List<FrameBooking> piece, SplitBudget budget) {
         List<FrameBooking> won;
         try {
-            won = txTemplate().execute(status -> {
-                List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
-                applyResourceDeltas(w);
-                return w;
-            });
+            won = commitPiece(piece);
         } catch (RuntimeException e) {
-            logger.warn("Maestro: commit of a chunk of " + chunk.size() + " bookings failed and"
-                    + " rolled back; its frames wait for the next tick: " + e.getMessage());
+            // Only the transaction is retried: the publish and launch of a committed
+            // piece run outside it, below, so their failures never re-commit anything.
             discardResourceDeltas();
-            return Collections.emptyList();
+            int mid = hostAlignedMid(piece);
+            String why = mid < 0 ? "one host, nothing to split"
+                    : !leaderAlive() ? "leadership lost, not retrying without the lock"
+                            : !budget.takeSplit() ? "the tick's split budget is spent" : null;
+            if (why != null) {
+                dropPiece(piece, e, why, budget);
+                return Collections.emptyList();
+            }
+            won = new ArrayList<>(commitContained(piece.subList(0, mid), budget));
+            won.addAll(commitContained(piece.subList(mid, piece.size()), budget));
+            return won;
         }
+        launchPiece(won);
+        return won;
+    }
+
+    /**
+     * Commit one piece in its own transaction: the frame starts, the procs and the resource deltas
+     * that mirror them, together or not at all. A failed transaction propagates to the caller,
+     * which splits or drops the piece.
+     */
+    List<FrameBooking> commitPiece(List<FrameBooking> piece) {
+        final List<FrameBooking> chunk = new ArrayList<>(piece);
+        return txTemplate().execute(status -> {
+            List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
+            applyResourceDeltas(w);
+            return w;
+        });
+    }
+
+    /**
+     * Publish and launch a committed piece, outside its transaction: a slow publish never extends
+     * the lock window, and the frames start while the later pieces are still committing instead of
+     * after the last. A failed event publish is logged and never keeps a committed piece from its
+     * launch.
+     */
+    void launchPiece(List<FrameBooking> won) {
         try {
             dispatchSupport.publishFrameStartedEvents(won);
         } catch (RuntimeException e) {
@@ -1507,7 +1587,50 @@ public class Maestro extends JdbcDaoSupport {
                     + " bookings failed: " + e.getMessage());
         }
         launchCommitted(won);
-        return won;
+    }
+
+    /**
+     * Give up on a piece whose commit failed and is not split further: its frames stay WAITING for
+     * the next tick. One WARN names the hosts, the jobs, why there was no split and the root cause
+     * (the SQL error behind the wrappers), so a commit-time gate Maestro does not model is visible
+     * by name.
+     */
+    private void dropPiece(List<FrameBooking> piece, RuntimeException failure, String why,
+            SplitBudget budget) {
+        budget.dropped += piece.size();
+        Set<String> hosts = new LinkedHashSet<>();
+        Set<String> jobs = new LinkedHashSet<>();
+        for (FrameBooking b : piece) {
+            hosts.add(b.proc.hostName != null ? b.proc.hostName : b.proc.getHostId());
+            jobs.add(b.proc.getJobId() != null ? b.proc.getJobId() : b.frame.getJobId());
+        }
+        logger.warn("Maestro: commit of " + piece.size() + " booking(s) on host(s) " + hosts
+                + " for job(s) " + jobs + " failed and rolled back (" + why + "); its frames"
+                + " wait for the next tick: " + rootCauseMessage(failure));
+    }
+
+    /**
+     * The message of the deepest cause of a commit failure: the wrappers (the DAO's reservation
+     * exception, Spring's data-access translation) are walked down, and a JDBC batch failure's
+     * chained SQLException is followed to the statement that raised.
+     */
+    static String rootCauseMessage(Throwable t) {
+        Throwable cur = t;
+        Set<Throwable> seen = new HashSet<>();
+        while (cur != null && seen.add(cur)) {
+            Throwable next = null;
+            if (cur instanceof SQLException && ((SQLException) cur).getNextException() != null)
+                next = ((SQLException) cur).getNextException();
+            else if (cur.getCause() != null && cur.getCause() != cur)
+                next = cur.getCause();
+            if (next == null)
+                break;
+            cur = next;
+        }
+        if (cur == null)
+            return String.valueOf(t);
+        String msg = cur.getMessage();
+        return cur.getClass().getSimpleName() + ": " + (msg != null ? msg.trim() : "");
     }
 
     /**
@@ -2282,11 +2405,7 @@ public class Maestro extends JdbcDaoSupport {
             // No limit column: limits no longer exclude at query level; the
             // in-memory gate names them in the why-not trace instead.
             + "  (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "   OR (SELECT COALESCE(SUM(ls3.int_running_count * l3.int_cores_min), 0) "
-            + "       FROM job j3 JOIN layer l3 ON l3.pk_job = j3.pk_job "
-            + "       JOIN layer_stat ls3 ON ls3.pk_layer = l3.pk_layer "
-            + "       WHERE j3.pk_folder = j.pk_folder AND j3.str_state = 'PENDING') "
-            + "      + l.int_cores_min <= fr.int_max_cores)           AS folder_ok, "
+            + "   OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) AS folder_ok, "
             + "  (? OR sh.b_scheduler_managed = true)                 AS managed_ok "
             + "FROM layer l "
             + "JOIN job j            ON j.pk_job = l.pk_job "
@@ -3923,7 +4042,7 @@ public class Maestro extends JdbcDaoSupport {
     /**
      * Apply a chunk's accumulated resource deltas as one UPDATE per row, inside the chunk's
      * transaction and on the Maestro thread, so no accumulation races it. A SQL error rolls the
-     * chunk back: the deltas already drained go with it, and commitChunk discards the rest
+     * chunk back: the deltas already drained go with it, and commitContained discards the rest
      * (discardResourceDeltas), so a failed chunk never credits the next one. Subscription/layer
      * rows missing (deleted mid-tick) simply update zero rows; folder/point use the job subquery
      * and likewise no-op if the job is gone.
@@ -4110,7 +4229,7 @@ public class Maestro extends JdbcDaoSupport {
      * and {@code no fit} when idle cores exist but none fits (slivers too small for a wide frame,
      * or memory / gpu short): the shape mismatch worth investigating.
      */
-    private String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
+    String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
             int limitUsable, List<LimitBudget> limitSeatPools,
             Map<String, Set<String>> limitSeats) {
         if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
@@ -4234,8 +4353,8 @@ public class Maestro extends JdbcDaoSupport {
         List<String> limitIds;
         // Folder (group/dept) core cap. folderId is the job's folder; folderMax is
         // folder_resource.int_max_cores (-1 = unlimited, core-points); folderRunning
-        // is the folder's current running cores (core-points), seed for the
-        // tick-wide folderUsed cap in dispatchGroupWithScoring.
+        // is folder_resource.int_cores, the cores the folder's procs reserve
+        // (core-points), seed for the tick-wide folderUsed cap in dispatchGroupWithScoring.
         String folderId;
         int folderMax;
         int folderRunning;

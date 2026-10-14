@@ -37,6 +37,7 @@ import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.DispatchHost;
+import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DispatcherDao;
@@ -45,6 +46,7 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.ThreadMode;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.service.GroupManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
@@ -74,6 +76,8 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
     DispatcherDao dispatcherDao;
     @Resource
     HostDao hostDao;
+    @Resource
+    GroupManager groupManager;
     @Resource
     Maestro maestro;
     @Resource
@@ -143,11 +147,46 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
     }
 
     private boolean candidatesContainJob(String jobId) {
+        return candidateOfJob(jobId) != null;
+    }
+
+    private Maestro.LayerCandidate candidateOfJob(String jobId) {
         for (Maestro.LayerCandidate c : candidates()) {
             if (jobId.equals(c.jobId))
-                return true;
+                return c;
         }
-        return false;
+        return null;
+    }
+
+    /**
+     * The folder figure Maestro plans against is folder_resource.int_cores, the cores the folder's
+     * procs reserve and the number the database enforces the cap against, not a count rebuilt from
+     * running frames x int_cores_min. 350 is a figure that estimate could never produce for
+     * 100-core layers; at the cap the layer leaves the candidate set, one core of room and it is
+     * back.
+     */
+    @Test
+    public void folderRunningIsTheFoldersReservedCores() {
+        JobDetail job = getJob();
+        GroupDetail folder = groupManager.getGroupDetail(job);
+        jdbcTemplate.update(
+                "UPDATE folder_resource SET int_max_cores = 1000, int_cores = 350 WHERE pk_folder=?",
+                folder.id);
+        Maestro.LayerCandidate c = candidateOfJob(job.id);
+        assertTrue("the capped folder's job is a candidate under its cap", c != null);
+        assertEquals(1000, c.folderMax);
+        assertEquals("folder_running is folder_resource.int_cores", 350, c.folderRunning);
+
+        jdbcTemplate.update("UPDATE folder_resource SET int_cores = 950 WHERE pk_folder=?",
+                folder.id);
+        assertFalse("950 reserved + a 100-core layer is over a 1000 cap",
+                candidatesContainJob(job.id));
+        jdbcTemplate.update("UPDATE folder_resource SET int_cores = 900 WHERE pk_folder=?",
+                folder.id);
+        assertTrue("900 + 100 fits the cap exactly", candidatesContainJob(job.id));
+        jdbcTemplate.update("UPDATE folder_resource SET int_cores = 2000 WHERE pk_folder=?",
+                folder.id);
+        assertFalse("a folder already over its cap is never planned", candidatesContainJob(job.id));
     }
 
     // The per-group candidate query the in-memory group cut replaced, kept here as the
@@ -163,16 +202,6 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
             + "JOIN   subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = ? "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
-            + "LEFT JOIN ("
-            + "    SELECT j2.pk_folder, "
-            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
-            + "    FROM   job j2 "
-            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
-            + "                               AND fr2.int_max_cores <> -1 "
-            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
-            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
-            + "    WHERE  j2.str_state = 'PENDING' "
-            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
             + "WHERE  j.str_state = 'PENDING' "
             + "  AND  j.b_paused  = false "
             + "  AND  (j.str_os IS NULL OR j.str_os = '' "
@@ -185,7 +214,7 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
             + "  AND  l.int_cores_min <= ? "
             + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "       OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) ";
     // spotless:on
 
@@ -243,16 +272,6 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
             + "JOIN   show sh         ON sh.pk_show = j.pk_show "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
             + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
-            + "LEFT JOIN ("
-            + "    SELECT j2.pk_folder, "
-            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
-            + "    FROM   job j2 "
-            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
-            + "                               AND fr2.int_max_cores <> -1 "
-            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
-            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
-            + "    WHERE  j2.str_state = 'PENDING' "
-            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
             + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
             + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
             + "       ON lower(h.str_name) = "
@@ -275,7 +294,7 @@ public class MaestroCandidateParityTests extends AbstractTransactionalJUnit4Spri
             + "  AND  jr.int_cores  < jr.int_max_cores "
             + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "       OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) ";
     // spotless:on
 
