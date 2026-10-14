@@ -1109,7 +1109,7 @@ public class FrameCompleteHandler {
         }
         if (report.getHost().getNimbyLocked()) {
             logger.info("unbooking " + proc + " was NIMBY locked.");
-            hostManager.setHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
+            hostManager.syncHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
             return ProcHealth.UNBOOK;
         }
         if (report.getHost().getFreeMem() < CueUtil.MB512) {

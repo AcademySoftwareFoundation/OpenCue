@@ -173,7 +173,9 @@ def retries_spent():
     path retries by design, and the locality bonus packs same-layer frames
     tightly enough to produce a few), so retries explained by a frame's OOM
     runs in frame_history are subtracted; only the unexplained excess counts as
-    a denial being charged."""
+    a denial being charged. The history queue is drained first so OOM runs
+    Cuebot has not applied yet still count."""
+    _scalar("SELECT drained FROM frame_history_drain(1000000, true);")
     return _scalar(
         f"SELECT COALESCE(SUM(GREATEST(0, f.int_retries - COALESCE(oom.n,0))),0) "
         f"FROM frame f JOIN job j ON f.pk_job=j.pk_job "

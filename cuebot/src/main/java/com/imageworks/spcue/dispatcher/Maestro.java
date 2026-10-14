@@ -27,7 +27,9 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -130,8 +132,8 @@ public class Maestro extends JdbcDaoSupport {
     static final double PRIORITY_EXPONENT = 1.5; // the query's power() and lotteryWeight()
     static final int LAUNCH_DRAIN_MAX_S = 30; // consumed by drainLaunchPool()
     static final int TICK_END_WAIT_MAX_S = 30; // consumed by awaitTickEnd()
-    // consumed by launchOne()
-    static final long LAUNCH_MAX_AGE_MS = ProcDao.ORPHAN_AGE_SECONDS * 1000L / 2;
+    // consumed by launchOne(); half the orphan age, re-read from the environment at pool start
+    volatile long launchMaxAgeMs = launchMaxAgeMs(null);
     // Consecutive failed liveness probes before leaderAlive() gives the lock up. A single
     // isValid(1) timeout on a loaded server must not demote a leader that still holds the lock.
     static final int LEADER_PROBE_STRIKES = 2;
@@ -140,6 +142,10 @@ public class Maestro extends JdbcDaoSupport {
     // Seat bonus for HOST-type limits (one license checkout per machine): subtracted per seated
     // pool so placement packs limited work onto the fewest hosts. Sized above the E-PVM spread.
     private volatile double limitSeatBonus = 16.0;
+
+    // Retry transactions a tick may spend splitting failed commit chunks
+    // (maestro.commit_split_max_tx); see commitContained.
+    private volatile int commitSplitMaxTx = 64;
 
     // Spring config; scheduler.* properties read once in startSchedulerPoolsIfNeeded().
     @Autowired
@@ -360,9 +366,13 @@ public class Maestro extends JdbcDaoSupport {
     private long winWaitTotalMax = 0;
     // Per-tick outputs set by doTick(), folded into the window by runTick().
     private long tickPlanned = 0;
+    // The last commitInChunks: chunk splits made and bookings dropped (commitContained).
+    int lastCommitSplits = 0;
+    int lastCommitDropped = 0;
     // Wall time of this tick's candidate read (loadTickCandidates), the SQL half of the place
-    // phase.
+    // phase, and of the pin resolution over it (resolveTickPins).
     private long tickCandidatesMs = 0;
+    private long tickPinsMs = 0;
 
     // This tick's candidate read, cut per group by readLayerCandidatesForGroup; null between
     // ticks (clearTickScratch), and read on demand by a caller outside a tick (tests).
@@ -418,6 +428,7 @@ public class Maestro extends JdbcDaoSupport {
         if (launchPool != null)
             return;
         int launchSize = env.getProperty("maestro.launch_pool_size", Integer.class, 8);
+        launchMaxAgeMs = launchMaxAgeMs(env);
         frameQueryMax = env.getProperty("dispatcher.frame_query_max", Integer.class, 20);
         reservationsEnabled = env.getProperty("maestro.reservations_enabled", Boolean.class, true);
         reservationBlockMs =
@@ -433,6 +444,7 @@ public class Maestro extends JdbcDaoSupport {
         // Property name kept from the per-host-limit feature this supersedes, so
         // any site already setting it keeps its value.
         limitSeatBonus = env.getProperty("maestro.host_limit_seat_bonus", Double.class, 16.0);
+        commitSplitMaxTx = env.getProperty("maestro.commit_split_max_tx", Integer.class, 64);
         wCores = env.getProperty("maestro.score_weight_cores", Double.class, 1.0);
         wMem = env.getProperty("maestro.score_weight_mem", Double.class, 1.0);
         wGpus = env.getProperty("maestro.score_weight_gpus", Double.class, 4.0);
@@ -570,10 +582,10 @@ public class Maestro extends JdbcDaoSupport {
             + "  (SELECT string_agg(ll.pk_limit_record, ',') "
             + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
             // Folder (group/dept) core cap: the job's folder, its ceiling, and the
-            // folder's current running cores (ground truth = SUM of the folder's jobs).
+            // folder's running cores as the database counts them (see the fr join).
             + "  j.pk_folder AS folder_id, "
             + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
-            + "  COALESCE(fu.folder_cores, 0)   AS folder_running "
+            + "  COALESCE(fr.int_cores, 0)      AS folder_running "
             + "FROM   layer l "
             + "JOIN   job j           ON j.pk_job  = l.pk_job "
             + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
@@ -581,28 +593,15 @@ public class Maestro extends JdbcDaoSupport {
             + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_mem   lm ON lm.pk_layer = l.pk_layer "
             + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
-            // Folder core ceiling + the folder's current running cores. Derived from
-            // layer_stat.int_running_count (running frames x per-frame cores), the
-            // same trigger-maintained counter the limit cap uses. It is robust to frame
-            // completion (int_running_count drops automatically) and, at a tick
-            // boundary, equals SUM(job_resource.int_cores) (one proc per running
-            // frame), the figure the folder cap is measured against. Computed once,
-            // not per row.
+            // Folder core ceiling + the folder's running cores, both from
+            // folder_resource. int_cores is the cores the folder's procs reserve: the
+            // commit adds each booking's real reservation to it (flushJobDeltas) and
+            // every proc release subtracts it, and it is the figure the folder cap is
+            // enforced against in the database. A layer's int_cores_min is only a
+            // floor on what a frame reserves (memory sizing books threadable layers
+            // wider), so a count built from running frames x int_cores_min undercounts
+            // a folder and lets the plan carry it past a cap the commit then rejects.
             + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
-            + "LEFT JOIN ("
-            + "    SELECT j2.pk_folder, "
-            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
-            + "    FROM   job j2 "
-            // Only aggregate capped folders (int_max_cores <> -1). Every job has a
-            // folder but almost none are capped, so without this join the subquery
-            // would sum layer_stat across the whole farm every tick; this keeps it
-            // empty (free) when no folder has a ceiling.
-            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
-            + "                               AND fr2.int_max_cores <> -1 "
-            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
-            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
-            + "    WHERE  j2.str_state = 'PENDING' "
-            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
             + "WHERE  j.str_state = 'PENDING' "
             + "  AND  j.b_paused  = false "
             + "  AND  jr.int_cores  < jr.int_max_cores "
@@ -621,7 +620,7 @@ public class Maestro extends JdbcDaoSupport {
             // unlike this filter, also binds the frames planHost books in the tick
             // that crosses the cap.
             + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
+            + "       OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
             + "  AND (? OR sh.b_scheduler_managed = true) ";
 
     // Every subscription, read once per tick beside the candidate rows: a show is a
@@ -629,89 +628,6 @@ public class Maestro extends JdbcDaoSupport {
     // and only while under its burst (groupCandidates).
     private static final String SELECT_SUBSCRIPTIONS =
             "SELECT pk_show, pk_alloc, int_cores, int_burst, int_size FROM subscription";
-    // spotless:on
-
-    // Pinned layers: the same row as the group query, one per (layer, named
-    // host), for the waiting layers whose tags are not all host-spec tags.
-    // The host join carries the group query's per-host predicates, so a
-    // named host that is down, locked, in another facility or OS, or too
-    // small yields no row; a layer none of whose names resolves yields one
-    // row with a null host. Binds: thread mode ALL, the spec tags (csv,
-    // lower case), the facility-mode flag, the row limit.
-    // spotless:off
-    private static final String SELECT_PINNED_CANDIDATES =
-            "SELECT "
-            + "  l.pk_layer, "
-            + "  l.pk_job, "
-            + "  j.pk_show, "
-            + "  l.int_cores_min, "
-            + "  l.int_mem_min, "
-            + "  l.b_threadable, "
-            + "  l.int_cores_max, "
-            + "  l.int_gpus_min, "
-            + "  l.int_gpu_mem_min, "
-            + "  jr.int_priority, "
-            + "  jr.int_cores       AS job_cores_in_use, "
-            + "  jr.int_max_cores   AS job_max_cores, "
-            + "  COALESCE(sub.int_cores, 0) AS show_cores_in_use, "
-            + "  COALESCE(sub.int_burst, 0) AS show_burst, "
-            + "  COALESCE(sub.int_size, 0)  AS show_size, "
-            + "  COALESCE(ls.int_waiting_count, 0) AS waiting_frame_count, "
-            + "  COALESCE(lu.int_clock_time_high, 0)     AS clock_time_high, "
-            + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
-            + "  COALESCE(lm.int_max_rss, 0) AS layer_max_rss, "
-            + "  position('manual' in lower(l.str_tags)) > 0 AS b_manual, "
-            + "  (SELECT string_agg(ll.pk_limit_record, ',') "
-            + "     FROM layer_limit ll WHERE ll.pk_layer = l.pk_layer) AS limit_ids, "
-            + "  j.pk_folder AS folder_id, "
-            + "  COALESCE(fr.int_max_cores, -1) AS folder_max, "
-            + "  COALESCE(fu.folder_cores, 0)   AS folder_running, "
-            + "  h.pk_host AS pin_host, "
-            + "  l.str_tags "
-            + "FROM   layer l "
-            + "JOIN   job j           ON j.pk_job  = l.pk_job "
-            + "JOIN   job_resource jr ON jr.pk_job = j.pk_job "
-            + "JOIN   show sh         ON sh.pk_show = j.pk_show "
-            + "LEFT JOIN layer_usage lu ON lu.pk_layer = l.pk_layer "
-            + "LEFT JOIN layer_mem   lm ON lm.pk_layer = l.pk_layer "
-            + "LEFT JOIN layer_stat  ls ON ls.pk_layer = l.pk_layer "
-            + "LEFT JOIN folder_resource fr ON fr.pk_folder = j.pk_folder "
-            + "LEFT JOIN ("
-            + "    SELECT j2.pk_folder, "
-            + "           SUM(ls2.int_running_count * l2.int_cores_min) AS folder_cores "
-            + "    FROM   job j2 "
-            + "    JOIN   folder_resource fr2 ON fr2.pk_folder = j2.pk_folder "
-            + "                               AND fr2.int_max_cores <> -1 "
-            + "    JOIN   layer l2      ON l2.pk_job = j2.pk_job "
-            + "    JOIN   layer_stat ls2 ON ls2.pk_layer = l2.pk_layer "
-            + "    WHERE  j2.str_state = 'PENDING' "
-            + "    GROUP BY j2.pk_folder) fu ON fu.pk_folder = j.pk_folder "
-            + "LEFT JOIN (host h JOIN host_stat hs ON hs.pk_host = h.pk_host "
-            + "                  JOIN alloc a ON a.pk_alloc = h.pk_alloc) "
-            + "       ON lower(h.str_name) = "
-            + "          ANY(string_to_array(lower(replace(l.str_tags, ' ', '')), '|')) "
-            + "      AND hs.str_state = 'UP' "
-            + "      AND h.str_lock_state = 'OPEN' "
-            + "      AND j.pk_facility = a.pk_facility "
-            + "      AND (j.str_os IS NULL OR j.str_os = '' "
-            + "           OR j.str_os = ANY(string_to_array(hs.str_os, ','))) "
-            + "      AND (CASE WHEN l.b_threadable = true THEN 1 ELSE 0 END) "
-            + "          >= (CASE WHEN h.int_thread_mode = ? THEN 1 ELSE 0 END) "
-            + "      AND l.int_cores_min <= h.int_cores "
-            + "LEFT JOIN subscription sub ON sub.pk_show = j.pk_show AND sub.pk_alloc = h.pk_alloc "
-            + "WHERE  j.str_state = 'PENDING' "
-            + "  AND  j.b_paused  = false "
-            + "  AND  NOT (string_to_array(lower(replace(l.str_tags, ' ', '')), '|') "
-            + "            <@ string_to_array(?, ',')) "
-            + "  AND  (h.pk_host IS NULL "
-            + "        OR (sub.pk_subscription IS NOT NULL AND sub.int_cores < sub.int_burst)) "
-            + "  AND  jr.int_cores  < jr.int_max_cores "
-            + "  AND  COALESCE(ls.int_waiting_count, 0) > 0 "
-            + "  AND (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "       OR COALESCE(fu.folder_cores, 0) + l.int_cores_min <= fr.int_max_cores) "
-            + "  AND (? OR sh.b_scheduler_managed = true) "
-            + "ORDER BY power(random(), 1.0 / power(GREATEST(jr.int_priority, 1), 1.5)) DESC "
-            + "LIMIT  ? ";
     // spotless:on
 
     // ---- row mappers ------------------------------------------------------
@@ -778,10 +694,6 @@ public class Maestro extends JdbcDaoSupport {
     private static final RowMapper<CandidateRow> CANDIDATE_ROW_MAPPER =
             (rs, i) -> new CandidateRow(CANDIDATE_MAPPER.mapRow(rs, i), rs.getString("pk_facility"),
                     rs.getString("str_os"), rs.getString("str_tags"));
-
-    private static final RowMapper<PinRow> PINNED_MAPPER =
-            (rs, i) -> new PinRow(CANDIDATE_MAPPER.mapRow(rs, i), rs.getString("pin_host"),
-                    rs.getString("str_tags"));
 
     // ---- tick -------------------------------------------------------------
 
@@ -988,11 +900,11 @@ public class Maestro extends JdbcDaoSupport {
                 "Maestro stat: win=%ds ticks=%d skipped=%d lockLost=%d avgTick=%dms maxTick=%dms"
                         + " | farm hosts=%d idleHosts=%d cores=%d idleCores=%d util=%.1f%% groups=%d"
                         + " | flow committed=%d planned=%d raceLost=%d drained=%d"
-                        + " postQ=%d planFail=%d"
+                        + " completionQ=%d postQ=%d planFail=%d"
                         + " | resv held=%d reservedCores=%d granted=%d reqs=%d backfilled=%d backfilledCores=%d%s%s",
                 win, summaryTicks, skipped, summaryLockLost, avgTick, summaryMaxTickMs, lastHosts,
                 lastIdleHosts, coresTotal, idleCores, util, lastGroups, summaryDispatched,
-                summaryPlanned, raceLost, summaryDrained,
+                summaryPlanned, raceLost, summaryDrained, MaestroCompletionQueue.size(),
                 frameCompleteHandler == null ? 0 : frameCompleteHandler.getPostCompleteQueueDepth(),
                 summaryPlanFailures, reservations.size(), reservedCp / CORE_POINTS_PER_CORE,
                 summaryGranted, lastReservationReqs, summaryBackfilled,
@@ -1024,6 +936,7 @@ public class Maestro extends JdbcDaoSupport {
     private void resetTickOutputs() {
         tickPlanned = 0;
         tickCandidatesMs = 0;
+        tickPinsMs = 0;
         tickGranted = 0;
         tickBackfilled = 0;
         tickBackfilledCores = 0;
@@ -1076,7 +989,7 @@ public class Maestro extends JdbcDaoSupport {
      * drop any that would cross the cap, counting up from the folder's running cores at tick start.
      * Folders with no cap are never touched. Returns the kept bookings.
      */
-    private List<FrameBooking> trimOverFolderCeiling(List<FrameBooking> planned,
+    List<FrameBooking> trimOverFolderCeiling(List<FrameBooking> planned,
             Map<String, Integer> folderMaxCp, Map<String, Integer> folderRunSeed,
             Map<String, String> jobFolderCap) {
         if (folderMaxCp.isEmpty() || planned.isEmpty())
@@ -1379,10 +1292,11 @@ public class Maestro extends JdbcDaoSupport {
      * in-flight completion); 1. snapshot every schedulable host (UP + OPEN), busy and idle, before
      * placement mutates the in-memory idle counts; 2. group the hosts by spec (allocation,
      * facility, tags, OS, GPU, thread mode) and record farm-fill and per-show cores for the stat
-     * line; 3. plan each group in priority order against one candidate query per group, placing
-     * into the idle subset while a layer that cannot fit collects a reservation request; 4. grant
-     * reservations, plan the bookings in parallel, trim to the folder and license limits, commit
-     * the survivors in one batch, and launch them. See maestro.md for the full model.
+     * line; 3. read the tick's candidates once, resolve the pins among them, and plan each group in
+     * priority order against its in-memory cut, placing into the idle subset while a layer that
+     * cannot fit collects a reservation request; 4. grant reservations, plan the bookings in
+     * parallel, trim to the folder and license limits, commit the survivors in one batch, and
+     * launch them. See maestro.md for the full model.
      *
      * @return frames committed this tick, or -1 for a standby that drained but did not plan.
      */
@@ -1428,16 +1342,21 @@ public class Maestro extends JdbcDaoSupport {
         // read fresh into their fields; the cap/license/reservation scratch fields were reset
         // in clearTickScratch.
         Map<String, BookableHost> hostById = new HashMap<>();
-        for (BookableHost h : allHosts)
+        Map<String, List<BookableHost>> hostByName = new HashMap<>();
+        for (BookableHost h : allHosts) {
             hostById.put(h.hostId, h);
+            hostByName.computeIfAbsent(h.hostName.toLowerCase(Locale.ROOT), x -> new ArrayList<>())
+                    .add(h);
+        }
         tReadyByHost = computeHostReadySeconds(hostById);
         hostLayerAffinity = readHostLayerAffinity();
-        readPinnedCandidates(groups, hostById);
         long tSnapshot = System.currentTimeMillis();
         stats.phaseMs.put("snapshot", tSnapshot - tStart);
 
-        // 3. READ the tick's candidates once, then PLAN each host-spec group in priority order.
+        // 3. READ the tick's candidates once, resolve the pins among them, then PLAN each
+        // host-spec group in priority order.
         loadTickCandidates();
+        resolveTickPins(groups, hostByName);
         int dispatched = 0;
         for (Map.Entry<HostSpecKey, List<BookableHost>> g : groups.entrySet())
             dispatched += planGroup(g.getKey(), g.getValue(), stats);
@@ -1448,10 +1367,12 @@ public class Maestro extends JdbcDaoSupport {
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
         stats.phaseMs.put("place", tPlan - tSnapshot);
-        // The place phase split: the candidate read (SQL) and everything else (the group
-        // cuts, scoring, the epilogue, the waitlist tally and the grants, all in memory).
+        // The place phase split: the candidate read (SQL), the pin resolution over it, and
+        // everything else (the group cuts, scoring, the epilogue, the waitlist tally and the
+        // grants, all in memory).
         stats.phaseMs.put("candidates", tickCandidatesMs);
-        stats.phaseMs.put("score", tPlan - tSnapshot - tickCandidatesMs);
+        stats.phaseMs.put("pins", tickPinsMs);
+        stats.phaseMs.put("score", tPlan - tSnapshot - tickCandidatesMs - tickPinsMs);
         List<FrameBooking> planned = planBookings();
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
@@ -1471,6 +1392,8 @@ public class Maestro extends JdbcDaoSupport {
         List<FrameBooking> committed = commitInChunks(planned);
         long tCommit = System.currentTimeMillis();
         stats.phaseMs.put("commit", tCommit - tRead);
+        stats.commitRetryTx = 2L * lastCommitSplits;
+        stats.commitDroppedBookings = lastCommitDropped;
         recordCommitted(committed, stats);
         // Read live usage AFTER this tick's bookings landed. Reading at tick start
         // would sample the post-drain trough, where a fast-completing farm reads as
@@ -1491,10 +1414,12 @@ public class Maestro extends JdbcDaoSupport {
         if (tTick > 1000) {
             String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
                     + "ms, place=" + (tPlan - tSnapshot) + "ms (candidates=" + tickCandidatesMs
-                    + "ms, score=" + (tPlan - tSnapshot - tickCandidatesMs) + "ms), read="
+                    + "ms, pins=" + tickPinsMs + "ms, score="
+                    + (tPlan - tSnapshot - tickCandidatesMs - tickPinsMs) + "ms), read="
                     + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
                     + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow;
+                    + planned.size() + " committed=" + dispatchedNow + " splits=" + lastCommitSplits
+                    + " dropped=" + lastCommitDropped;
             logger.info("Maestro tick breakdown: " + breakdown);
             // Production runs at WARN, so a slow tick carries its own breakdown there.
             if (tTick > SLOW_TICK_WARN_MS)
@@ -1513,14 +1438,16 @@ public class Maestro extends JdbcDaoSupport {
      * once; one transaction for all of it would hold every booked host row and stat row for minutes
      * and show nothing until the end. A chunk holds its locks for a bounded window, lands its procs
      * as it goes, and launches them as it goes. Each chunk commits with its own resource deltas, so
-     * procs and their mirrors still land together or not at all. A chunk is one unit of failure:
-     * one that fails rolls back alone (commitChunk) and the loop goes on, so one failed chunk never
-     * aborts the tick. A leader that lost the planning lock stops before its next chunk: the frames
-     * left stay WAITING for the next leader, which plans from the database, so two Maestros never
-     * commit the same plan.
+     * procs and their mirrors still land together or not at all. A chunk that fails is split on a
+     * host boundary and each half retried in its own transaction (commitContained), so one bad
+     * booking costs the tick its host's bookings, not the chunk's, and never aborts the tick. A
+     * leader that lost the planning lock stops before its next chunk: the frames left stay WAITING
+     * for the next leader, which plans from the database, so two Maestros never commit the same
+     * plan.
      */
     List<FrameBooking> commitInChunks(List<FrameBooking> planned) {
         List<FrameBooking> committed = new ArrayList<>();
+        SplitBudget budget = new SplitBudget(commitSplitMaxTx);
         int start = 0;
         while (start < planned.size()) {
             if (!leaderAlive()) {
@@ -1530,9 +1457,11 @@ public class Maestro extends JdbcDaoSupport {
                 break;
             }
             int end = chunkEnd(planned, start);
-            committed.addAll(commitChunk(new ArrayList<>(planned.subList(start, end))));
+            committed.addAll(commitContained(planned.subList(start, end), budget));
             start = end;
         }
+        lastCommitSplits = budget.splits;
+        lastCommitDropped = budget.dropped;
         return committed;
     }
 
@@ -1550,30 +1479,107 @@ public class Maestro extends JdbcDaoSupport {
     }
 
     /**
-     * Commit one chunk in its own transaction, then publish and launch it outside that transaction:
-     * a slow publish never extends the lock window, and the frames start while the later chunks are
-     * still committing instead of after the last. A chunk whose transaction fails rolls back alone:
-     * its frames stay WAITING for the next tick, the chunks committed before it keep their procs,
-     * deltas and launches, and the chunks after it still commit. The in-memory snapshot stays
-     * decremented for the rest of the tick, the same under-booking a lost version race leaves, and
-     * the next snapshot corrects it. The resource deltas a failed flush left in the buffers are
-     * discarded with the chunk, so the next chunk credits only its own procs. A failed event
-     * publish is logged and never keeps a committed chunk from its launch.
+     * The host boundary nearest the middle of piece, or -1 when every booking is on one host. The
+     * same rule chunkEnd applies: a host's bookings never split, because the capacity gate in the
+     * commit is per host.
      */
-    private List<FrameBooking> commitChunk(final List<FrameBooking> chunk) {
+    static int hostAlignedMid(List<FrameBooking> piece) {
+        int n = piece.size();
+        int target = n / 2;
+        int best = -1;
+        for (int i = 1; i < n; i++) {
+            if (!piece.get(i).proc.getHostId().equals(piece.get(i - 1).proc.getHostId())
+                    && (best < 0 || Math.abs(i - target) < Math.abs(best - target)))
+                best = i;
+        }
+        return best;
+    }
+
+    /**
+     * The retry transactions one commitInChunks may spend, shared by all its chunks, and the tally
+     * of what the splitting did. A healthy tick spends nothing. A split costs two transactions, one
+     * per half, so a bad booking in a chunk of H hosts costs about 2 * log2(H) of the budget; when
+     * it runs out a failing piece is dropped whole, which bounds a tick in which every booking
+     * fails (a trigger rejecting everything, a database gone away).
+     */
+    static final class SplitBudget {
+        private int left;
+        int splits;
+        int dropped;
+
+        SplitBudget(int retryTx) {
+            this.left = retryTx;
+        }
+
+        /** Take the two transactions of one split; false, and nothing taken, when short. */
+        boolean takeSplit() {
+            if (left < 2)
+                return false;
+            left -= 2;
+            splits++;
+            return true;
+        }
+    }
+
+    /**
+     * Commit one piece of the plan in its own transaction (commitPiece), containing a failure to
+     * the bookings that cause it: a piece whose transaction fails is split at the host boundary
+     * nearest its middle and each half committed the same way, recursively, until the failure is
+     * down to one host's bookings, which are dropped (dropPiece). Only those frames stay WAITING;
+     * every other booking of the chunk lands this tick. Retrying is safe because a failed
+     * transaction rolled back whole (no frame changed version, no proc exists, no delta landed) and
+     * the retry goes through the same frame-version guard as the first attempt. The in-memory host
+     * snapshot stays decremented for the rest of the tick either way, the under-booking a lost
+     * version race leaves, and the next snapshot corrects it. The deltas a failed flush left in the
+     * buffers are discarded with the failed attempt, so a retry credits only its own procs. A split
+     * is bounded by the budget and stops when the leader lost the lock: a piece that cannot be
+     * retried is dropped whole, today's behaviour for a whole chunk.
+     */
+    List<FrameBooking> commitContained(List<FrameBooking> piece, SplitBudget budget) {
         List<FrameBooking> won;
         try {
-            won = txTemplate().execute(status -> {
-                List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
-                applyResourceDeltas(w);
-                return w;
-            });
+            won = commitPiece(piece);
         } catch (RuntimeException e) {
-            logger.warn("Maestro: commit of a chunk of " + chunk.size() + " bookings failed and"
-                    + " rolled back; its frames wait for the next tick: " + e.getMessage());
+            // Only the transaction is retried: the publish and launch of a committed
+            // piece run outside it, below, so their failures never re-commit anything.
             discardResourceDeltas();
-            return Collections.emptyList();
+            int mid = hostAlignedMid(piece);
+            String why = mid < 0 ? "one host, nothing to split"
+                    : !leaderAlive() ? "leadership lost, not retrying without the lock"
+                            : !budget.takeSplit() ? "the tick's split budget is spent" : null;
+            if (why != null) {
+                dropPiece(piece, e, why, budget);
+                return Collections.emptyList();
+            }
+            won = new ArrayList<>(commitContained(piece.subList(0, mid), budget));
+            won.addAll(commitContained(piece.subList(mid, piece.size()), budget));
+            return won;
         }
+        launchPiece(won);
+        return won;
+    }
+
+    /**
+     * Commit one piece in its own transaction: the frame starts, the procs and the resource deltas
+     * that mirror them, together or not at all. A failed transaction propagates to the caller,
+     * which splits or drops the piece.
+     */
+    List<FrameBooking> commitPiece(List<FrameBooking> piece) {
+        final List<FrameBooking> chunk = new ArrayList<>(piece);
+        return txTemplate().execute(status -> {
+            List<FrameBooking> w = dispatchSupport.startFramesAndProcsBatch(chunk);
+            applyResourceDeltas(w);
+            return w;
+        });
+    }
+
+    /**
+     * Publish and launch a committed piece, outside its transaction: a slow publish never extends
+     * the lock window, and the frames start while the later pieces are still committing instead of
+     * after the last. A failed event publish is logged and never keeps a committed piece from its
+     * launch.
+     */
+    void launchPiece(List<FrameBooking> won) {
         try {
             dispatchSupport.publishFrameStartedEvents(won);
         } catch (RuntimeException e) {
@@ -1581,7 +1587,50 @@ public class Maestro extends JdbcDaoSupport {
                     + " bookings failed: " + e.getMessage());
         }
         launchCommitted(won);
-        return won;
+    }
+
+    /**
+     * Give up on a piece whose commit failed and is not split further: its frames stay WAITING for
+     * the next tick. One WARN names the hosts, the jobs, why there was no split and the root cause
+     * (the SQL error behind the wrappers), so a commit-time gate Maestro does not model is visible
+     * by name.
+     */
+    private void dropPiece(List<FrameBooking> piece, RuntimeException failure, String why,
+            SplitBudget budget) {
+        budget.dropped += piece.size();
+        Set<String> hosts = new LinkedHashSet<>();
+        Set<String> jobs = new LinkedHashSet<>();
+        for (FrameBooking b : piece) {
+            hosts.add(b.proc.hostName != null ? b.proc.hostName : b.proc.getHostId());
+            jobs.add(b.proc.getJobId() != null ? b.proc.getJobId() : b.frame.getJobId());
+        }
+        logger.warn("Maestro: commit of " + piece.size() + " booking(s) on host(s) " + hosts
+                + " for job(s) " + jobs + " failed and rolled back (" + why + "); its frames"
+                + " wait for the next tick: " + rootCauseMessage(failure));
+    }
+
+    /**
+     * The message of the deepest cause of a commit failure: the wrappers (the DAO's reservation
+     * exception, Spring's data-access translation) are walked down, and a JDBC batch failure's
+     * chained SQLException is followed to the statement that raised.
+     */
+    static String rootCauseMessage(Throwable t) {
+        Throwable cur = t;
+        Set<Throwable> seen = new HashSet<>();
+        while (cur != null && seen.add(cur)) {
+            Throwable next = null;
+            if (cur instanceof SQLException && ((SQLException) cur).getNextException() != null)
+                next = ((SQLException) cur).getNextException();
+            else if (cur.getCause() != null && cur.getCause() != cur)
+                next = cur.getCause();
+            if (next == null)
+                break;
+            cur = next;
+        }
+        if (cur == null)
+            return String.valueOf(t);
+        String msg = cur.getMessage();
+        return cur.getClass().getSimpleName() + ": " + (msg != null ? msg.trim() : "");
     }
 
     /**
@@ -1908,17 +1957,28 @@ public class Maestro extends JdbcDaoSupport {
      * released: the frame may be running on the host, so DispatchSupport confirms twice that it is
      * not and keeps the booking otherwise, the double-run guard the legacy dispatcher uses. A
      * definite failure, one the request never left with, rolls the booking back (rollbackLaunch). A
-     * launch that waited in the queue longer than LAUNCH_MAX_AGE_MS, half the orphan age
-     * (ProcDao.ORPHAN_AGE_SECONDS), is rolled back unsent and without a kill: at the orphan age the
-     * maintenance pass releases the proc, which never pinged, and the next tick rebooks the frame,
-     * so a later launch would start it a second time. Half leaves the pass cadence, the RPC and the
-     * first host report their time whatever the interval is set to. A booking whose host's launch
-     * breaker opened since the plan is rolled back unsent the same way. Either way the failure is
-     * this launch's alone; the pool goes on with the next.
+     * launch that waited in the queue longer than launchMaxAgeMs, half the orphan age
+     * (ProcDao.ORPHAN_AGE_PROPERTY), is rolled back unsent and without a kill: at the orphan age
+     * the maintenance pass releases the proc, which never pinged, and the next tick rebooks the
+     * frame, so a later launch would start it a second time. Half leaves the pass cadence, the RPC
+     * and the first host report their time whatever the interval is set to. A booking whose host's
+     * launch breaker opened since the plan is rolled back unsent the same way. Either way the
+     * failure is this launch's alone; the pool goes on with the next.
      */
+    /**
+     * How long a committed booking may wait in the launch queue before it is rolled back unsent:
+     * half the orphan age, so the maintenance pass cannot release the proc under a launch that is
+     * still queued. A null environment (bare unit tests) uses the default orphan age.
+     */
+    static long launchMaxAgeMs(Environment env) {
+        long ageS =
+                env == null ? ProcDao.DEFAULT_ORPHAN_AGE_SECONDS : ProcDao.orphanAgeSeconds(env);
+        return ageS * 1000L / 2;
+    }
+
     void launchOne(FrameBooking fb) {
         long waitedMs = fb.committedMs > 0 ? System.currentTimeMillis() - fb.committedMs : 0;
-        if (waitedMs > LAUNCH_MAX_AGE_MS) {
+        if (waitedMs > launchMaxAgeMs) {
             logger.warn("Maestro: launch of " + fb.proc.getName() + " on frame "
                     + fb.frame.getFrameId() + " waited " + waitedMs / 1000
                     + "s in the queue; rolling the booking back unsent");
@@ -2345,11 +2405,7 @@ public class Maestro extends JdbcDaoSupport {
             // No limit column: limits no longer exclude at query level; the
             // in-memory gate names them in the why-not trace instead.
             + "  (COALESCE(fr.int_max_cores, -1) = -1 "
-            + "   OR (SELECT COALESCE(SUM(ls3.int_running_count * l3.int_cores_min), 0) "
-            + "       FROM job j3 JOIN layer l3 ON l3.pk_job = j3.pk_job "
-            + "       JOIN layer_stat ls3 ON ls3.pk_layer = l3.pk_layer "
-            + "       WHERE j3.pk_folder = j.pk_folder AND j3.str_state = 'PENDING') "
-            + "      + l.int_cores_min <= fr.int_max_cores)           AS folder_ok, "
+            + "   OR COALESCE(fr.int_cores, 0) + l.int_cores_min <= fr.int_max_cores) AS folder_ok, "
             + "  (? OR sh.b_scheduler_managed = true)                 AS managed_ok "
             + "FROM layer l "
             + "JOIN job j            ON j.pk_job = l.pk_job "
@@ -2594,7 +2650,7 @@ public class Maestro extends JdbcDaoSupport {
         tickCandidatesMs = System.currentTimeMillis() - t0;
     }
 
-    private TickCandidates readTickCandidates() {
+    /* package for tests */ TickCandidates readTickCandidates() {
         List<CandidateRow> rows = getJdbcTemplate().query(SELECT_CANDIDATE_ROWS,
                 CANDIDATE_ROW_MAPPER, MaestroMode.facility(env));
         Map<String, long[]> subs = new HashMap<>();
@@ -2623,7 +2679,6 @@ public class Maestro extends JdbcDaoSupport {
     static List<LayerCandidate> groupCandidates(HostSpecKey spec, int maxIdleInGroup,
             TickCandidates tick, int limit, TagMatcher tags, Random random) {
         List<LayerCandidate> admitted = new ArrayList<>();
-        List<Double> draws = new ArrayList<>();
         Set<String> seen = new HashSet<>();
         for (CandidateRow r : tick.rows) {
             LayerCandidate c = r.row;
@@ -2647,13 +2702,25 @@ public class Maestro extends JdbcDaoSupport {
             out.showBurstCores = (int) sub[1];
             out.showSizeCores = (int) sub[2];
             admitted.add(out);
-            draws.add(Math.pow(random.nextDouble(),
-                    1.0 / Math.pow(Math.max(out.priority, 1), PRIORITY_EXPONENT)));
         }
+        return drawByPriority(admitted, limit, random);
+    }
+
+    /**
+     * The priority lottery and the per-group cap, shared by the group cut and the pins: each
+     * candidate draws random^(1 / priority^1.5), and the limit highest draws win, so a higher
+     * priority wins more of the slots without shutting lower ones out.
+     */
+    static List<LayerCandidate> drawByPriority(List<LayerCandidate> admitted, int limit,
+            Random random) {
+        double[] draws = new double[admitted.size()];
+        for (int i = 0; i < draws.length; i++)
+            draws[i] = Math.pow(random.nextDouble(),
+                    1.0 / Math.pow(Math.max(admitted.get(i).priority, 1), PRIORITY_EXPONENT));
         Integer[] order = new Integer[admitted.size()];
         for (int i = 0; i < order.length; i++)
             order[i] = i;
-        Arrays.sort(order, (a, b) -> Double.compare(draws.get(b), draws.get(a)));
+        Arrays.sort(order, (a, b) -> Double.compare(draws[b], draws[a]));
         List<LayerCandidate> out = new ArrayList<>(Math.min(limit, order.length));
         for (int i = 0; i < order.length && out.size() < limit; i++)
             out.add(admitted.get(order[i]));
@@ -2812,10 +2879,9 @@ public class Maestro extends JdbcDaoSupport {
      * A host's spec: what kind of machine it is, never which one. Cuebot auto-adds each host's own
      * name as a tag; the key drops it, otherwise every host falls into a group of one and the
      * per-group candidate query runs once per host instead of once per real spec. A name in a
-     * layer's tags is a pin instead (see {@link #readPinnedCandidates}). GPU presence is a static
-     * hardware property, so it uses totals, not idle: a fully-booked GPU host must still group as a
-     * GPU host so its candidate query filters for GPU layers and the GPU-weighted score protects
-     * it.
+     * layer's tags is a pin instead (see {@link #resolvePins}). GPU presence is a static hardware
+     * property, so it uses totals, not idle: a fully-booked GPU host must still group as a GPU host
+     * so its candidate query filters for GPU layers and the GPU-weighted score protects it.
      */
     static HostSpecKey hostSpecKey(BookableHost h) {
         return new HostSpecKey(h.pkAlloc, h.pkFacility, normalizeTags(h.tagsRaw, h.hostName), h.os,
@@ -2830,80 +2896,105 @@ public class Maestro extends JdbcDaoSupport {
      * layer's tags, so a layer tagged with a spec and a name runs anywhere the spec allows plus on
      * the named host; that layer is a group candidate as well and the group's copy wins there.
      *
-     * One read per tick returns a row per (layer, named host) for the waiting layers whose tags are
-     * not all spec tags, with the host resolved and checked in SQL exactly as the group query
-     * checks a group (see SELECT_PINNED_CANDIDATES). The rows become one candidate per (layer,
-     * host-spec group), each carrying its pinned hosts, filed under the groups those hosts belong
-     * to; planGroup adds them to the group's candidates. A layer none of whose names resolves, and
-     * that has no spec tag either, waits with the reason "no host" so a stale machine list is
-     * visible in the waitlist instead of silent.
+     * Resolved from the tick's one candidate read (doTick step 3), in memory: the spec tags are
+     * every token of every group's normalized tags, and a candidate row whose tag tokens are not
+     * all spec tags names hosts, looked up by name in the snapshot (see {@link #resolvePins}). No
+     * pin resolves when there is no group (so no spec tag) or when the candidate read failed: every
+     * group counts that read's query error already.
      *
-     * Bound: one query over the waiting layers with a non-spec tag, then O(rows).
+     * Bound: O(candidate rows x tag tokens) hash lookups, independent of the host count.
      */
-    private void readPinnedCandidates(Map<HostSpecKey, List<BookableHost>> groups,
-            Map<String, BookableHost> hostById) {
+    private void resolveTickPins(Map<HostSpecKey, List<BookableHost>> groups,
+            Map<String, List<BookableHost>> hostByName) {
+        long t0 = System.currentTimeMillis();
         Set<String> specTags = new HashSet<>();
         for (HostSpecKey k : groups.keySet())
             for (String t : k.tagsNormalized.split("\\s+"))
                 if (!t.isEmpty())
-                    specTags.add(t.toLowerCase());
-        if (specTags.isEmpty())
-            return;
-        int limit = env.getProperty("maestro.layer_candidates_per_group_max", Integer.class, 2000);
-        List<PinRow> rows;
-        try {
-            rows = getJdbcTemplate().query(SELECT_PINNED_CANDIDATES, PINNED_MAPPER,
-                    ThreadMode.ALL_VALUE, String.join(",", specTags), MaestroMode.facility(env),
-                    limit);
-        } catch (RuntimeException e) {
-            logger.warn("Maestro: pinned candidate query failed; no pinned layer is planned this"
-                    + " tick: " + e.getMessage());
-            return;
+                    specTags.add(t.toLowerCase(Locale.ROOT));
+        if (!specTags.isEmpty() && tickCandidates.failure == null) {
+            int limit =
+                    env.getProperty("maestro.layer_candidates_per_group_max", Integer.class, 2000);
+            pinnedByGroup.putAll(resolvePins(tickCandidates, hostByName, specTags, limit,
+                    ThreadLocalRandom.current(), waitReasonByLayer, waitFramesByLayer));
         }
-        pinnedByGroup
-                .putAll(attachPins(rows, hostById, specTags, waitReasonByLayer, waitFramesByLayer));
+        tickPinsMs = System.currentTimeMillis() - t0;
     }
 
     /**
-     * Turn the pinned rows into one candidate per (layer, host-spec group), each holding the pinned
-     * hosts of that group. A row whose host is not in this tick's snapshot resolves nothing; a
-     * layer with no resolved host and no spec tag is filed under the waitlist reason "no host" with
-     * its waiting frames. Bound: O(rows).
+     * The pins of the tick's candidate read, pure: one candidate per (layer, host-spec group), each
+     * holding the pinned hosts of that group, filed under the group's key. A row takes part when
+     * its tag tokens (the tag string with spaces removed, lower-cased, split on '|', empty tokens
+     * kept) are not all spec tags. Each token is looked up as a host name (lower-cased, so hosts
+     * whose names differ only by case all answer to it, as the SQL's lower() did); a host is a pin
+     * when it is in the job's facility, advertises the job's OS, passes the thread-mode rule, is
+     * big enough for one frame, and the show subscribes to the host's allocation and is under its
+     * burst there (the candidate carries that subscription's figures). A host that fits but whose
+     * subscription blocks it yields no pin; a layer none of whose names fits, and that has no spec
+     * tag either, is filed under the waitlist reason "no host" with its waiting frames. A name
+     * repeated in the tags adds its host once; an empty tag string names nothing and is no pin.
+     * Each group then keeps at most limit candidates, drawn by the priority lottery as the group
+     * cut does.
      */
-    static Map<HostSpecKey, List<LayerCandidate>> attachPins(List<PinRow> rows,
-            Map<String, BookableHost> hostById, Set<String> specTags,
-            Map<String, String> waitReason, Map<String, Integer> waitFrames) {
+    static Map<HostSpecKey, List<LayerCandidate>> resolvePins(TickCandidates tick,
+            Map<String, List<BookableHost>> hostByName, Set<String> specTags, int limit,
+            Random random, Map<String, String> waitReason, Map<String, Integer> waitFrames) {
+        Map<HostSpecKey, Map<String, LayerCandidate>> byGroup = new LinkedHashMap<>();
+        for (CandidateRow r : tick.rows) {
+            if (r.tags == null || r.tags.replace(" ", "").isEmpty())
+                continue; // the SQL's empty token array is a subset of any spec tags
+            String[] tokens = r.tags.replace(" ", "").toLowerCase(Locale.ROOT).split("\\|", -1);
+            if (specTags.containsAll(Arrays.asList(tokens)))
+                continue;
+            boolean fits = false;
+            for (String t : tokens) {
+                List<BookableHost> named = hostByName.get(t);
+                if (named != null)
+                    for (BookableHost h : named)
+                        fits |= pinHost(r, h, tick, byGroup);
+            }
+            if (!fits && !namesSpecTag(r.tags, specTags)) {
+                waitReason.put(r.row.layerId, "no host");
+                waitFrames.put(r.row.layerId, r.row.waitingFrameCount);
+            }
+        }
         Map<HostSpecKey, List<LayerCandidate>> out = new HashMap<>();
-        Map<HostSpecKey, Map<String, LayerCandidate>> byLayer = new HashMap<>();
-        Set<String> resolved = new HashSet<>();
-        List<PinRow> unresolved = new ArrayList<>();
-        for (PinRow r : rows) {
-            BookableHost h = r.hostId == null ? null : hostById.get(r.hostId);
-            if (h == null) {
-                unresolved.add(r);
-                continue;
-            }
-            HostSpecKey k = hostSpecKey(h);
-            Map<String, LayerCandidate> inGroup = byLayer.computeIfAbsent(k, x -> new HashMap<>());
-            LayerCandidate c = inGroup.get(r.row.layerId);
-            if (c == null) {
-                c = r.row;
-                c.pinnedHosts = new ArrayList<>();
-                c.pinnedIds = new HashSet<>();
-                inGroup.put(c.layerId, c);
-                out.computeIfAbsent(k, x -> new ArrayList<>()).add(c);
-            }
-            c.pinnedHosts.add(h);
-            c.pinnedIds.add(h.hostId);
-            resolved.add(c.layerId);
-        }
-        for (PinRow r : unresolved) {
-            if (resolved.contains(r.row.layerId) || namesSpecTag(r.tags, specTags))
-                continue;
-            waitReason.put(r.row.layerId, "no host");
-            waitFrames.put(r.row.layerId, r.row.waitingFrameCount);
-        }
+        for (Map.Entry<HostSpecKey, Map<String, LayerCandidate>> e : byGroup.entrySet())
+            out.put(e.getKey(),
+                    drawByPriority(new ArrayList<>(e.getValue().values()), limit, random));
         return out;
+    }
+
+    /**
+     * One named host against one candidate row: whether the host fits the row (the SQL's host
+     * join), and when it does and the show's subscription in its allocation is under burst, the
+     * host is added to the row's pin in the host's group.
+     */
+    private static boolean pinHost(CandidateRow r, BookableHost h, TickCandidates tick,
+            Map<HostSpecKey, Map<String, LayerCandidate>> byGroup) {
+        LayerCandidate c = r.row;
+        if (!Objects.equals(r.facilityId, h.pkFacility) || !jobOsAllowed(r.jobOs, h.os)
+                || (h.threadMode == ThreadMode.ALL_VALUE && !c.threadable)
+                || c.layerCoresMin > h.coresTotal)
+            return false;
+        long[] sub = tick.subscriptions.get(subKey(c.showId, h.pkAlloc));
+        if (sub == null || sub[0] >= sub[1])
+            return true;
+        Map<String, LayerCandidate> inGroup =
+                byGroup.computeIfAbsent(hostSpecKey(h), x -> new LinkedHashMap<>());
+        LayerCandidate pin = inGroup.get(c.layerId);
+        if (pin == null) {
+            pin = c.copyForGroup();
+            pin.showCoresInUse = (int) sub[0];
+            pin.showBurstCores = (int) sub[1];
+            pin.showSizeCores = (int) sub[2];
+            pin.pinnedHosts = new ArrayList<>();
+            pin.pinnedIds = new HashSet<>();
+            inGroup.put(c.layerId, pin);
+        }
+        if (pin.pinnedIds.add(h.hostId))
+            pin.pinnedHosts.add(h);
+        return true;
     }
 
     /** Whether any token of a layer's tag regex is a host-spec tag (case-insensitive). */
@@ -3951,7 +4042,7 @@ public class Maestro extends JdbcDaoSupport {
     /**
      * Apply a chunk's accumulated resource deltas as one UPDATE per row, inside the chunk's
      * transaction and on the Maestro thread, so no accumulation races it. A SQL error rolls the
-     * chunk back: the deltas already drained go with it, and commitChunk discards the rest
+     * chunk back: the deltas already drained go with it, and commitContained discards the rest
      * (discardResourceDeltas), so a failed chunk never credits the next one. Subscription/layer
      * rows missing (deleted mid-tick) simply update zero rows; folder/point use the job subquery
      * and likewise no-op if the job is gone.
@@ -4138,7 +4229,7 @@ public class Maestro extends JdbcDaoSupport {
      * and {@code no fit} when idle cores exist but none fits (slivers too small for a wide frame,
      * or memory / gpu short): the shape mismatch worth investigating.
      */
-    private String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
+    String waitlistReason(LayerCandidate c, List<BookableHost> hosts, int folderInUse,
             int limitUsable, List<LimitBudget> limitSeatPools,
             Map<String, Set<String>> limitSeats) {
         if (c.jobCoresInUse + c.layerCoresMin > c.jobMaxCores
@@ -4262,8 +4353,8 @@ public class Maestro extends JdbcDaoSupport {
         List<String> limitIds;
         // Folder (group/dept) core cap. folderId is the job's folder; folderMax is
         // folder_resource.int_max_cores (-1 = unlimited, core-points); folderRunning
-        // is the folder's current running cores (core-points), seed for the
-        // tick-wide folderUsed cap in dispatchGroupWithScoring.
+        // is folder_resource.int_cores, the cores the folder's procs reserve
+        // (core-points), seed for the tick-wide folderUsed cap in dispatchGroupWithScoring.
         String folderId;
         int folderMax;
         int folderRunning;
@@ -4347,22 +4438,6 @@ public class Maestro extends JdbcDaoSupport {
             this.rows = Collections.emptyList();
             this.subscriptions = Collections.emptyMap();
             this.failure = failure;
-        }
-    }
-
-    /**
-     * One row of the pinned read: a candidate row, the host it names (null when none resolved) and
-     * the layer's tags.
-     */
-    static final class PinRow {
-        final LayerCandidate row;
-        final String hostId;
-        final String tags;
-
-        PinRow(LayerCandidate row, String hostId, String tags) {
-            this.row = row;
-            this.hostId = hostId;
-            this.tags = tags;
         }
     }
 
