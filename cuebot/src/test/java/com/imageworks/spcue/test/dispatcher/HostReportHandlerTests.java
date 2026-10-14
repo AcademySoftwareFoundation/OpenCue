@@ -30,6 +30,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.util.AopTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
@@ -52,6 +53,8 @@ import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
+import com.imageworks.spcue.service.HostManagerService;
+import com.imageworks.spcue.rqd.RqdClient;
 import com.imageworks.spcue.test.TransactionalTest;
 import com.imageworks.spcue.util.CueUtil;
 import com.imageworks.spcue.VirtualProc;
@@ -61,6 +64,8 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ContextConfiguration
 public class HostReportHandlerTests extends TransactionalTest {
@@ -182,6 +187,33 @@ public class HostReportHandlerTests extends TransactionalTest {
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report1); // HOSTNAME
         hostReportHandler.queueHostReport(report1_2); // HOSTNAME
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testNimbyTransitionsUpdateDbWithoutCallingRqd() {
+        HostManagerService target = AopTestUtils.getUltimateTargetObject(hostManager);
+        RqdClient originalRqdClient = target.getRqdClient();
+        RqdClient rqdClient = mock(RqdClient.class);
+        target.setRqdClient(rqdClient);
+        try {
+            CoreDetail cores = getCoreDetail(200, 200, 0, 0);
+            hostReportHandler.handleHostReport(HostReport.newBuilder()
+                    .setHost(getRenderHostBuilder(hostname).setNimbyLocked(true)).setCoreInfo(cores)
+                    .build(), false);
+            assertEquals(LockState.NIMBY_LOCKED, getHost(hostname).lockState);
+
+            hostReportHandler.handleHostReport(HostReport.newBuilder()
+                    .setHost(getRenderHostBuilder(hostname).setNimbyLocked(false))
+                    .setCoreInfo(cores).build(), false);
+            assertEquals(LockState.OPEN, getHost(hostname).lockState);
+
+            // RQD reported the NIMBY change itself, so nothing is sent back to it.
+            verifyNoInteractions(rqdClient);
+        } finally {
+            target.setRqdClient(originalRqdClient);
+        }
     }
 
     @Test
