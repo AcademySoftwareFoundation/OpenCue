@@ -1,0 +1,7 @@
+
+from outline.modules.shell import Shell
+
+a = Shell("layer_a", cmd=["/bin/ls"])
+b = Shell("layer_b", cmd=["/bin/ls"])
+
+a.depend_on(b)

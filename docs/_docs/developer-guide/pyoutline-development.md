@@ -151,6 +151,7 @@ pyoutline/
 │   ├── layer.py              # Layer, Frame, Pre/PostProcess
 │   ├── session.py            # Session storage
 │   ├── cuerun.py             # OutlineLauncher, launch helpers
+│   ├── backend.py            # Backend loading and dispatch interface
 │   ├── config.py             # Configuration management
 │   ├── constants.py          # Enums and constants
 │   ├── depend.py             # Dependency types
@@ -160,30 +161,16 @@ pyoutline/
 │   ├── io.py                 # File I/O, FileSpec
 │   ├── util.py               # Frame set utilities
 │   ├── outline.cfg           # Default configuration
-│   ├── backend/
-│   │   ├── cue.py            # OpenCue backend
-│   │   └── local.py          # Local execution backend
-│   ├── modules/
-│   │   ├── __init__.py
-│   │   └── shell.py          # Shell command modules
-│   └── plugins/
-│       ├── manager.py        # Plugin manager
-│       └── local.py          # Local cores plugin
-├── tests/
-│   ├── test_layer.py
-│   ├── test_loader.py
-│   ├── test_session.py
-│   ├── test_depend.py
-│   ├── test_config.py
-│   ├── test_executor.py
-│   ├── test_json.py
-│   ├── test_utils.py
-│   ├── backend/
-│   │   ├── test_cue.py
-│   │   └── test_local.py
-│   ├── modules/
-│   │   └── test_shell.py
-│   └── scripts/             # Test outline scripts
+│   ├── modules/              # Built-in outline task modules
+│   ├── plugins/              # Plugin infrastructure
+│   └── versions/             # Version handling
+├── tests/                    # PyOutline test suite
+├── wrappers/                 # Wrapper scripts/utilities
+├── FileSequence/             # Vendored FileSequence library
+├── outline_backend_local.py  # Local execution backend
+├── outline_backend_rest.py   # REST execution backend
+├── Dockerfile
+├── README.md
 └── pyproject.toml
 ```
 
@@ -380,7 +367,6 @@ tests/
 ├── test_depend.py       # Dependency creation and types
 ├── test_config.py       # Configuration loading
 ├── backend/
-│   ├── test_cue.py      # OpenCue backend serialization
 │   └── test_local.py    # Local backend execution
 └── modules/
     └── test_shell.py    # Shell module variants

@@ -1,0 +1,12 @@
+
+from outline.modules.shell import Shell
+
+Shell("cmd1", cmd=["find","-shot","abc.121"])
+Shell("cmd2", cmd=["find","-shot","abc.121"], require=["cmd1"])
+
+
+
+
+
+
+

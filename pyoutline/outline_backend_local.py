@@ -17,7 +17,7 @@ Local backend module.
 
 Runs the given job on the local machine, using a SQLite database to store state.
 
-See outline.backend.__init__.py for a description of the PyOutline backend system.
+See outline.backend for a description of the PyOutline backend system.
 """
 
 from __future__ import print_function

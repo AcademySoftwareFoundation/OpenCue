@@ -16,12 +16,6 @@
 """Tree widget to display a list of monitored jobs."""
 
 
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
-from future.utils import iteritems
-from builtins import map
 import functools
 import time
 import pickle
@@ -947,7 +941,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                     monitored_proxies.append(objectKey)
 
             # Refresh the dependent proxies for the next update
-            for job, dependents in iteritems(self.__dependentJobs):
+            for job, dependents in self.__dependentJobs.items():
                 ids = [d.id() for d in dependents]
                 # If the job has no dependents, then ids is an empty list,
                 # The getJobs call returns every job on the cue when called
@@ -1029,7 +1023,7 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self.__groupItems = {}
             self.clear()
 
-            for proxy, job in iteritems(rpcObjects):
+            for proxy, job in rpcObjects.items():
                 # Skip jobs that were recently marked as not found
                 if proxy in self.__notifiedJobsNotFound:
                     continue

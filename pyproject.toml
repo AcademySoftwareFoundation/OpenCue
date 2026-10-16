@@ -7,3 +7,6 @@ omit = [
     "shibokensupport/*",
     "signature_bootstrap.py"
 ]
+
+[tool.licensecheck]
+license = "apache 2.0"

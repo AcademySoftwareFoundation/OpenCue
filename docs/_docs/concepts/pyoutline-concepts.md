@@ -178,6 +178,7 @@ PyOutline supports pluggable backends for job execution:
 | Backend | Description | Use Case |
 |---------|-------------|----------|
 | `cue` | Submits to Cuebot via OpenCue API | Production rendering |
+| `rest` | Submits to Cuebot via OpenCue REST gateway | Production rendering |
 | `local` | Executes frames sequentially on the local machine | Development and testing |
 
 The backend is selected via configuration or the `--backend` flag.

@@ -25,7 +25,7 @@ then
   echo "Installing pre-built opencue_cuegui package"
   pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
 else
-  pip install ./cuegui[test]
+  pip install './cuegui[test]'
 fi
 
 test_log="/tmp/cuegui_result.log"
