@@ -145,18 +145,23 @@ machine:
   # collect_pss: false
 
   # Override real system values (useful for testing or limiting resources)
-  # All fields are optional - only specify what you want to override
+  # All fields are optional - only specify what you want to override.
+  # This block belongs under `machine:`. RQD prints a warning at startup for
+  # any key it does not recognize, e.g. one placed under the wrong section.
   # override_real_values:
-  #   # Number of CPU cores to report
+  #   # Cores per physical CPU (socket)
   #   cores: 4
   #
-  #   # Number of processing slots to allocate
-  #   procs: 8
+  #   # Number of physical CPUs (sockets). Cuebot sees procs x cores cores in
+  #   # total, so cores: 4 with procs: 2 reports an 8-core host
+  #   procs: 2
   #
-  #   # Amount of memory to report (supports units like "2GB", "4096MB")
+  #   # Amount of memory to report. Accepts decimal units ("2GB" is
+  #   # 2,000,000,000 bytes) or binary units ("2GiB" is 2,147,483,648 bytes)
   #   memory_size: "2GB"
   #
-  #   # Enable workstation/desktop mode
+  #   # Report this host as a workstation (adds the "desktop" tag).
+  #   # This is separate from `runner.desktop_mode`
   #   workstation_mode: true
   #
   #   # Override the hostname reported to Cuebot
