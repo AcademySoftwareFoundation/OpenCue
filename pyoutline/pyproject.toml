@@ -10,7 +10,9 @@ name = "opencue_pyoutline"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
+    "pyyaml",
     "typing_extensions; python_version < '3.12'",  # Unpack
+    "openjd-model>=0.9,<0.10",
 ]
 requires-python = ">3.7"
 description = "PyOutline is a Python library for building and managing OpenCue job definitions. It provides an API to create outlines that describe jobs, layers, and tasks, making it easier to construct repeatable workflows for rendering pipelines."
@@ -35,8 +37,12 @@ testpaths = ["tests"] # Relative path(s) where tests are located
 python_files = ["test_*.py", "*_test.py"] # Default test file pattern
 python_functions = ["test_*"] # Default test function pattern
 
-# --- Optional Test Dependencies ---
 [project.optional-dependencies]
+# --- Optional Open Job Description Dependencies ---
+openjd = [
+    "openjd-cli>=0.4",
+]
+# --- Optional Test Dependencies ---
 test = [
     "mock==2.0.0",
     "pyfakefs==5.2.3",
