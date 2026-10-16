@@ -45,11 +45,13 @@ export const allocationColumns: ColumnDef<AllocationRow>[] = [
   {
     accessorKey: "name",
     header: sortableHeader("Name"),
-    // Click-through to the hosts page filtered to this allocation (the hosts
-    // filter itself is a separate task; the param is forward-compatible).
+    // Click-through to the hosts page filtered to this allocation. The
+    // Monitor Hosts page reads its allocation filter from the "alloc"
+    // query param (see parseSetParam in app/hosts/page.tsx), so the link
+    // must use that same name.
     cell: ({ row }) => (
       <Link
-        href={`/hosts?allocation=${encodeURIComponent(row.original.name)}`}
+        href={`/hosts?alloc=${encodeURIComponent(row.original.name)}`}
         className="text-primary underline-offset-2 hover:underline"
       >
         {row.original.name}
