@@ -432,13 +432,26 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
     def updateSoon(self):
         """Returns immediately. Causes an update to happen
-        Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
+        Constants.AFTER_ACTION_UPDATE_DELAY after calling this function.
+
+        Used after the user acts on an item, so the update is forced: it is not
+        subject to MINIMUM_UPDATE_INTERVAL or to the scroll-skip check that
+        gate the periodic and broadcast refreshes."""
         if hasattr(self, "ticksWithoutUpdate"):
             self.ticksWithoutUpdate = self.updateInterval - \
                                       cuegui.Constants.AFTER_ACTION_UPDATE_DELAY // 1000
         else:
             QtCore.QTimer.singleShot(cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
-                                     self.updateRequest)
+                                     self.forceUpdate)
+
+    def forceUpdate(self):
+        """Updates the items now, bypassing MINIMUM_UPDATE_INTERVAL and the
+        scroll-skip check, and restarts the periodic timer so the next
+        scheduled update does not land right after this one."""
+        timer = getattr(self, "_timer", None)
+        if timer is not None and timer.isActive():
+            timer.start()
+        self._update()
 
     def redraw(self):
         """Forces the displayed items to be redrawn"""

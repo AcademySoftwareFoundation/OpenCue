@@ -16,6 +16,7 @@
 """Tests for cuegui.CueJobMonitorTree."""
 
 
+import time
 import unittest
 
 import mock
@@ -26,6 +27,7 @@ import qtpy.QtWidgets
 import opencue_proto.job_pb2
 import opencue_proto.show_pb2
 
+import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.plugins.MonitorCuePlugin
 import cuegui.Style
@@ -66,3 +68,42 @@ class CueJobMonitorTreeTests(unittest.TestCase):
 
     def test_setup(self):
         pass
+
+    @mock.patch('qtpy.QtCore.QTimer.singleShot')
+    def test_updateSoonSchedulesForcedUpdate(self, single_shot_mock):
+        self.cue_job_monitor_tree.updateSoon()
+
+        single_shot_mock.assert_called_once_with(
+            cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
+            self.cue_job_monitor_tree.forceUpdate)
+
+    def test_forceUpdateBypassesMinimumInterval(self):
+        tree = self.cue_job_monitor_tree
+        tree._lastUpdate = time.time()
+
+        with mock.patch.object(tree, '_update') as update_mock:
+            tree.updateRequest()
+            update_mock.assert_not_called()
+
+            tree.forceUpdate()
+            update_mock.assert_called_once_with()
+
+    def test_forceUpdateWhileInFlightRunsAfterCurrentFetch(self):
+        tree = self.cue_job_monitor_tree
+        tree._updateInFlight = True
+
+        with mock.patch.object(tree, '_getUpdate', return_value=None) as get_update_mock:
+            tree.forceUpdate()
+            get_update_mock.assert_not_called()
+            self.assertTrue(tree._forceUpdatePending)
+
+            # The in-flight fetch lands; the deferred forced update runs next.
+            tree._processUpdateGuarded(None, None)
+
+            get_update_mock.assert_called_once_with()
+            self.assertFalse(tree._forceUpdatePending)
+            self.assertFalse(tree._updateInFlight)
+
+
+if __name__ == '__main__':
+    unittest.main()

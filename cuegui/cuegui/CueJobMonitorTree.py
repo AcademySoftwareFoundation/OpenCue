@@ -221,6 +221,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # AbstractTreeWidget.__init__ — the base ctor calls updateRequest()
         # which dispatches into our overridden _update().
         self._updateInFlight = False
+        # Set when a forced update arrives while a fetch is in flight. That
+        # fetch may have been sent before the action that asked for the
+        # refresh, so another one runs as soon as it lands.
+        self._forceUpdatePending = False
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -411,6 +415,14 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             finally:
                 self._updateInFlight = False
 
+    def forceUpdate(self):
+        """Overrides AbstractTreeWidget.forceUpdate so a forced update that
+        arrives while a fetch is in flight is deferred instead of dropped."""
+        if self._updateInFlight:
+            self._forceUpdatePending = True
+            return
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.forceUpdate(self)
+
     def _processUpdateGuarded(self, work, rpcObjects):
         """Wraps _processUpdate so _updateInFlight is always cleared, even if
         the GUI-thread update path raises."""
@@ -418,6 +430,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._processUpdate(work, rpcObjects)
         finally:
             self._updateInFlight = False
+            if self._forceUpdatePending:
+                self._forceUpdatePending = False
+                self.forceUpdate()
 
     def _getUpdate(self):
         """Returns a list of NestedGroup from the cuebot for the monitored shows
