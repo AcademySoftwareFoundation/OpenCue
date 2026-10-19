@@ -29,6 +29,8 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.support.JdbcDaoSupport;
@@ -52,10 +54,14 @@ import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.util.CueUtil;
+import com.imageworks.spcue.util.FrameRetryLimits;
 import com.imageworks.spcue.util.JobLogUtil;
 import com.imageworks.spcue.util.SqlUtil;
 
 public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
+    @Autowired
+    private Environment env;
+
     private static final Pattern LAST_JOB_STRIP_PATTERN = Pattern.compile("_v*([_0-9]*$)");
 
     /*
@@ -407,9 +413,9 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     @Override
     public void updateAutoEat(JobInterface j, boolean b) {
-        int maxRetries = 1;
-        if (b) {
-            maxRetries = 0;
+        int maxRetries = 0;
+        if (!b) {
+            maxRetries = FrameRetryLimits.from(env).getDefault();
         }
         getJdbcTemplate().update("UPDATE job SET b_autoeat=?, int_max_retries=? WHERE pk_job=?", b,
                 maxRetries, j.getJobId());
@@ -696,15 +702,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     @Override
     public void updateMaxFrameRetries(JobInterface j, int max_retries) {
-        if (max_retries < 0) {
-            throw new IllegalArgumentException("max retries must be greater than 0");
-        }
-
-        int max_max_retries = getJdbcTemplate().queryForObject(
-                "SELECT int_value FROM config WHERE str_key=?", Integer.class, "MAX_FRAME_RETRIES");
-
-        if (max_retries > max_max_retries) {
-            throw new IllegalArgumentException("max retries must be less than " + max_max_retries);
+        FrameRetryLimits limits = FrameRetryLimits.from(env);
+        if (max_retries < limits.getMin() || max_retries > limits.getMax()) {
+            throw new IllegalArgumentException(
+                    "max retries must be between " + limits.getMin() + " and " + limits.getMax());
         }
 
         getJdbcTemplate().update("UPDATE job SET int_max_retries=? WHERE pk_job=?", max_retries,

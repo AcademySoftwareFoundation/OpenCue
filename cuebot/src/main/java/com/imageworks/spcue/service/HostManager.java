@@ -67,13 +67,26 @@ public interface HostManager {
     void restartRqdWhenIdle(HostInterface host);
 
     /**
-     * Lock/unlock the specified host.
+     * Lock/unlock the specified host on behalf of an operator. The new state is committed to the DB
+     * before RQD is told to lock/unlock its cores, so the host row is never held locked across the
+     * RPC. If the RPC fails the DB keeps the new state and the RqdClientException propagates. Must
+     * not be called with an open transaction that has already written the host row.
      *
      * @param host
      * @param state
      * @param source
      */
     void setHostLock(HostInterface host, LockState state, Source source);
+
+    /**
+     * Records a lock state that RQD has already applied (e.g. NIMBY transitions reported by the
+     * host). DB only, no RPC is sent to RQD.
+     *
+     * @param host
+     * @param state
+     * @param source
+     */
+    void syncHostLock(HostInterface host, LockState state, Source source);
 
     /**
      * Updates the state of a host.

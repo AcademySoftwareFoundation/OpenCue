@@ -915,9 +915,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 String.class, p.getProcId());
     }
 
-    private static final String ORPHANED_PROC_INTERVAL =
-            "interval '" + ORPHAN_AGE_SECONDS + "' second";
-
     // spotless:off
     private static final String GET_ORPHANED_PROC_LIST =
             "SELECT "
@@ -943,21 +940,21 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "AND "
                 + "job.pk_job = proc.pk_job "
                 + "AND "
-                + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL
+                + "current_timestamp - proc.ts_ping > (? * interval '1 second') "
             // Oldest ping first, so a limited batch is deterministic across passes: the
             // longest-stale procs are always retried (and eventually hit the deferral bound)
             // instead of a nondeterministic subset cycling through the batch window.
-            + " ORDER BY proc.ts_ping";
+            + "ORDER BY proc.ts_ping";
     // spotless:on
 
     public List<VirtualProc> findOrphanedVirtualProcs() {
-        return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER);
+        return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER,
+                ProcDao.orphanAgeSeconds(env));
     }
 
     public List<VirtualProc> findOrphanedVirtualProcs(int limit) {
         return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST + " LIMIT " + limit,
-                VIRTUAL_PROC_MAPPER);
+                VIRTUAL_PROC_MAPPER, ProcDao.orphanAgeSeconds(env));
     }
 
     // spotless:off
@@ -1017,13 +1014,13 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             + "WHERE "
                 + "proc.pk_proc = ? "
                 + "AND "
-                + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL;
+                + "current_timestamp - proc.ts_ping > (? * interval '1 second')";
     // spotless:on
 
     @Override
     public boolean isOrphan(ProcInterface proc) {
-        return getJdbcTemplate().queryForObject(IS_ORPHAN, Integer.class, proc.getProcId()) == 1;
+        return getJdbcTemplate().queryForObject(IS_ORPHAN, Integer.class, proc.getProcId(),
+                ProcDao.orphanAgeSeconds(env)) == 1;
     }
 
     public boolean increaseReservedMemory(ProcInterface p, long value) {

@@ -75,6 +75,20 @@ public class MaestroMetrics {
             .help("Whole cores in use per show, summed from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
 
+    // The commit's split-and-retry (Maestro.commitContained): retry transactions spent
+    // splitting failed chunks, and bookings dropped because their piece could not be
+    // split further or the tick's split budget ran out. Both stay near zero on a healthy
+    // farm; a steady dropped rate names a commit-time gate Maestro does not model.
+    private static final Counter commitRetryTx =
+            Counter.build().name("cue_maestro_commit_retry_tx_total")
+                    .help("Retry transactions spent splitting failed commit chunks")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Counter commitDroppedBookings =
+            Counter.build().name("cue_maestro_commit_dropped_bookings_total")
+                    .help("Planned bookings dropped because their commit piece kept failing; "
+                            + "the frames stay WAITING for the next tick")
+                    .labelNames("env", "cuebot_host").register();
+
     // Frames booked per show; rate() = throughput.
     private static final Counter framesDispatched =
             Counter.build().name("cue_maestro_frames_dispatched_total")
@@ -93,13 +107,13 @@ public class MaestroMetrics {
     // (hosts, procs, pins read), place (the candidate read and in-memory scoring), read
     // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
     // live show-usage and farm-health reads). place is also split into candidates (its
-    // SQL, the tick's one candidate read) and score (the rest, in memory), so the two
-    // add up to place.
+    // SQL, the tick's one candidate read), pins (the in-memory pin resolution over it) and
+    // score (the rest, in memory), so the three add up to place.
     private static final Histogram tickPhaseDuration =
             Histogram.build().name("cue_maestro_tick_phase_seconds")
                     .help("Maestro tick wall-clock per phase in seconds: drain, snapshot, "
-                            + "place, read, commit, usage; candidates and score split place "
-                            + "into its SQL and its in-memory half")
+                            + "place, read, commit, usage; candidates, pins and score split place "
+                            + "into its SQL, its pin resolution and the rest")
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host", "phase").register();
 
@@ -167,6 +181,21 @@ public class MaestroMetrics {
                             + "(cores, memory or gpu blocks every candidate on that host)")
                     .labelNames("env", "cuebot_host").register();
 
+    // The completion queue, read at scrape time rather than once per tick: the
+    // queue grows exactly when the tick stalls, which is when a per-tick sample
+    // would stop updating. Both children are installed in the constructor.
+    private static final Gauge completionQueueDepth =
+            Gauge.build().name("cue_maestro_completion_queue_depth")
+                    .help("Frame completions this Cuebot has acknowledged and holds for the "
+                            + "tick's drain to apply")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Gauge completionQueueOldestAge = Gauge.build()
+            .name("cue_maestro_completion_queue_oldest_age_seconds")
+            .help("Seconds the oldest queued frame completion has waited for the drain, "
+                    + "0 when the queue is empty; past maintenance.orphaned_proc_age_seconds "
+                    + "the orphan sweep resets finished frames")
+            .labelNames("env", "cuebot_host").register();
+
     private static final String[] WAIT_REASONS =
             {"flowing", "capacity", "no fit", "limit", "no license", "held", "share", "no host"};
     private static final Gauge waitingFrames = Gauge.build().name("cue_maestro_waiting_frames")
@@ -201,6 +230,20 @@ public class MaestroMetrics {
         String de = System.getenv(envKey);
         this.env = de != null ? de : "undefined";
         this.host = hostFromEnv();
+        if (enabled) {
+            completionQueueDepth.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.size();
+                }
+            }, env, host);
+            completionQueueOldestAge.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.oldestAgeMs(System.currentTimeMillis()) / 1000.0;
+                }
+            }, env, host);
+        }
     }
 
     private static String hostFromEnv() {
@@ -238,6 +281,10 @@ public class MaestroMetrics {
             incReason("no work", s.noWork);
             incReason("query error", s.queryError);
             tickDuration.labels(env, host).observe(s.tickDurationMs / 1000.0);
+            if (s.commitRetryTx > 0)
+                commitRetryTx.labels(env, host).inc(s.commitRetryTx);
+            if (s.commitDroppedBookings > 0)
+                commitDroppedBookings.labels(env, host).inc(s.commitDroppedBookings);
             for (Map.Entry<String, Long> e : s.phaseMs.entrySet())
                 tickPhaseDuration.labels(env, host, e.getKey()).observe(e.getValue() / 1000.0);
             // Cores per show: SET from this tick's live read, then zero any show
@@ -316,6 +363,8 @@ public class MaestroMetrics {
         public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
+        public long commitRetryTx;
+        public long commitDroppedBookings;
         public final Map<String, Long> phaseMs = new HashMap<>();
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();

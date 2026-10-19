@@ -41,7 +41,6 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.BootReport;
-import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -521,9 +520,9 @@ public class HostReportHandler {
     }
 
     /**
-     * Changes the NIMBY lock state. If the DB indicates a NIMBY lock but RQD does not, then the
-     * host is unlocked. If the DB indicates the host is not locked but RQD indicates it is, the
-     * host is locked.
+     * Mirrors the NIMBY lock state reported by RQD into the DB. If the DB indicates a NIMBY lock
+     * but RQD does not, then the host is unlocked. If the DB indicates the host is not locked but
+     * RQD indicates it is, the host is locked. RQD tracks NIMBY itself, so no RPC is sent back.
      *
      * @param host
      * @param rh
@@ -532,32 +531,13 @@ public class HostReportHandler {
         if (rh.getNimbyLocked()) {
             if (host.lockState.equals(LockState.OPEN)) {
                 host.lockState = LockState.NIMBY_LOCKED;
-                hostManager.setHostLock(host, LockState.NIMBY_LOCKED, new Source("NIMBY"));
+                hostManager.syncHostLock(host, LockState.NIMBY_LOCKED, new Source("NIMBY"));
             }
         } else {
             if (host.lockState.equals(LockState.NIMBY_LOCKED)) {
                 host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host, LockState.OPEN, new Source("NIMBY"));
+                hostManager.syncHostLock(host, LockState.OPEN, new Source("NIMBY"));
             }
-        }
-    }
-
-    /**
-     * Changes the Lock state of the host. Looks at the number of locked cores and sets host to
-     * locked if all cores are locked.
-     *
-     * @param host DispatchHost
-     * @param coreInfo CoreDetail
-     */
-    private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
-        if (host.lockState == LockState.LOCKED) {
-            if (coreInfo.getLockedCores() < coreInfo.getTotalCores()) {
-                host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
-            }
-        } else if (coreInfo.getLockedCores() >= coreInfo.getTotalCores()) {
-            host.lockState = LockState.LOCKED;
-            hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
         }
     }
 

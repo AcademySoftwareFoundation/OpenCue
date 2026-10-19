@@ -738,7 +738,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
                 buildReport(proc, healthyReportHost().setNimbyLocked(true).build(), 0),
                 FrameState.SUCCEEDED, jobManager.getDispatchJob(proc.getJobId()));
 
-        verify(mocks.hostManager).setHostLock(eq(proc), eq(LockState.NIMBY_LOCKED),
+        verify(mocks.hostManager).syncHostLock(eq(proc), eq(LockState.NIMBY_LOCKED),
                 any(Source.class));
         verify(mocks.dispatchSupport).unbookProc(proc);
     }

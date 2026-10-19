@@ -55,6 +55,7 @@ import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.LayerType;
 import com.imageworks.spcue.util.Convert;
 import com.imageworks.spcue.util.CueUtil;
+import com.imageworks.spcue.util.FrameRetryLimits;
 
 public class JobSpec {
     @Autowired
@@ -97,15 +98,6 @@ public class JobSpec {
      * has, the longer it takes to dispatch, which could lead to dispatches being dropped.
      */
     public static final int MAX_FRAMES = 100000;
-
-    // The default number of retries per frame
-    public static final int FRAME_RETRIES_DEFAULT = 1;
-
-    // The default maximum number of retries per frame.
-    public static final int FRAME_RETRIES_MAX = 1;
-
-    // The default minimum number of retries per frame.
-    public static final int FRAME_RETRIES_MIN = 0;
 
     public static final String DEFAULT_SERVICE = "default";
 
@@ -299,7 +291,8 @@ public class JobSpec {
         job.maxCoreUnits = 20000;
         job.minCoreUnits = 100;
         job.startTime = CueUtil.getTime();
-        job.maxRetries = FRAME_RETRIES_DEFAULT;
+        FrameRetryLimits retryLimits = FrameRetryLimits.from(env);
+        job.maxRetries = retryLimits.getDefault();
         job.shot = shot;
         job.user = user;
         job.uid = uid;
@@ -316,11 +309,13 @@ public class JobSpec {
         }
 
         if (jobTag.getChildTextTrim("maxretries") != null) {
-            job.maxRetries = Integer.valueOf(jobTag.getChildTextTrim("maxretries"));
-            if (job.maxRetries > FRAME_RETRIES_MAX) {
-                job.maxRetries = FRAME_RETRIES_MAX;
-            } else if (job.maxRetries < FRAME_RETRIES_MIN) {
-                job.maxRetries = FRAME_RETRIES_MIN;
+            int requested = Integer.valueOf(jobTag.getChildTextTrim("maxretries"));
+            job.maxRetries = retryLimits.clamp(requested);
+            if (job.maxRetries != requested) {
+                logger.warn(job.name + " requested maxretries=" + requested + ", clamped to "
+                        + job.maxRetries + " (" + FrameRetryLimits.MIN_PROPERTY + "="
+                        + retryLimits.getMin() + ", " + FrameRetryLimits.MAX_PROPERTY + "="
+                        + retryLimits.getMax() + ")");
             }
         }
 
