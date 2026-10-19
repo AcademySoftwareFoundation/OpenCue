@@ -28,6 +28,7 @@ import requests
 import outline
 import outline.cuerun
 import outline.exception
+import outline.wrappers.job
 import outline_backend_rest
 
 
@@ -234,14 +235,16 @@ class LaunchTest(unittest.TestCase):
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         serialized_xml = launcher.serialize(use_pycuerun=True)
 
-        job = outline_backend_rest.launch(launcher)
+        jobs = outline_backend_rest.launch(launcher)
 
         session.post.assert_called_once_with(
             f"{GATEWAY_URL}/job.JobInterface/LaunchSpecAndWait",
             json={"spec": serialized_xml},
             timeout=outline_backend_rest.TIMEOUT
         )
-        self.assertEqual([{'id': 'job-123', 'name': 'shell'}], job)
+        self.assertEqual(1, len(jobs))
+        self.assertIsInstance(jobs[0], outline.wrappers.job.Job)
+        self.assertEqual({'id': 'job-123', 'name': 'shell'}, jobs[0].data)
         session.close.assert_called_once()
 
     @mock.patch('outline_backend_rest.wait')
@@ -250,9 +253,9 @@ class LaunchTest(unittest.TestCase):
         session = mock.MagicMock(spec=requests.Session)
         getSessionMock.return_value = session
 
-        expected_job = {'id': 'job-123', 'name': 'shell'}
+        raw_job = {'id': 'job-123', 'name': 'shell'}
         launch_resp = mock.MagicMock(spec=requests.Response)
-        launch_resp.json.return_value = {'jobs': {'jobs': [expected_job]}}
+        launch_resp.json.return_value = {'jobs': {'jobs': [raw_job]}}
         session.post.return_value = launch_resp
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
@@ -260,10 +263,12 @@ class LaunchTest(unittest.TestCase):
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         launcher.set_flag('wait', True)
 
-        job = outline_backend_rest.launch(launcher)
+        jobs = outline_backend_rest.launch(launcher)
 
-        self.assertEqual([expected_job], job)
-        waitMock.assert_called_once_with(expected_job)
+        self.assertEqual(1, len(jobs))
+        self.assertIsInstance(jobs[0], outline.wrappers.job.Job)
+        self.assertEqual(raw_job, jobs[0].data)
+        waitMock.assert_called_once_with(jobs[0])
 
     @mock.patch('outline_backend_rest.test')
     @mock.patch('outline_backend_rest._get_restgateway_session')
@@ -271,9 +276,9 @@ class LaunchTest(unittest.TestCase):
         session = mock.MagicMock(spec=requests.Session)
         getSessionMock.return_value = session
 
-        expected_job = {'id': 'job-456', 'name': 'shell'}
+        raw_job = {'id': 'job-456', 'name': 'shell'}
         launch_resp = mock.MagicMock(spec=requests.Response)
-        launch_resp.json.return_value = {'jobs': {'jobs': [expected_job]}}
+        launch_resp.json.return_value = {'jobs': {'jobs': [raw_job]}}
         session.post.return_value = launch_resp
 
         path = os.path.join(SCRIPTS_DIR, 'shell.outline')
@@ -281,10 +286,12 @@ class LaunchTest(unittest.TestCase):
         launcher = outline.cuerun.OutlineLauncher(ol, user=TEST_USER)
         launcher.set_flag('test', True)
 
-        job = outline_backend_rest.launch(launcher)
+        jobs = outline_backend_rest.launch(launcher)
 
-        self.assertEqual([expected_job], job)
-        testMock.assert_called_once_with(expected_job)
+        self.assertEqual(1, len(jobs))
+        self.assertIsInstance(jobs[0], outline.wrappers.job.Job)
+        self.assertEqual(raw_job, jobs[0].data)
+        testMock.assert_called_once_with(jobs[0])
 
     @mock.patch('outline_backend_rest._get_restgateway_session')
     def testWait(self, getSessionMock):
@@ -310,7 +317,8 @@ class LaunchTest(unittest.TestCase):
         }
         session.post.side_effect = [pending_resp, finished_resp]
 
-        outline_backend_rest.wait({'id': 'job-123'})
+        job = outline.wrappers.job.Job(mock.Mock(id='job-123'))
+        outline_backend_rest.wait(job)
 
         self.assertEqual(2, session.post.call_count)
         session.post.assert_called_with(
@@ -343,7 +351,8 @@ class LaunchTest(unittest.TestCase):
 
         session.post.side_effect = [resume_resp, getjob_resp, kill_resp]
 
-        outline_backend_rest.test({'id': 'job-123', 'name': 'test-job'})
+        job = outline.wrappers.job.Job(mock.Mock(id='job-123', name='test-job'))
+        outline_backend_rest.test(job)
 
         calls = session.post.call_args_list
         self.assertEqual(f"{GATEWAY_URL}/job.JobInterface/Resume", calls[0][0][0])
@@ -371,8 +380,9 @@ class LaunchTest(unittest.TestCase):
 
         session.post.side_effect = [resume_resp, getjob_resp, kill_resp]
 
+        job = outline.wrappers.job.Job(mock.Mock(id='job-123', name='test-job'))
         with self.assertRaises(outline.exception.OutlineException) as ctx:
-            outline_backend_rest.test({'id': 'job-123', 'name': 'test-job'})
+            outline_backend_rest.test(job)
 
         self.assertIn('dead or eaten frames', str(ctx.exception))
         # Ensures kill was still invoked in finally block

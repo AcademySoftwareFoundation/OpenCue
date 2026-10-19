@@ -40,6 +40,7 @@ import outline.depend
 import outline.exception
 import outline.util
 import outline.versions.main
+import outline.wrappers.job
 
 from outline.backend import serialize
 from outline.backend import serialize_simple
@@ -63,8 +64,8 @@ def launch(launcher, use_pycuerun=True):
     :type use_pycuerun: bool
     :param use_pycuerun: Enable/Disable pycuerun.
 
-    :rtype: opencue.Entity.Job
-    :return: The opencue job that was launched.
+    :rtype: list[outline.wrappers.job.Job]
+    :return: The list of launched jobs.
     """
 
     cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
@@ -75,9 +76,13 @@ def launch(launcher, use_pycuerun=True):
                             json=json_data,
                             timeout=TIMEOUT)
     response.raise_for_status()
-    jobs = response.json().get("jobs", {}).get("jobs", {})
+    jobs = []
+    jobs_data = response.json().get("jobs", {}).get("jobs", {})
     session.close()
-    if len(jobs) > 0:
+    if len(jobs_data) > 0:
+        for job_data in jobs_data:
+            job = outline.wrappers.job.Job(job_data)
+            jobs.append(job)
         if launcher.get("wait"):
             wait(jobs[0])
         elif launcher.get("test"):
@@ -85,19 +90,18 @@ def launch(launcher, use_pycuerun=True):
     return jobs
 
 
-def test(job):
+def test(job: outline.wrappers.job.Job):
     """
     Test the given job.  This function returns immediately
     when the given job completes, or throws an L{OutlineException}
     if the job fails in any way.
 
-    :type job: dict
-    :param job: The job data dictionary to test.
+    :type job: outline.wrappers.job.Job
+    :param job: The job to test.
     """
     logging.basicConfig(level=logging.DEBUG)
-    job_data = job.get("data", job) if isinstance(job, dict) else job.data
-    job_name = job_data.get("name") if isinstance(job_data, dict) else job.name()
-    job_id = job_data.get("id") if isinstance(job_data, dict) else job.id()
+    job_id = job.id()
+    job_name = job.name()
     logger.info("Entering test mode for job: %s", job_name)
 
     cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
@@ -158,14 +162,14 @@ def test(job):
         session.close()
 
 
-def wait(job):
+def wait(job: outline.wrappers.job.Job):
     """
     Wait for the given job to complete before returning.
 
-    :type job: dict
-    :param job: The job data dictionary to wait on.
+    :type job: outline.wrappers.job.Job
+    :param job: The job to wait on.
     """
-    job_id = job.get("id") if isinstance(job, dict) else job.data.id
+    job_id = job.id()
     cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
     session = _get_restgateway_session()
     try:
