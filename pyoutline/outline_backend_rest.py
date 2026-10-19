@@ -52,7 +52,6 @@ logger = logging.getLogger("outline_backend_rest")
 
 JOB_WAIT_PERIOD_SEC = 5
 TIMEOUT = 10
-CUEREST_SESSION = None
 
 
 def launch(launcher, use_pycuerun=True):
