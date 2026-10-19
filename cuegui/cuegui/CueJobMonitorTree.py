@@ -34,8 +34,10 @@ from qtpy import QtWidgets
 import opencue_proto.job_pb2
 import opencue
 import opencue.wrappers.group
+import opencue.wrappers.job
 
 import cuegui.AbstractTreeWidget
+import cuegui.ActionRunner
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.ItemDelegate
@@ -326,23 +328,36 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                     event_item=item,
                                     items=body_content,
                                     dst_groups={},
-                                    parent=self)
+                                    parent=self,
+                                    update_callback=self.updateSoon)
                 dialog.exec_()
 
     def addShow(self, show, update=True):
         """Adds a show to the list of monitored shows
-        @type  show: Show name
-        @param show: string
+        @type  show: opencue.wrappers.show.Show or str
+        @param show: The show, or its name. A name is looked up off the GUI
+                     thread and the show is added once found.
         @type  update: boolean
         @param update: True if the display should update the displayed shows/jobs"""
-        show = str(show)
-        if show not in self.__shows:
-            try:
-                self.__shows[show] = opencue.api.findShow(show)
-            except opencue.exception.EntityNotFoundException:
-                logger.warning("This show does not exist: %s", show)
-            if update:
-                self._update()
+        if cuegui.Utils.isShow(show):
+            if show.name() not in self.__shows:
+                self.__shows[show.name()] = show
+                if update:
+                    self._update()
+            return
+
+        name = str(show)
+        if name in self.__shows:
+            return
+
+        def found(foundShow, error):
+            if isinstance(error, opencue.exception.EntityNotFoundException):
+                logger.warning("This show does not exist: %s", name)
+            elif foundShow is not None:
+                self.addShow(foundShow, update)
+
+        cuegui.ActionRunner.submit(lambda: opencue.api.findShow(name), found,
+                                   "Finding show %s" % name)
 
     def removeShow(self, show):
         """Unmonitors a show
@@ -685,11 +700,11 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__menuActions.jobs().addAction(menu, "shutdownIfCompleted")
             self.__menuActions.jobs().addAction(menu, "kill")
 
-            # Dynamically add plugin actions for right-clicked job(s)
+            # Dynamically add plugin actions for right-clicked job(s). The set
+            # of plugins does not depend on the job, so scan for them once.
             plugins_by_type = {}
-            for job in selectedObjects:
-                for plugin in plugin_loader.load_plugins(job=job, parent=self):
-                    plugins_by_type[type(plugin)] = plugin
+            for plugin in plugin_loader.load_plugins(job=selectedObjects[-1], parent=self):
+                plugins_by_type[type(plugin)] = plugin
 
             for plugin_type, plugin_instance in plugins_by_type.items():
                 if plugin_type.__name__ == "Plugin":
@@ -948,7 +963,7 @@ class MoveDialog(QtWidgets.QDialog):
     A dialog for moving selected Jobs/Groups into another Group
     """
     def __init__(self, title, text, event_item, items, dst_groups,
-                 send_to_groups=False, parent=None):
+                 send_to_groups=False, parent=None, update_callback=None):
         """
         Initializes the list of jobs/groups to move
         @type  title: str
@@ -963,9 +978,12 @@ class MoveDialog(QtWidgets.QDialog):
         @param dst_groups: dict of destination groups to move jobs/groups to
         @type  parent: AbstractTreeWidget
         @param parent: The dialog's parent
+        @type  update_callback: callable
+        @param update_callback: called once the items have been moved
         """
         QtWidgets.QDialog.__init__(self, parent)
         self.parent = parent
+        self.update_callback = update_callback
         self.items = items
         self.event_item = event_item
         self.send_to_groups = send_to_groups
@@ -1011,16 +1029,33 @@ class MoveDialog(QtWidgets.QDialog):
 
     def move_items(self):
         """Reparent jobs to new group"""
-
         if not self.send_to_groups:
-            if self.items.job_ids:
-                jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
-                self.event_item.rpcObject.asGroup().reparentJobs(jobs)
+            group = self.event_item.rpcObject.asGroup()
+            # Cuebot only reads the job ids, so there is no need to fetch the jobs.
+            jobs = [opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id=id_))
+                    for id_ in self.items.job_ids]
+            group_ids = list(self.items.group_ids)
 
-            if self.items.group_ids:
-                self.event_item.rpcObject.asGroup().reparentGroupIds(self.items.group_ids)
-            self.parent.updateRequest()
+            def work():
+                if jobs:
+                    group.reparentJobs(jobs)
+                if group_ids:
+                    group.reparentGroupIds(group_ids)
         else:
-            selected_group = self.combo.currentText()
-            self.dst_groups[str(selected_group)].reparentJobs(self.items.job_ids)
+            group = self.dst_groups[str(self.combo.currentText())]
+            jobs = self.items.job_ids
+
+            def work():
+                group.reparentJobs(jobs)
+
+        update_callback = self.update_callback
+
+        def done(_, error):
+            if error is not None:
+                QtWidgets.QMessageBox.critical(
+                    None, "Move Groups/Jobs failed", str(error), QtWidgets.QMessageBox.Ok)
+            if update_callback is not None:
+                update_callback()
+
+        cuegui.ActionRunner.submit(work, done, "Moving jobs/groups to %s" % group.name())
         self.accept()

@@ -28,6 +28,7 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
+import cuegui.ActionRunner
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.MenuActions
@@ -43,7 +44,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.app = cuegui.app()
 
         self.__show = None
-        self.__shows = None
+        self.__shows = {}
 
         self.__comboShows = QtWidgets.QComboBox(self)
         self.__comboShows.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -78,11 +79,16 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.changeFacility()
 
     def changeFacility(self):
-        """Changes the active facility."""
-        try:
-            self.__shows = {show.name(): show for show in opencue.api.getActiveShows()}
-        except opencue.exception.CueException:
-            self.__shows = {}
+        """Changes the active facility. The active shows are listed off the GUI
+        thread."""
+        cuegui.ActionRunner.submit(
+            lambda: {show.name(): show for show in opencue.api.getActiveShows()},
+            self.__changeFacilityDone, "Listing active shows")
+
+    def __changeFacilityDone(self, shows, error):
+        if error is not None:
+            shows = {}
+        self.__shows = shows
         self.__comboShows.clear()
         self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
         self.setShow()
@@ -135,14 +141,25 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def selectedObjects(self):
         """Gets a list of the active show(s)."""
-        return [opencue.api.findShow(self.__show.name())]
+        return [self.__show] if self.__show else []
 
     def __showProperties(self):
         if self.__show:
-            dialog = cuegui.ShowDialog.ShowDialog(opencue.api.findShow(self.__show.name()), self)
-            dialog.exec_()
+            # Fetch the show again, off the GUI thread, so the dialog shows its
+            # current settings.
+            name = self.__show.name()
+            cuegui.ActionRunner.submit(lambda: opencue.api.findShow(name),
+                                       self.__showPropertiesDone, "Finding show %s" % name)
         else:
             self.__comboShows.showPopup()
+
+    def __showPropertiesDone(self, show, error):
+        if error is not None:
+            QtWidgets.QMessageBox.critical(
+                self, "Show Properties", str(error), QtWidgets.QMessageBox.Ok)
+            return
+        dialog = cuegui.ShowDialog.ShowDialog(show, self)
+        dialog.exec_()
 
     def __addSubscription(self):
         if self.__show:

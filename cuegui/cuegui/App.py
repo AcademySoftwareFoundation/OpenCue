@@ -48,6 +48,9 @@ class CueGuiApplication(QtWidgets.QApplication):
     threadpool = None
     threads = []
 
+    # Runs user actions off the GUI thread, see cuegui.ActionRunner
+    action_runner = None
+
     # Shutdown signal
     closingApp = False
 
