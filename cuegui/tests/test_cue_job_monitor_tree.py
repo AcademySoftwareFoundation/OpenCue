@@ -128,6 +128,73 @@ class CueJobMonitorTreeTests(unittest.TestCase):
             tree._update()
             show.getJobWhiteboard.assert_called_once_with(fresh=False)
 
+    def _whiteboard(self, groups):
+        """Builds a whiteboard for the show from a {group: parent group} dict."""
+        protos = {'root': opencue_proto.job_pb2.NestedGroup(id='root', name=self.show_name)}
+        for name in groups:
+            protos[name] = opencue_proto.job_pb2.NestedGroup(id=name, name=name)
+        # Nest the deepest groups first, as protobuf copies the messages.
+        for name in sorted(groups, key=lambda name: -self._depth(groups, name)):
+            parent = protos[groups[name]]
+            protos[name].parent.CopyFrom(
+                opencue_proto.job_pb2.NestedGroup(id=parent.id, name=parent.name))
+            parent.groups.nested_groups.append(protos[name])
+        show = mock.Mock()
+        show.getJobWhiteboard.return_value = protos['root']
+        return mock.patch.object(self.cue_job_monitor_tree, 'getShows', return_value=[show])
+
+    @staticmethod
+    def _depth(groups, name):
+        depth = 0
+        while name in groups:
+            name = groups[name]
+            depth += 1
+        return depth
+
+    def _expanded(self):
+        return {itemId: item.isExpanded()
+                for itemId, item in self.cue_job_monitor_tree._items.items()}
+
+    def test_updateDoesNotExpandWholeTree(self):
+        tree = self.cue_job_monitor_tree
+        with self._whiteboard({'g1': 'root'}), \
+                mock.patch.object(tree, 'expandAll') as expand_all_mock:
+            tree._update()
+            tree._update()
+
+        expand_all_mock.assert_not_called()
+
+    def test_newGroupsAreExpanded(self):
+        tree = self.cue_job_monitor_tree
+        with self._whiteboard({'g1': 'root', 'g2': 'g1'}):
+            tree._update()
+
+        self.assertEqual({'root': True, 'g1': True, 'g2': True}, self._expanded())
+
+    def test_collapsedGroupStaysCollapsed(self):
+        tree = self.cue_job_monitor_tree
+        with self._whiteboard({'g1': 'root', 'g2': 'g1'}):
+            tree._update()
+        tree._items['g1'].setExpanded(False)
+
+        with self._whiteboard({'g1': 'root', 'g2': 'g1', 'g3': 'g1'}):
+            tree._update()
+
+        self.assertEqual({'root': True, 'g1': False, 'g2': True, 'g3': True}, self._expanded())
+
+    def test_reparentedGroupKeepsExpansionState(self):
+        tree = self.cue_job_monitor_tree
+        with self._whiteboard({'g1': 'root', 'g2': 'root', 'g3': 'g2', 'g4': 'g3'}):
+            tree._update()
+        tree._items['g3'].setExpanded(False)
+
+        with self._whiteboard({'g1': 'root', 'g2': 'g1', 'g3': 'g2', 'g4': 'g3'}):
+            tree._update()
+
+        self.assertIs(tree._items['g1'], tree._items['g2'].parent())
+        self.assertEqual(
+            {'root': True, 'g1': True, 'g2': True, 'g3': False, 'g4': True}, self._expanded())
+
     @mock.patch('opencue.api.findShow')
     def test_addShowObjectSkipsLookup(self, find_show_mock):
         show = opencue.wrappers.show.Show(opencue_proto.show_pb2.Show(name='other-show'))

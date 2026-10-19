@@ -391,15 +391,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @return: List of monitored shows"""
         return list(self.__shows.keys())
 
-    def __getCollapsed(self):
-        return [item.rpcObject.id() for item in list(self._items.values()) if not item.isExpanded()]
-
-    def __setCollapsed(self, collapsed):
-        self.expandAll()
-        for itemId in collapsed:
-            if itemId in self._items:
-                self._items[itemId].setExpanded(False)
-
     def _update(self, fresh=False):
         """Overrides AbstractTreeWidget._update to drop ticks while a previous
         _getUpdate is still on the threadpool. Necessary at the 5s cadence
@@ -503,9 +494,12 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Incrementally reconciles the tree against the latest whiteboard.
 
         Adds/updates/reparents items via __processUpdateHandleNested (which
-        preserves widget identity, so JobWidgetItem._cache, selection, and
-        scroll all survive). Then detaches items whose IDs are no longer
-        present. Avoiding clear() is what makes the 5s cadence non-disruptive.
+        preserves widget identity, so JobWidgetItem._cache, selection,
+        expansion and scroll all survive). Then detaches items whose IDs are
+        no longer present. Avoiding clear() is what makes the 5s cadence
+        non-disruptive. Only the groups created by this reconcile get
+        expanded; the other items keep their expansion state, so there is no
+        need to expand the whole tree on every tick.
 
         @type  work: from threadpool
         @param work: from threadpool
@@ -519,7 +513,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             new_ids = set(rpcObjects[1])
             old_ids = set(self._items.keys())
-            collapsed = self.__getCollapsed()
             # Save scroll position around the reconcile: takeChild on a stale item
             # above the viewport collapses indices and would shift visible content
             # otherwise.
@@ -533,7 +526,6 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 idx = parent.indexOfChild(item)
                 if idx >= 0:
                     parent.takeChild(idx)
-            self.__setCollapsed(collapsed)
             self.verticalScrollBar().setValue(scrolled)
             self.redraw()
         except Exception:
@@ -572,10 +564,15 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if group.id() in self._items:
                 groupItem = self._items[group.id()]
                 groupItem.update(group, parent)
-            elif group.data.parent.id:
-                self._items[group.id()] = groupItem = GroupWidgetItem(group, parent)
             else:
-                self._items[group.id()] = groupItem = RootGroupWidgetItem(group, parent)
+                if group.data.parent.id:
+                    groupItem = GroupWidgetItem(group, parent)
+                else:
+                    groupItem = RootGroupWidgetItem(group, parent)
+                self._items[group.id()] = groupItem
+                # New groups start expanded. Qt keeps this even while the
+                # group has no children yet.
+                groupItem.setExpanded(True)
 
             nestedGroups = [
                 opencue.wrappers.group.NestedGroup(nestedGroup)
