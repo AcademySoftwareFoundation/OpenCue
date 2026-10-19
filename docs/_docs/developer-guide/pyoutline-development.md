@@ -313,12 +313,12 @@ def serialize(launcher):
     """
     pass
 
-# Cue backend (outline/backend/cue.py):
+# Cue backend (outline_backend_rest.py) and REST backend (outline_backend_cue.py):
 def build_command(launcher, layer):
     """Build the command string for a layer."""
     pass
 
-# Local backend (outline/backend/local.py):
+# Local backend (outline_backend_local.py):
 def build_command(ol, layer, frame):
     """Build the command string for a layer and specific frame."""
     pass
