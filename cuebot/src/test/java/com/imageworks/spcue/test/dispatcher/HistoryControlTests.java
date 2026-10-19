@@ -73,8 +73,10 @@ public class HistoryControlTests extends TransactionalTest {
     Dispatcher dispatcher;
 
     private static final String HOSTNAME = "beta";
-    private static final String DELETE_HISTORY =
-            "DELETE FROM frame_history; " + "DELETE FROM job_history; ";
+    private static final String DELETE_HISTORY = "DELETE FROM frame_history_queue; "
+            + "DELETE FROM frame_history; " + "DELETE FROM job_history; ";
+    private static final String DRAIN_FRAME_HISTORY =
+            "SELECT * FROM frame_history_drain(1000, true)";
     private static final String DISABLE_HISTORY = "INSERT INTO " + "config (pk_config,str_key) "
             + "VALUES " + "(uuid_generate_v1(),'DISABLE_HISTORY');";
 
@@ -144,6 +146,10 @@ public class HistoryControlTests extends TransactionalTest {
 
         assertEquals(Integer.valueOf(5),
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));
+        // Frame history is queued and only lands in frame_history once drained.
+        assertEquals(Integer.valueOf(0),
+                jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
+        jdbcTemplate.queryForMap(DRAIN_FRAME_HISTORY);
         assertEquals(Integer.valueOf(1),
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
     }
@@ -161,6 +167,7 @@ public class HistoryControlTests extends TransactionalTest {
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM frame_history", Integer.class));
 
         launchAndDeleteJob();
+        jdbcTemplate.queryForMap(DRAIN_FRAME_HISTORY);
 
         assertEquals(Integer.valueOf(0),
                 jdbcTemplate.queryForObject("SELECT COUNT(*) FROM job_history", Integer.class));

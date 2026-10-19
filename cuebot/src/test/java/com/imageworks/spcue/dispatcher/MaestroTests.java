@@ -734,45 +734,6 @@ public class MaestroTests {
         return c;
     }
 
-    private static Maestro.PinRow pinRow(String layerId, String hostId, String tags) {
-        return new Maestro.PinRow(pinnedLayer(layerId, 30), hostId, tags);
-    }
-
-    @Test
-    public void attachPinsFilesEachLayerUnderTheGroupsOfItsHosts() {
-        Maestro.BookableHost a = specHost("a", "general capa");
-        Maestro.BookableHost b = specHost("b", "general capa");
-        Maestro.BookableHost c = specHost("c", "general capb");
-        Map<String, Maestro.BookableHost> byId = new HashMap<>();
-        for (Maestro.BookableHost h : Arrays.asList(a, b, c))
-            byId.put(h.hostId, h);
-        Set<String> spec = new HashSet<>(Arrays.asList("general", "capa", "capb"));
-        Map<String, String> reason = new HashMap<>();
-        Map<String, Integer> frames = new HashMap<>();
-        List<Maestro.PinRow> rows = Arrays.asList(pinRow("L1", "a", "hosta | hostb | hostc"),
-                pinRow("L1", "b", "hosta | hostb | hostc"),
-                pinRow("L1", "c", "hosta | hostb | hostc"), pinRow("L2", null, "nosuchhost"),
-                pinRow("L3", null, "general | nosuchhost"), pinRow("L4", "zz", "hostzz"));
-        Map<Maestro.HostSpecKey, List<Maestro.LayerCandidate>> out =
-                Maestro.attachPins(rows, byId, spec, reason, frames);
-
-        // L1 spans two specs: one candidate per group, each with that group's pins.
-        List<Maestro.LayerCandidate> inA = out.get(Maestro.hostSpecKey(a));
-        List<Maestro.LayerCandidate> inC = out.get(Maestro.hostSpecKey(c));
-        assertEquals(1, inA.size());
-        assertEquals(Arrays.asList(a, b), inA.get(0).pinnedHosts);
-        assertTrue(inA.get(0).pinnedIds.containsAll(Arrays.asList("a", "b")));
-        assertEquals(1, inC.size());
-        assertEquals(Arrays.asList(c), inC.get(0).pinnedHosts);
-        assertEquals(2, out.size());
-        // A dead pin waits with its reason; a spec-tagged layer is a group candidate, not dead;
-        // a host outside the tick's snapshot resolves nothing.
-        assertEquals("no host", reason.get("L2"));
-        assertEquals(Integer.valueOf(30), frames.get("L2"));
-        assertNull(reason.get("L3"));
-        assertEquals("no host", reason.get("L4"));
-    }
-
     @Test
     public void addPinnedSkipsLayersTheGroupHasAndVisitsOnlyIdlePins() {
         Maestro.BookableHost a = specHost("a", "general");
@@ -1291,14 +1252,23 @@ public class MaestroTests {
         s.setRqdClient(rqd);
         FrameBooking fb = bookingOn("a");
         when(support.clearFrame(fb.frame)).thenReturn(true);
-        fb.committedMs = System.currentTimeMillis() - Maestro.LAUNCH_MAX_AGE_MS - 1000;
+        fb.committedMs = System.currentTimeMillis() - s.launchMaxAgeMs - 1000;
         s.launchOne(fb);
         verify(support, never()).runFrame(any(), any());
         verify(support).unbookProc(fb.proc);
         verify(support).clearFrame(fb.frame);
         verify(rqd, never()).killFrame(any(VirtualProc.class), any());
         assertTrue("the bound stays inside the orphan age",
-                Maestro.LAUNCH_MAX_AGE_MS < ProcDao.ORPHAN_AGE_SECONDS * 1000L);
+                s.launchMaxAgeMs < ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L);
+    }
+
+    @Test
+    public void launchQueueBoundFollowsTheOrphanAgeProperty() {
+        MockEnvironment env = new MockEnvironment();
+        assertEquals(ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L / 2, Maestro.launchMaxAgeMs(env));
+        env.setProperty(ProcDao.ORPHAN_AGE_PROPERTY, "900");
+        assertEquals(450_000L, Maestro.launchMaxAgeMs(env));
+        assertEquals(ProcDao.DEFAULT_ORPHAN_AGE_SECONDS * 1000L / 2, Maestro.launchMaxAgeMs(null));
     }
 
     @Test
@@ -1574,5 +1544,236 @@ public class MaestroTests {
         assertEquals(200 * GB, c.layerMemMin);
     }
 
+    // ---- the folder ceiling against the database's own count -------------
+
+    private static FrameBooking folderBooking(String jobId, int coresReserved) {
+        VirtualProc p = new VirtualProc();
+        p.hostId = "host";
+        p.jobId = jobId;
+        p.coresReserved = coresReserved;
+        return new FrameBooking(new DispatchFrame(), p);
+    }
+
+    @Test
+    public void theFolderTrimHoldsTheCapFromTheDatabasesCount() {
+        // The folder's procs reserve 700 of an 800 cap (one core short), and the
+        // layer was sized from its memory to 2 cores: a count built from
+        // int_cores_min would have let the plan through, the real count trims it.
+        Maestro s = new Maestro();
+        Map<String, Integer> cap = Collections.singletonMap("f", 8 * CORE);
+        Map<String, Integer> seed = Collections.singletonMap("f", 7 * CORE);
+        Map<String, String> jobFolder = Collections.singletonMap("job", "f");
+        List<FrameBooking> planned = Arrays.asList(folderBooking("job", 2 * CORE),
+                folderBooking("job", 2 * CORE), folderBooking("job", CORE),
+                folderBooking("job", CORE), folderBooking("other", 2 * CORE));
+        List<FrameBooking> kept = s.trimOverFolderCeiling(planned, cap, seed, jobFolder);
+        int folderTotal = seed.get("f");
+        for (FrameBooking b : kept)
+            if ("job".equals(b.proc.getJobId()))
+                folderTotal += b.proc.coresReserved;
+        assertEquals("exactly the one 1-core frame fits under the cap", 2, kept.size());
+        assertEquals(8 * CORE, folderTotal);
+        assertTrue("the uncapped folder's booking is untouched", kept.contains(planned.get(4)));
+    }
+
+    @Test
+    public void aFolderAtItsCapWaitsOnLimit() {
+        // A layer sized up from its memory to 2 cores, whose folder has 7 of 8
+        // cores reserved: it must gate, and the waitlist must say "limit" even
+        // though a free host could take it.
+        Maestro s = new Maestro();
+        Maestro.LayerCandidate c = grantLayer("sized", true, 100, 0, 4L * CueUtil.GB);
+        c.layerMaxRssKb = 8L * CueUtil.GB;
+        Maestro.sizeFromMemory(Arrays.asList(c), MPC, Integer.MAX_VALUE, new HashMap<>());
+        assertEquals(2 * CORE, c.layerCoresMin);
+        c.folderId = "f";
+        c.folderMax = 8 * CORE;
+        c.folderRunning = 7 * CORE;
+        List<Maestro.BookableHost> hosts = Arrays.asList(freeHost(16 * CORE, 64 * GB, 0, 0));
+        assertEquals("limit", s.waitlistReason(c, hosts, c.folderRunning, Integer.MAX_VALUE, null,
+                new HashMap<>()));
+        c.folderRunning = 6 * CORE;
+        assertFalse("one core more of room and the folder no longer gates",
+                "limit".equals(s.waitlistReason(c, hosts, c.folderRunning, Integer.MAX_VALUE, null,
+                        new HashMap<>())));
+    }
+
+    // ---- the split of a failed chunk ---------------------------------------
+
+    private static List<FrameBooking> bookingsOn(int perHost, String... hosts) {
+        List<FrameBooking> out = new ArrayList<>();
+        for (String h : hosts)
+            for (int i = 0; i < perHost; i++)
+                out.add(bookingOn(h));
+        return out;
+    }
+
+    @Test
+    public void theSplitFallsOnTheHostBoundaryNearestTheMiddle() {
+        // 2 on a, 5 on b, 3 on c: boundaries at 2 and 7, the middle is 5.
+        List<FrameBooking> piece = new ArrayList<>();
+        piece.addAll(bookingsOn(2, "a"));
+        piece.addAll(bookingsOn(5, "b"));
+        piece.addAll(bookingsOn(3, "c"));
+        assertEquals(7, Maestro.hostAlignedMid(piece));
+        assertEquals("two hosts split between them", 1,
+                Maestro.hostAlignedMid(bookingsOn(1, "a", "b")));
+        assertEquals("one host never splits", -1, Maestro.hostAlignedMid(bookingsOn(5, "a")));
+        assertEquals(-1, Maestro.hostAlignedMid(Collections.<FrameBooking>emptyList()));
+    }
+
+    /**
+     * A Maestro whose commit is a fake: a piece that carries a booking on a bad host throws, the
+     * way a trigger rejecting one frame fails the whole transaction; any other piece "commits".
+     */
+    private static final class SplittingMaestro extends Maestro {
+        final Set<String> badHosts = new HashSet<>();
+        final List<List<FrameBooking>> attempts = new ArrayList<>();
+        final List<FrameBooking> committed = new ArrayList<>();
+
+        @Override
+        List<FrameBooking> commitPiece(List<FrameBooking> piece) {
+            attempts.add(new ArrayList<>(piece));
+            for (FrameBooking b : piece)
+                if (badHosts.contains(b.proc.getHostId()))
+                    throw new RuntimeException("Job exceeded max folder resources");
+            committed.addAll(piece);
+            return new ArrayList<>(piece);
+        }
+
+        @Override
+        void launchPiece(List<FrameBooking> won) {
+            // no launch pool in a bare Maestro; the commit is what these tests watch
+        }
+    }
+
+    private static SplittingMaestro splitter(int budgetTx, String... badHosts) throws Exception {
+        Connection held = mock(Connection.class);
+        when(held.isValid(anyInt())).thenReturn(true);
+        SplittingMaestro s = new SplittingMaestro();
+        set(s, "leaderConn", held);
+        set(s, "commitSplitMaxTx", budgetTx);
+        s.badHosts.addAll(Arrays.asList(badHosts));
+        return s;
+    }
+
+    private static Set<String> hostsOf(List<FrameBooking> bookings) {
+        Set<String> out = new HashSet<>();
+        for (FrameBooking b : bookings)
+            out.add(b.proc.getHostId());
+        return out;
+    }
+
+    private static final String[] EIGHT_HOSTS = {"a", "b", "c", "d", "e", "f", "g", "h"};
+
+    @Test
+    public void oneBadHostCostsOnlyItsOwnBookings() throws Exception {
+        SplittingMaestro s = splitter(64, "e");
+        List<FrameBooking> planned = bookingsOn(3, EIGHT_HOSTS);
+        List<FrameBooking> won = s.commitInChunks(planned);
+        assertEquals("every other host's bookings landed this tick", 21, won.size());
+        assertFalse(hostsOf(won).contains("e"));
+        assertEquals(7, hostsOf(won).size());
+        assertEquals(3, s.lastCommitDropped);
+        // The bad host sits in one half at every level: one failed attempt per
+        // level plus the sibling that commits, log2(8) = 3 levels.
+        assertEquals(3, s.lastCommitSplits);
+        assertTrue("retry transactions <= 2 * ceil(log2 hosts)", 2 * s.lastCommitSplits <= 6);
+        assertEquals(7, s.attempts.size());
+    }
+
+    @Test
+    public void twoBadHostsCostExactlyTheirBookings() throws Exception {
+        SplittingMaestro s = splitter(64, "b", "g");
+        List<FrameBooking> won = s.commitInChunks(bookingsOn(3, EIGHT_HOSTS));
+        assertEquals(18, won.size());
+        assertFalse(hostsOf(won).contains("b"));
+        assertFalse(hostsOf(won).contains("g"));
+        assertEquals(6, s.lastCommitDropped);
+        assertTrue("two bad hosts, each within 2 * ceil(log2 hosts) retries",
+                2 * s.lastCommitSplits <= 2 * 6);
+    }
+
+    @Test
+    public void whenEveryHostIsBadTheBudgetBoundsTheTick() throws Exception {
+        // Four retry transactions: two splits, then the remaining pieces drop
+        // whole, which is the old whole-chunk behaviour.
+        SplittingMaestro s = splitter(4, EIGHT_HOSTS);
+        List<FrameBooking> won = s.commitInChunks(bookingsOn(3, EIGHT_HOSTS));
+        assertTrue(won.isEmpty());
+        assertEquals(24, s.lastCommitDropped);
+        assertEquals(2, s.lastCommitSplits);
+        // The chunk, its two halves, and the two quarters of the first half.
+        assertEquals(5, s.attempts.size());
+    }
+
+    @Test
+    public void aSingleHostPieceIsNeverSplit() throws Exception {
+        SplittingMaestro s = splitter(64, "a");
+        List<FrameBooking> won = s.commitInChunks(bookingsOn(5, "a"));
+        assertTrue(won.isEmpty());
+        assertEquals(1, s.attempts.size());
+        assertEquals(0, s.lastCommitSplits);
+        assertEquals(5, s.lastCommitDropped);
+    }
+
+    @Test
+    public void aHealthyTickSpendsNoBudget() throws Exception {
+        SplittingMaestro s = splitter(64);
+        List<FrameBooking> planned = bookingsOn(3, EIGHT_HOSTS);
+        assertEquals(planned.size(), s.commitInChunks(planned).size());
+        assertEquals(1, s.attempts.size());
+        assertEquals(0, s.lastCommitSplits);
+        assertEquals(0, s.lastCommitDropped);
+    }
+
+    @Test
+    public void lostLeadershipMidSplitStopsRetrying() throws Exception {
+        // The lock connection closes after the first probe (the one before the
+        // chunk): the failed chunk is dropped whole rather than retried without
+        // the lock, and no split is counted.
+        Connection conn = mock(Connection.class);
+        when(conn.isClosed()).thenReturn(false, true);
+        when(conn.isValid(anyInt())).thenReturn(true, false);
+        when(conn.prepareStatement(anyString())).thenReturn(mock(PreparedStatement.class));
+        SplittingMaestro s = new SplittingMaestro();
+        set(s, "leaderConn", conn);
+        set(s, "commitSplitMaxTx", 64);
+        s.badHosts.add("c");
+        List<FrameBooking> won = s.commitInChunks(bookingsOn(3, "a", "b", "c", "d"));
+        assertTrue(won.isEmpty());
+        assertEquals(1, s.attempts.size());
+        assertEquals(0, s.lastCommitSplits);
+        assertEquals(12, s.lastCommitDropped);
+    }
+
+    @Test
+    public void aFailedPieceLeavesNoDeltasForItsRetry() throws Exception {
+        // The flush of the failed attempt left deltas in the buffers; the halves
+        // must credit only their own procs.
+        SplittingMaestro s = splitter(64, "b");
+        String[] buffers = {"subDeltas", "layerDeltas", "jobDeltas"};
+        for (String b : buffers)
+            deltas(s, b).put("left by the failed flush", new long[] {1, 2});
+        s.commitInChunks(bookingsOn(2, "a", "b"));
+        for (String b : buffers)
+            assertTrue(b + " must not reach the retry", deltas(s, b).isEmpty());
+    }
+
+    @Test
+    public void theDropNamesTheStatementThatRaised() {
+        // The DAO wraps Spring's translation of a JDBC batch failure, whose
+        // chained SQLException carries the trigger's message.
+        java.sql.BatchUpdateException batch =
+                new java.sql.BatchUpdateException("Batch entry 2 failed", new int[0]);
+        batch.setNextException(new java.sql.SQLException(
+                "ERROR: Job exceeded max folder resources\n  Where: PL/pgSQL function"));
+        RuntimeException wrapped = new FrameReservationException("reservation failed",
+                new org.springframework.jdbc.UncategorizedSQLException("batch", "UPDATE", batch));
+        String msg = Maestro.rootCauseMessage(wrapped);
+        assertTrue(msg, msg.contains("Job exceeded max folder resources"));
+        assertEquals("RuntimeException: plain",
+                Maestro.rootCauseMessage(new RuntimeException("plain")));
+    }
 
 }

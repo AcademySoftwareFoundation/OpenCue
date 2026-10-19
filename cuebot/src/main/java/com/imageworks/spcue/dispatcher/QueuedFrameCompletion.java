@@ -40,6 +40,8 @@ public final class QueuedFrameCompletion {
     public final DispatchFrame frame;
     public final FrameState newFrameState;
     public final int exitStatus;
+    /** Wall-clock ms when the completion entered the drain queue; stamped by the queue's offer. */
+    volatile long enqueuedAtMs;
 
     public QueuedFrameCompletion(FrameCompleteReport report, VirtualProc proc, DispatchJob job,
             LayerDetail layer, FrameDetail frameDetail, DispatchFrame frame,

@@ -33,7 +33,7 @@ concurrency:
 jobs:
   # Build job
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         include:
@@ -45,7 +45,7 @@ jobs:
     
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # Fetch all history for git metadata
           
@@ -183,7 +183,7 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     needs: build
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     steps:
