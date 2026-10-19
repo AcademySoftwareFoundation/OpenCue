@@ -52,7 +52,6 @@ logger = logging.getLogger("outline_backend_rest")
 
 JOB_WAIT_PERIOD_SEC = 5
 TIMEOUT = 10
-CUEREST_GATEWAY_URL = outline.config.get("backend:rest", "cuerest_gateway_url")
 CUEREST_SESSION = None
 
 
@@ -69,10 +68,11 @@ def launch(launcher, use_pycuerun=True):
     :return: The opencue job that was launched.
     """
 
+    cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
     session = _get_restgateway_session()
     spec = launcher.serialize(use_pycuerun=use_pycuerun)
     json_data = {"spec": spec}
-    response = session.post(f"{CUEREST_GATEWAY_URL}/job.JobInterface/LaunchSpecAndWait",
+    response = session.post(f"{cuerest_gateway_url}/job.JobInterface/LaunchSpecAndWait",
                             json=json_data,
                             timeout=TIMEOUT)
     response.raise_for_status()
@@ -101,11 +101,12 @@ def test(job):
     job_id = job_data.get("id") if isinstance(job_data, dict) else job.id()
     logger.info("Entering test mode for job: %s", job_name)
 
+    cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
     session = _get_restgateway_session()
     try:
         # Unpause the job.
         session.post(
-            f"{CUEREST_GATEWAY_URL}/job.JobInterface/Resume",
+            f"{cuerest_gateway_url}/job.JobInterface/Resume",
             json={"job": {"id": job_id}},
             timeout=TIMEOUT,
         ).raise_for_status()
@@ -113,7 +114,7 @@ def test(job):
         while True:
             try:
                 response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/GetJob",
+                    f"{cuerest_gateway_url}/job.JobInterface/GetJob",
                     json={"id": job_id},
                     timeout=TIMEOUT,
                 )
@@ -149,7 +150,7 @@ def test(job):
     finally:
         try:
             session.post(
-                f"{CUEREST_GATEWAY_URL}/job.JobInterface/Kill",
+                f"{cuerest_gateway_url}/job.JobInterface/Kill",
                 json={"job": {"id": job_id}},
                 timeout=TIMEOUT,
             )
@@ -166,12 +167,13 @@ def wait(job):
     :param job: The job data dictionary to wait on.
     """
     job_id = job.get("id") if isinstance(job, dict) else job.data.id
+    cuerest_gateway_url = outline.config.get("backend:rest", "cuerest_gateway_url")
     session = _get_restgateway_session()
     try:
         while True:
             try:
                 job_response = session.post(
-                    f"{CUEREST_GATEWAY_URL}/job.JobInterface/GetJob",
+                    f"{cuerest_gateway_url}/job.JobInterface/GetJob",
                     json={"id": job_id},
                     timeout=TIMEOUT,
                 )
