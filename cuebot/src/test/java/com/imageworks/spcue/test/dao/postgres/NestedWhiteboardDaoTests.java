@@ -38,6 +38,8 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
@@ -90,6 +92,46 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
         assertNotNull(root);
         boolean foundInlineJob = hasInlineJob(root);
         assertTrue("expected at least one NestedGroup to expose inline_jobs", foundInlineJob);
+    }
+
+    /**
+     * A fresh request must not be served from the whiteboard cache: it has to reflect changes
+     * committed before it was made, such as a job launched right after the cache was filled.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetJobWhiteboardFreshBypassesCache() {
+        String jobName = "pipe-dev.cue-testuser_shell_v1";
+
+        NestedGroup primed = nestedWhiteboardDao.getJobWhiteboard(getShow(), true);
+        assertFalse(hasInlineJobNamed(primed, jobName));
+        // A regular request right after is served from the cache.
+        assertSame(primed, nestedWhiteboardDao.getJobWhiteboard(getShow()));
+
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+
+        NestedGroup fresh = nestedWhiteboardDao.getJobWhiteboard(getShow(), true);
+        assertNotSame(primed, fresh);
+        assertTrue("fresh whiteboard is missing the job launched after the cache was filled",
+                hasInlineJobNamed(fresh, jobName));
+        // The fresh result replaces the cached entry for later regular requests.
+        assertSame(fresh, nestedWhiteboardDao.getJobWhiteboard(getShow()));
+    }
+
+    private boolean hasInlineJobNamed(NestedGroup group, String jobName) {
+        for (Job job : group.getInlineJobsList()) {
+            if (job.getName().equals(jobName)) {
+                return true;
+            }
+        }
+        for (NestedGroup child : group.getGroups().getNestedGroupsList()) {
+            if (hasInlineJobNamed(child, jobName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasInlineJob(NestedGroup group) {

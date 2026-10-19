@@ -448,10 +448,13 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items now, bypassing MINIMUM_UPDATE_INTERVAL and the
         scroll-skip check, and restarts the periodic timer so the next
         scheduled update does not land right after this one."""
+        self._restartUpdateTimer()
+        self._update()
+
+    def _restartUpdateTimer(self):
         timer = getattr(self, "_timer", None)
         if timer is not None and timer.isActive():
             timer.start()
-        self._update()
 
     def redraw(self):
         """Forces the displayed items to be redrawn"""

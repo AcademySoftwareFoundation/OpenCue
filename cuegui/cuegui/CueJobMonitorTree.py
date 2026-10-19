@@ -385,11 +385,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if itemId in self._items:
                 self._items[itemId].setExpanded(False)
 
-    def _update(self):
+    def _update(self, fresh=False):
         """Overrides AbstractTreeWidget._update to drop ticks while a previous
         _getUpdate is still on the threadpool. Necessary at the 5s cadence
         because a cold-cache server miss can take longer than the tick interval;
-        without this guard the threadpool would pile up overlapping requests."""
+        without this guard the threadpool would pile up overlapping requests.
+
+        @param fresh: bypass the server-side whiteboard cache"""
         if self._updateInFlight:
             return
         self._lastUpdate = time.time()
@@ -402,7 +404,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             try:
                 self.app.threadpool.queue(
                     self._getUpdate, self._processUpdateGuarded,
-                    "getting data for %s" % self.__class__)
+                    "getting data for %s" % self.__class__, fresh)
             except Exception:
                 self._updateInFlight = False
                 logger.warning(
@@ -411,17 +413,20 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             try:
-                self._processUpdate(None, self._getUpdate())
+                self._processUpdate(None, self._getUpdate(fresh))
             finally:
                 self._updateInFlight = False
 
     def forceUpdate(self):
         """Overrides AbstractTreeWidget.forceUpdate so a forced update that
-        arrives while a fetch is in flight is deferred instead of dropped."""
+        arrives while a fetch is in flight is deferred instead of dropped, and
+        so it bypasses the server-side whiteboard cache: the cache may have
+        been filled before the action that asked for this refresh."""
         if self._updateInFlight:
             self._forceUpdatePending = True
             return
-        cuegui.AbstractTreeWidget.AbstractTreeWidget.forceUpdate(self)
+        self._restartUpdateTimer()
+        self._update(fresh=True)
 
     def _processUpdateGuarded(self, work, rpcObjects):
         """Wraps _processUpdate so _updateInFlight is always cleared, even if
@@ -434,8 +439,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self._forceUpdatePending = False
                 self.forceUpdate()
 
-    def _getUpdate(self):
+    def _getUpdate(self, fresh=False):
         """Returns a list of NestedGroup from the cuebot for the monitored shows
+        @param fresh: bypass the server-side whiteboard cache
         @rtype:  [list<NestedGroup>, set(str)]
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
@@ -446,7 +452,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # _updateInFlight. Letting an exception escape would leave the guard
         # pinned and block all future refresh ticks.
         try:
-            groups = [show.getJobWhiteboard() for show in self.getShows()]
+            groups = [show.getJobWhiteboard(fresh=fresh) for show in self.getShows()]
             nestedGroups = []
             allIds = []
             for group in groups:

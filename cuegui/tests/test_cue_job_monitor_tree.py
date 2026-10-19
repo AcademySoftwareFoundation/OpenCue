@@ -86,7 +86,7 @@ class CueJobMonitorTreeTests(unittest.TestCase):
             update_mock.assert_not_called()
 
             tree.forceUpdate()
-            update_mock.assert_called_once_with()
+            update_mock.assert_called_once_with(fresh=True)
 
     def test_forceUpdateWhileInFlightRunsAfterCurrentFetch(self):
         tree = self.cue_job_monitor_tree
@@ -100,9 +100,23 @@ class CueJobMonitorTreeTests(unittest.TestCase):
             # The in-flight fetch lands; the deferred forced update runs next.
             tree._processUpdateGuarded(None, None)
 
-            get_update_mock.assert_called_once_with()
+            get_update_mock.assert_called_once_with(True)
             self.assertFalse(tree._forceUpdatePending)
             self.assertFalse(tree._updateInFlight)
+
+    def test_forceUpdateRequestsFreshWhiteboard(self):
+        tree = self.cue_job_monitor_tree
+        show = mock.Mock()
+        show.getJobWhiteboard.return_value = opencue_proto.job_pb2.NestedGroup(
+            name=self.show_name)
+
+        with mock.patch.object(tree, 'getShows', return_value=[show]):
+            tree.forceUpdate()
+            show.getJobWhiteboard.assert_called_once_with(fresh=True)
+
+            show.getJobWhiteboard.reset_mock()
+            tree._update()
+            show.getJobWhiteboard.assert_called_once_with(fresh=False)
 
 
 if __name__ == '__main__':
