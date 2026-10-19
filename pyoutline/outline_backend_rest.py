@@ -149,7 +149,7 @@ def test(job: outline.wrappers.job.Job):
                 raise outline.exception.OutlineException(
                     "test for job %s failed: %s" % (job_name, ie)
                 )
-            time.sleep(5)
+            time.sleep(JOB_WAIT_PERIOD_SEC)
     finally:
         try:
             session.post(
