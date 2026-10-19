@@ -9,7 +9,6 @@ name = "opencue_cuegui"
 dynamic = ["version"]
 dependencies = [
     "opencue_pycue",
-    "opencue_pyoutline",
     "PySide6==6.8.2.1;python_version>'3.11'",
     "PySide6==6.5.3;python_version=='3.11'",
     "PySide2==5.15.2.1;python_version<='3.10'",
