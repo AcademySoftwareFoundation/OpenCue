@@ -245,9 +245,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 
         self.__showMenuBuild()
         if added:
-            # pylint: disable=protected-access
-            self.__monitorCue._update()
-            # pylint: enable=protected-access
+            self.__monitorCue.forceUpdate(fresh=False)
 
     def __showMenuBuild(self):
         """Rebuilds the show selection menu from the listed shows"""
@@ -389,9 +387,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         @type  saved_settings: any"""
         cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, saved_settings)
 
-        # pylint: disable=protected-access
-        self.__monitorCue._update()
-        # pylint: enable=protected-access
+        self.__monitorCue.forceUpdate(fresh=False)
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
 
 

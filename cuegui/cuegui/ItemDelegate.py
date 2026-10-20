@@ -54,8 +54,9 @@ NO_BRUSH = QtGui.QBrush(QtCore.Qt.NoBrush)
 
 # Role of the data drawn by the JobBookingBarDelegate, see
 # JobBookingBarDelegate.bookingData. Items that do not provide it are
-# looked up on every paint.
-BOOKING_ROLE = QtCore.Qt.UserRole + 2
+# looked up on every paint. Kept clear of the small UserRole offsets, which
+# other trees give their own meanings.
+BOOKING_ROLE = QtCore.Qt.UserRole + 100
 
 
 class AbstractDelegate(QtWidgets.QItemDelegate):

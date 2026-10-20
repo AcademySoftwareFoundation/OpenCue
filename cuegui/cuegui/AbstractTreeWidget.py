@@ -84,6 +84,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self._items = {}
         self._lastUpdate = 0
+        # Fetches can overlap (forceUpdate does not wait for the periodic one),
+        # so results older than the ones shown already are dropped.
+        self._updateSeq = 0
+        self._appliedUpdateSeq = 0
 
         self._itemsLock = QtCore.QReadWriteLock()
         self._timer = QtCore.QTimer(self)
@@ -392,12 +396,25 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
+        self._updateSeq += 1
+        seq = self._updateSeq
         if self.app.threadpool is not None:
             self.app.threadpool.queue(
-                self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
+                self._getUpdate,
+                lambda work, rpcObjects: self._processUpdateInOrder(seq, work, rpcObjects),
+                "getting data for %s" % self.__class__)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
-            self._processUpdate(None, self._getUpdate())
+            self._processUpdateInOrder(seq, None, self._getUpdate())
+
+    def _processUpdateInOrder(self, seq, work, rpcObjects):
+        """Calls _processUpdate, unless the results of a later fetch have been
+        processed already."""
+        if seq < self._appliedUpdateSeq:
+            logger.debug("Dropping out of order update for %s", self.__class__)
+            return
+        self._appliedUpdateSeq = seq
+        self._processUpdate(work, rpcObjects)
 
     def _processUpdate(self, work, rpcObjects):
         """A generic function that Will:

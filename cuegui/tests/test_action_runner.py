@@ -165,6 +165,17 @@ class ActionRunnerTests(unittest.TestCase):
 
         self.assertEqual([True, True], done)
 
+    def test_shutdownStopsCallbacksAndNewWork(self):
+        results = []
+        ran = []
+
+        self.runner.submit(lambda: 'result', lambda result, error: results.append(result))
+        self.runner.shutdown()
+        self.runner.submit(lambda: ran.append(True), lambda result, error: ran.append(True))
+
+        # The work is done, but its callback was not delivered before shutdown.
+        self.assertFalse(_waitFor(lambda: results or ran, timeout=0.2))
+
 
 if __name__ == '__main__':
     unittest.main()
