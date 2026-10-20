@@ -207,9 +207,11 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda sub: ("%.2f" % (sub.data.reserved_cores/100.0)),
                        sort=lambda sub: (sub.data.reserved_cores/100.0))
 
-        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
-
+        # Set before AbstractTreeWidget.__init__, which requests the first
+        # update.
         self.__show = None
+
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -219,20 +221,22 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def setShow(self, show=None):
         """Sets the active show."""
+        newShow = self.__show
+        if not show:
+            newShow = None
+        elif cuegui.Utils.isShow(show):
+            newShow = show
+        elif isinstance(show, str):
+            try:
+                newShow = opencue.api.findShow(show)
+            except opencue.exception.CueException:
+                pass
         self._itemsLock.lockForWrite()
         try:
-            if not show:
-                self.__show = None
-            elif cuegui.Utils.isShow(show):
-                self.__show = show
-            elif isinstance(show, str):
-                try:
-                    self.__show = opencue.api.findShow(show)
-                except opencue.exception.CueException:
-                    pass
-            self._update()
+            self.__show = newShow
         finally:
             self._itemsLock.unlock()
+        self._update()
 
     def getShow(self):
         """Gets the active show."""
@@ -243,14 +247,25 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return SubscriptionWidgetItem(rpcObject, self)
 
     def _getUpdate(self):
-        """Returns the proper data from the cuebot"""
-        self._itemsLock.lockForWrite()
+        """Returns the show and its subscriptions from the cuebot. The lock is
+        not held during the call, so changing the show does not wait for it."""
+        self._itemsLock.lockForRead()
         try:
-            if self.__show:
-                return self.__show.getSubscriptions()
-            return []
+            show = self.__show
         finally:
             self._itemsLock.unlock()
+        if show:
+            return show, show.getSubscriptions()
+        return show, []
+
+    def _processUpdate(self, work, rpcObjects):
+        """Shows the subscriptions, unless the show changed since they were
+        requested."""
+        show, subscriptions = rpcObjects
+        if show is not self.__show:
+            return
+        # pylint: disable=protected-access
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, subscriptions)
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""
