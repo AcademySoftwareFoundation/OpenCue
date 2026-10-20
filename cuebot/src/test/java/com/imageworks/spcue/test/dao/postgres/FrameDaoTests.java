@@ -259,6 +259,48 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
                 "SELECT str_state FROM frame WHERE pk_frame=?", String.class, f.getFrameId()));
     }
 
+    private long stat(String table, String key, String column, String id) {
+        return jdbcTemplate.queryForObject(
+                "SELECT " + column + " FROM " + table + " WHERE " + key + "=?", Long.class, id);
+    }
+
+    private Object layerStamp(String column, String layerId) {
+        return jdbcTemplate.queryForObject("SELECT " + column + " FROM layer_stat WHERE pk_layer=?",
+                Object.class, layerId);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testStateChangeMovesTheStatCountsAndStamps() {
+        JobDetail job = launchJob();
+        FrameInterface f = frameDao.findFrame(job, "0001-pass_1");
+        String layer = f.getLayerId();
+        // Start from a dependency-free WAITING frame; the dependency triggers bump the
+        // version, so reread it.
+        jdbcTemplate.update(
+                "UPDATE frame SET int_depend_count=0, str_state='WAITING' " + "WHERE pk_frame=?",
+                f.getFrameId());
+        f = frameDao.findFrame(job, "0001-pass_1");
+        long waiting = stat("layer_stat", "pk_layer", "int_waiting_count", layer);
+        long jobWaiting = stat("job_stat", "pk_job", "int_waiting_count", f.getJobId());
+
+        assertTrue(frameDao.updateFrameState(f, FrameState.RUNNING));
+        assertEquals(waiting - 1, stat("layer_stat", "pk_layer", "int_waiting_count", layer));
+        assertEquals(1, stat("layer_stat", "pk_layer", "int_running_count", layer));
+        assertEquals(jobWaiting - 1, stat("job_stat", "pk_job", "int_waiting_count", f.getJobId()));
+        assertEquals(1, stat("job_stat", "pk_job", "int_running_count", f.getJobId()));
+        assertTrue(layerStamp("ts_started", layer) != null);
+        assertTrue(layerStamp("ts_stopped", layer) == null);
+
+        jdbcTemplate.update("UPDATE frame SET str_state='SUCCEEDED', "
+                + "ts_stopped=current_timestamp WHERE pk_frame=?", f.getFrameId());
+        assertEquals(0, stat("layer_stat", "pk_layer", "int_running_count", layer));
+        assertEquals(1, stat("layer_stat", "pk_layer", "int_succeeded_count", layer));
+        assertEquals(0, stat("job_stat", "pk_job", "int_running_count", f.getJobId()));
+        assertTrue(layerStamp("ts_stopped", layer) != null);
+    }
+
     @Test
     @Transactional
     @Rollback(true)
@@ -870,11 +912,23 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         jdbcTemplate.update("UPDATE frame SET int_version = int_version + 1 WHERE pk_frame=?",
                 frame2.getFrameId());
 
+        String layer = frame1.getLayerId();
+        long layerWaiting = stat("layer_stat", "pk_layer", "int_waiting_count", layer);
+        long layerRunning = stat("layer_stat", "pk_layer", "int_running_count", layer);
+        long jobRunning = stat("job_stat", "pk_job", "int_running_count", job.getJobId());
+
         boolean[] won = frameDao.batchUpdateFramesStarted(
                 Arrays.asList(new FrameBooking(frame1, proc1), new FrameBooking(frame2, proc2)));
 
         assertTrue(won[0]);
         assertFalse(won[1]);
+
+        // The batch applied the counts the trigger stood aside for: one winner moved.
+        assertEquals(layerWaiting - 1, stat("layer_stat", "pk_layer", "int_waiting_count", layer));
+        assertEquals(layerRunning + 1, stat("layer_stat", "pk_layer", "int_running_count", layer));
+        assertEquals(jobRunning + 1,
+                stat("job_stat", "pk_job", "int_running_count", job.getJobId()));
+        assertTrue(layerStamp("ts_started", layer) != null);
 
         // Winner: RUNNING, proc resources stamped, version fenced forward, one retry consumed.
         assertEquals(FrameState.RUNNING.toString(), readFrameState(frame1.getFrameId()));
@@ -917,11 +971,23 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         // frame1's completion carries the post-start version (a win); frame2's still carries the
         // stale pre-start snapshot, as if a kill or retry had already moved the frame on.
         DispatchFrame running1 = frameDao.getDispatchFrame(detail1.getId());
+        String layer = frame1.getLayerId();
+        long layerRunning = stat("layer_stat", "pk_layer", "int_running_count", layer);
+        long layerSucceeded = stat("layer_stat", "pk_layer", "int_succeeded_count", layer);
+        long jobSucceeded = stat("job_stat", "pk_job", "int_succeeded_count", job.getJobId());
         boolean[] won = frameDao.batchUpdateFramesStopped(
                 Arrays.asList(completion(running1, proc1, 4242), completion(frame2, proc2, 1)));
 
         assertTrue(won[0]);
         assertFalse(won[1]);
+
+        // The batch applied the counts: one winner left RUNNING for SUCCEEDED.
+        assertEquals(layerRunning - 1, stat("layer_stat", "pk_layer", "int_running_count", layer));
+        assertEquals(layerSucceeded + 1,
+                stat("layer_stat", "pk_layer", "int_succeeded_count", layer));
+        assertEquals(jobSucceeded + 1,
+                stat("job_stat", "pk_job", "int_succeeded_count", job.getJobId()));
+        assertTrue(layerStamp("ts_stopped", layer) != null);
 
         assertEquals(FrameState.SUCCEEDED.toString(), readFrameState(frame1.getFrameId()));
         assertEquals(running1.version + 1, readFrameVersion(frame1.getFrameId()));
