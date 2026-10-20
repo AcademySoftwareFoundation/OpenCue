@@ -80,6 +80,10 @@
         <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     </bean>
 
+    <bean id="maestroDao" class="com.imageworks.spcue.dao.postgres.MaestroDaoJdbc">
+        <property name="dataSource" ref="cueDataSource" />
+    </bean>
+
     <bean id="maintenanceDao" class="com.imageworks.spcue.dao.postgres.MaintenanceDaoJdbc">
         <property name="dataSource" ref="cueDataSource" />
     </bean>
