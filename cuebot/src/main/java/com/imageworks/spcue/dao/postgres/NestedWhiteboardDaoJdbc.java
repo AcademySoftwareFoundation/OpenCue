@@ -310,10 +310,14 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
         for (ChildrenEntry entry : orderedChildren) {
             NestedGroup group = mapper.groups.get(entry.getKey());
+            // Only the id and name of the parent are sent with each child: a copy of the whole
+            // parent would include its jobs.
+            NestedGroup parent =
+                    NestedGroup.newBuilder().setId(group.getId()).setName(group.getName()).build();
             NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
             for (String childId : entry.getChildren()) {
                 NestedGroup child = mapper.groups.get(childId);
-                child = child.toBuilder().setParent(group).build();
+                child = child.toBuilder().setParent(parent).build();
                 childrenBuilder.addNestedGroups(child);
                 mapper.groups.put(childId, child);
             }
