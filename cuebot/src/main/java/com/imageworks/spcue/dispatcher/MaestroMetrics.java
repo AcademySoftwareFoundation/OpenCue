@@ -69,11 +69,25 @@ public class MaestroMetrics {
             .help("Total whole cores in the farm in the most recent scheduler tick")
             .labelNames("env", "cuebot_host").register();
 
-    // Cores in use per show, SET each tick from a live sum of the procs (never
-    // accumulated), so it tracks the farm and cannot drift above it.
+    // Cores in use per show, SET each tick from a sum over the proc table (never
+    // accumulated), so it survives a leader change and cannot drift.
     private static final Gauge showCores = Gauge.build().name("cue_maestro_show_cores")
-            .help("Whole cores in use per show, summed live from the procs each tick")
+            .help("Whole cores in use per show, summed from the procs each tick")
             .labelNames("env", "cuebot_host", "show").register();
+
+    // The commit's split-and-retry (Maestro.commitContained): retry transactions spent
+    // splitting failed chunks, and bookings dropped because their piece could not be
+    // split further or the tick's split budget ran out. Both stay near zero on a healthy
+    // farm; a steady dropped rate names a commit-time gate Maestro does not model.
+    private static final Counter commitRetryTx =
+            Counter.build().name("cue_maestro_commit_retry_tx_total")
+                    .help("Retry transactions spent splitting failed commit chunks")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Counter commitDroppedBookings =
+            Counter.build().name("cue_maestro_commit_dropped_bookings_total")
+                    .help("Planned bookings dropped because their commit piece kept failing; "
+                            + "the frames stay WAITING for the next tick")
+                    .labelNames("env", "cuebot_host").register();
 
     // Frames booked per show; rate() = throughput.
     private static final Counter framesDispatched =
@@ -88,17 +102,38 @@ public class MaestroMetrics {
                     .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
                     .labelNames("env", "cuebot_host").register();
 
+    // The tick's wall-clock split by phase, so a regression names the phase that grew
+    // instead of a tail to grep logs for: drain (queued completions applied), snapshot
+    // (hosts, procs, pins read), place (the candidate read and in-memory scoring), read
+    // (plan reads and the folder/limit trims), commit (chunked bookings), usage (the
+    // live show-usage and farm-health reads). place is also split into candidates (its
+    // SQL, the tick's one candidate read), pins (the in-memory pin resolution over it) and
+    // score (the rest, in memory), so the three add up to place.
+    private static final Histogram tickPhaseDuration =
+            Histogram.build().name("cue_maestro_tick_phase_seconds")
+                    .help("Maestro tick wall-clock per phase in seconds: drain, snapshot, "
+                            + "place, read, commit, usage; candidates, pins and score split place "
+                            + "into its SQL, its pin resolution and the rest")
+                    .buckets(0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30)
+                    .labelNames("env", "cuebot_host", "phase").register();
+
     // The waitlist: waiting frames on the last tick's candidate layers, split by why
     // they cannot run. Every waiting frame the tick weighed lands in exactly one
     // bucket, so the panel's blocked shares are each bucket over the sum, and all
     // zero means everything flows. Loop-only by design (no extra query): a job the
     // candidate query filters out at its cap shows up only on the ticks churn
     // re-admits it.
-    // Frames on procs right now, from the live ledger (booked minus drained). The
-    // denominator that turns the waitlist's blocked counts into a share of ALL
+    // Frames on procs right now for the shows Maestro plans, read from the proc
+    // table each tick. The denominator that turns the waitlist's blocked counts into a share of ALL
     // frames the farm handles, so a small blocked slice reads small on the panel.
     private static final Gauge runningFrames = Gauge.build().name("cue_maestro_running_frames")
-            .help("Frames on procs right now, from the live booking/drain ledger")
+            .help("Frames on procs right now for the shows Maestro plans")
+            .labelNames("env", "cuebot_host").register();
+
+    // Cores the running frames really use (their pcpu from the host reports), against
+    // cue_maestro_show_cores, the cores they hold.
+    private static final Gauge farmBusyCores = Gauge.build().name("cue_maestro_farm_cores_busy")
+            .help("Whole cores the running frames really use, summed from the host reports")
             .labelNames("env", "cuebot_host").register();
 
     // Farm health from the live report ledger, sliced two ways: by='group' is the
@@ -146,6 +181,21 @@ public class MaestroMetrics {
                             + "(cores, memory or gpu blocks every candidate on that host)")
                     .labelNames("env", "cuebot_host").register();
 
+    // The completion queue, read at scrape time rather than once per tick: the
+    // queue grows exactly when the tick stalls, which is when a per-tick sample
+    // would stop updating. Both children are installed in the constructor.
+    private static final Gauge completionQueueDepth =
+            Gauge.build().name("cue_maestro_completion_queue_depth")
+                    .help("Frame completions this Cuebot has acknowledged and holds for the "
+                            + "tick's drain to apply")
+                    .labelNames("env", "cuebot_host").register();
+    private static final Gauge completionQueueOldestAge = Gauge.build()
+            .name("cue_maestro_completion_queue_oldest_age_seconds")
+            .help("Seconds the oldest queued frame completion has waited for the drain, "
+                    + "0 when the queue is empty; past maintenance.orphaned_proc_age_seconds "
+                    + "the orphan sweep resets finished frames")
+            .labelNames("env", "cuebot_host").register();
+
     private static final String[] WAIT_REASONS =
             {"flowing", "capacity", "no fit", "limit", "no license", "held", "share", "no host"};
     private static final Gauge waitingFrames = Gauge.build().name("cue_maestro_waiting_frames")
@@ -180,6 +230,20 @@ public class MaestroMetrics {
         String de = System.getenv(envKey);
         this.env = de != null ? de : "undefined";
         this.host = hostFromEnv();
+        if (enabled) {
+            completionQueueDepth.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.size();
+                }
+            }, env, host);
+            completionQueueOldestAge.setChild(new Gauge.Child() {
+                @Override
+                public double get() {
+                    return MaestroCompletionQueue.oldestAgeMs(System.currentTimeMillis()) / 1000.0;
+                }
+            }, env, host);
+        }
     }
 
     private static String hostFromEnv() {
@@ -210,12 +274,19 @@ public class MaestroMetrics {
             groupsByState.labels(env, host, "inactive").set((double) s.noWork);
             farmCores.labels(env, host).set(s.farmCores);
             runningFrames.labels(env, host).set(s.runningFrames);
+            farmBusyCores.labels(env, host).set(s.busyCorePoints / 100.0);
             farmStrandedCores.labels(env, host).set(s.strandedCores);
             incReason("booked", s.booked);
             incReason("no fit", s.noFit);
             incReason("no work", s.noWork);
             incReason("query error", s.queryError);
             tickDuration.labels(env, host).observe(s.tickDurationMs / 1000.0);
+            if (s.commitRetryTx > 0)
+                commitRetryTx.labels(env, host).inc(s.commitRetryTx);
+            if (s.commitDroppedBookings > 0)
+                commitDroppedBookings.labels(env, host).inc(s.commitDroppedBookings);
+            for (Map.Entry<String, Long> e : s.phaseMs.entrySet())
+                tickPhaseDuration.labels(env, host, e.getKey()).observe(e.getValue() / 1000.0);
             // Cores per show: SET from this tick's live read, then zero any show
             // that was present last tick but has no procs now, so a drained show
             // drops to 0 instead of pinning its last value.
@@ -289,8 +360,12 @@ public class MaestroMetrics {
         public int noWork;
         public int queryError;
         public long runningFrames;
+        public long busyCorePoints;
         public long strandedCores;
         public long tickDurationMs;
+        public long commitRetryTx;
+        public long commitDroppedBookings;
+        public final Map<String, Long> phaseMs = new HashMap<>();
         public final Map<String, Double> coresByShow = new HashMap<>();
         public final Map<String, Integer> framesByShow = new HashMap<>();
         public final Map<String, Long> bookedFramesByLocality = new HashMap<>();

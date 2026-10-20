@@ -1160,6 +1160,64 @@ public class DispatchQuery {
             + ") AS t1 WHERE LINENUM <= :frameLimit";
     // spotless:on
 
+    /**
+     * The next waiting frames of one layer in dispatch order, with no host in the predicate: the
+     * read Maestro makes once per planned layer per tick and slices among the hosts it placed the
+     * layer on. Fit, tags, thread mode, limits and caps were all decided per host in placement and
+     * are enforced again at commit, so the read only needs the frames. Plain ORDER BY ... LIMIT so
+     * Postgres stops at the limit instead of numbering every waiting frame of the layer the way the
+     * per-host window query does.
+     */
+    // spotless:off
+    public static final String FIND_DISPATCH_FRAMES_BY_LAYER =
+            "SELECT "
+                + "job.str_show AS show_name, "
+                + "job.str_name AS job_name, "
+                + "job.pk_job, "
+                + "job.pk_show, "
+                + "job.pk_facility, "
+                + "job.str_name, "
+                + "job.str_shot, "
+                + "job.str_user, "
+                + "job.int_uid, "
+                + "job.str_log_dir, "
+                + "COALESCE(job.str_os, '') AS str_os, "
+                + "COALESCE(job.str_loki_url, '') AS str_loki_url, "
+                + "frame.str_name AS frame_name, "
+                + "frame.str_state AS frame_state, "
+                + "frame.pk_frame, "
+                + "frame.pk_layer, "
+                + "frame.int_retries, "
+                + "frame.int_version, "
+                + "layer.str_name AS layer_name, "
+                + "layer.str_type AS layer_type, "
+                + "layer.b_threadable, "
+                + "layer.int_cores_min, "
+                + "layer.int_cores_max, "
+                + "layer.int_mem_min, "
+                + "layer.int_gpus_min, "
+                + "layer.int_gpus_max, "
+                + "layer.int_gpu_mem_min, "
+                + "layer.str_cmd, "
+                + "layer.str_range, "
+                + "layer.int_chunk_size, "
+                + "layer.str_services "
+            + "FROM "
+                + "frame "
+                + "JOIN layer ON layer.pk_layer = frame.pk_layer "
+                + "JOIN job ON job.pk_job = layer.pk_job "
+            + "WHERE "
+                + "frame.pk_layer = :layerId "
+            + "AND "
+                + "frame.str_state = 'WAITING' "
+            + "AND "
+                + "(layer.ts_start_after IS NULL OR layer.ts_start_after <= current_timestamp) "
+            + "ORDER BY "
+                + "frame.int_dispatch_order ASC, "
+                + "frame.int_layer_order ASC "
+            + "LIMIT :frameLimit";
+    // spotless:on
+
 
     // spotless:off
     public static final String FIND_LOCAL_DISPATCH_FRAME_BY_LAYER_AND_PROC =

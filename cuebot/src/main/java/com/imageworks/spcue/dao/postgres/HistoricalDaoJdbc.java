@@ -44,4 +44,27 @@ public class HistoricalDaoJdbc extends JdbcDaoSupport implements HistoricalDao {
          */
         getJdbcTemplate().update("DELETE FROM job WHERE pk_job=?", job.getJobId());
     }
+
+    public FrameHistoryDrain drainFrameHistory(int limit, boolean safe) {
+        return getJdbcTemplate().queryForObject(
+                "SELECT drained, skipped, merged FROM frame_history_drain(?, false, ?)",
+                (rs, rowNum) -> new FrameHistoryDrain(rs.getInt("drained"), rs.getInt("skipped"),
+                        rs.getInt("merged")),
+                limit, safe);
+    }
+
+    // spotless:off
+    private static final String GET_FRAME_HISTORY_BACKLOG =
+            "SELECT "
+                + "COALESCE((SELECT max(id) FROM frame_history_queue) - oldest.id + 1, 0) AS depth, "
+                + "COALESCE(epoch(current_timestamp) - oldest.int_ts, 0) AS age "
+            + "FROM (SELECT 1) one "
+            + "LEFT JOIN (SELECT id, int_ts FROM frame_history_queue ORDER BY id LIMIT 1) oldest "
+                + "ON true";
+    // spotless:on
+
+    public FrameHistoryBacklog getFrameHistoryBacklog() {
+        return getJdbcTemplate().queryForObject(GET_FRAME_HISTORY_BACKLOG,
+                (rs, rowNum) -> new FrameHistoryBacklog(rs.getLong("depth"), rs.getLong("age")));
+    }
 }

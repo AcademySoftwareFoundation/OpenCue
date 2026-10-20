@@ -24,6 +24,7 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
@@ -53,6 +54,7 @@ import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobSpec;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
+import com.imageworks.spcue.util.FrameRetryLimits;
 import com.imageworks.spcue.util.JobLogUtil;
 
 import static org.junit.Assert.assertEquals;
@@ -70,6 +72,9 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     JobManager jobManager;
+
+    @Autowired
+    Environment env;
 
     @Resource
     JobLauncher jobLauncher;
@@ -461,6 +466,22 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateJobAutoEatSetsMaxRetries() {
+        JobDetail job = insertJob();
+
+        jobDao.updateAutoEat(job, true);
+        assertEquals(Integer.valueOf(0), jdbcTemplate.queryForObject(
+                "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class, job.getJobId()));
+
+        jobDao.updateAutoEat(job, false);
+        assertEquals(Integer.valueOf(FrameRetryLimits.from(env).getDefault()),
+                jdbcTemplate.queryForObject("SELECT int_max_retries FROM job WHERE pk_job=?",
+                        Integer.class, job.getJobId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateJobMaxRetries() {
         JobDetail job = insertJob();
         jobDao.updateMaxFrameRetries(job, 10);
@@ -482,6 +503,30 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
     public void testUpdateJobMaxRetriesTooHigh() {
         JobDetail job = insertJob();
         jobDao.updateMaxFrameRetries(job, 100000);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateJobMaxRetriesAtBounds() {
+        JobDetail job = insertJob();
+        FrameRetryLimits limits = FrameRetryLimits.from(env);
+
+        jobDao.updateMaxFrameRetries(job, limits.getMax());
+        assertEquals(Integer.valueOf(limits.getMax()), jdbcTemplate.queryForObject(
+                "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class, job.getJobId()));
+
+        jobDao.updateMaxFrameRetries(job, limits.getMin());
+        assertEquals(Integer.valueOf(limits.getMin()), jdbcTemplate.queryForObject(
+                "SELECT int_max_retries FROM job WHERE pk_job=?", Integer.class, job.getJobId()));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    @Transactional
+    @Rollback(true)
+    public void testUpdateJobMaxRetriesJustAboveMax() {
+        JobDetail job = insertJob();
+        jobDao.updateMaxFrameRetries(job, FrameRetryLimits.from(env).getMax() + 1);
     }
 
     @Test

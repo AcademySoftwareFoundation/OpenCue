@@ -211,9 +211,8 @@ public class DispatchSupportService implements DispatchSupport {
 
     @Override
     @Transactional(readOnly = true)
-    public List<DispatchFrame> findNextDispatchFrames(LayerInterface layer, DispatchHost host,
-            int limit, int offset) {
-        return dispatcherDao.findNextDispatchFrames(layer, host, limit, offset);
+    public List<DispatchFrame> findNextDispatchFrames(String layerId, int limit) {
+        return dispatcherDao.findNextDispatchFrames(layerId, limit);
     }
 
     @Override
@@ -325,13 +324,21 @@ public class DispatchSupportService implements DispatchSupport {
      * guarded), delete the winners' procs with their live reserved values, refund host and
      * accounting resources.
      *
-     * Lock order is PROC rows, then HOSTS, then stat rows, and it is load-bearing. Procs before
-     * hosts because every single-proc writer (the OOM memory bump, whose proc-update trigger then
-     * locks the host row) acquires "proc, then host"; a hosts-first flush deadlocks against it,
-     * seen live as the bump holding its proc row and waiting on a host this flush had pre-locked
-     * while the flush's batched DELETE waited on that proc row. Hosts before stats is the same
-     * global order as the booking commit (reserveHostResourcesBatch, then the frame-start stat
-     * pre-locks); the opposite interleaving deadlocks against a concurrent booking tick.
+     * Lock order, and it is load-bearing:
+     *
+     * <pre>
+     *   proc  ->  host  ->  frame (RUNNING at the captured version)  ->  layer_stat  ->  job_stat
+     *   \_____________/     \____________________________________________________________/
+     *    every single-proc        the single-frame trigger path: a stop, eat, retry or
+     *    writer (OOM bump:        orphan reset takes its frame row and then the stat rows
+     *    proc, then host)         through trigger__update_frame_status_counts
+     * </pre>
+     *
+     * Each arrow is the order some other writer already uses, so no cycle can form: the booking
+     * commit goes host, frame, stats too (reserveHostResourcesBatch, then the frame-start
+     * pre-locks). Taking any pair the other way round has deadlocked in practice: hosts before
+     * procs against the OOM bump, stats before frames against every single-frame stop (see
+     * FrameDaoJdbc.lockMatchingFrames).
      */
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
@@ -411,27 +418,6 @@ public class DispatchSupportService implements DispatchSupport {
         return won;
     }
 
-
-    @Override
-    @Transactional(propagation = Propagation.REQUIRED)
-    public int sweepOrphanedProcs(int olderThanSeconds) {
-        List<VirtualProc> orphans = procDao.deleteOrphanedProcs(olderThanSeconds);
-        if (!orphans.isEmpty()) {
-            // The delete refunded the host and credited the accounting tables.
-            // A swept corpse's render may still be alive; kill it before the
-            // frame is rebooked (the sweep runs before this tick plans).
-            StringBuilder sb = new StringBuilder();
-            for (VirtualProc p : orphans) {
-                sb.append(' ').append(p.frameId);
-                if (p.frameId != null && p.hostName != null) {
-                    killOrphanRender(p, "orphaned proc swept while its frame was not RUNNING");
-                }
-            }
-            logger.warn("janitor swept " + orphans.size() + " orphaned proc(s) whose frames are"
-                    + " no longer RUNNING (crash or failed completion left them); frames:" + sb);
-        }
-        return orphans.size();
-    }
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)

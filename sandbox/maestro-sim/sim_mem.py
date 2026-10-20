@@ -51,6 +51,24 @@ RSS_JITTER = float(os.environ.get("SIM_RSS_JITTER", "0.10"))                 # p
 
 _MEM_MAX_KB = int(480 * GB_KB)   # cap a single frame's RSS at the largest host's RAM
 
+# Per-job rss pin, "token=GB[,token=GB...]": frames of jobs whose name holds the
+# token report exactly that rss, flat from frame start, in the host report and
+# the completion alike. Scenario knob (STRANDGROW) so a test controls
+# a layer's true appetite precisely.
+RSS_PINS = []
+for _part in os.environ.get("SIM_RSS_PIN", "").split(","):
+    if "=" in _part:
+        _tok, _gb = _part.split("=", 1)
+        RSS_PINS.append((_tok.strip(), int(float(_gb) * GB_KB)))
+
+
+def pinned_rss_kb(job_name):
+    """The pinned rss (kB) of a frame of this job, or 0 when unpinned."""
+    for tok, kb in RSS_PINS:
+        if tok in (job_name or ""):
+            return kb
+    return 0
+
 
 def _u(frame_id, salt):
     """Deterministic uniform [0,1) from a frame id + salt. Stable across processes

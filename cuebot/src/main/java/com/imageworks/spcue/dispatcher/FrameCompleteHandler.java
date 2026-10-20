@@ -257,7 +257,6 @@ public class FrameCompleteHandler {
             throw new RqdRetryReportException("Error processing the frame complete report, "
                     + "cuebot not accepting packets.");
         }
-
         // Who files this report:
         // - Mode off: the legacy path, on this thread. When the
         // completion-forward relay is configured, a managed show's report
@@ -1110,7 +1109,7 @@ public class FrameCompleteHandler {
         }
         if (report.getHost().getNimbyLocked()) {
             logger.info("unbooking " + proc + " was NIMBY locked.");
-            hostManager.setHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
+            hostManager.syncHostLock(proc, LockState.NIMBY_LOCKED, new Source("NIMBY"));
             return ProcHealth.UNBOOK;
         }
         if (report.getHost().getFreeMem() < CueUtil.MB512) {

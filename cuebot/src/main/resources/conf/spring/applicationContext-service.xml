@@ -326,6 +326,8 @@
 
   <bean id="historicalSupport" class="com.imageworks.spcue.service.HistoricalSupport">
     <property name="historicalManager" ref="historicalManager" />
+    <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
+    <property name="frameDrainBatchSize" value="${history.frame_drain_batch_size:5000}" />
   </bean>
 
   <bean id="serviceManager" class="com.imageworks.spcue.service.ServiceManagerService">
@@ -443,15 +445,15 @@
   <!-- Single-thread Maestro. Disabled by default (maestro.enabled).
        When enabled, HostReportHandler suppresses the legacy per-host
        BookingQueue enqueue, and the Quartz trigger below drives a single
-       tick that groups hosts by static spec and runs one candidate-layer
-       query per group. Cross-Cuebot exclusion via pg_try_advisory_lock. -->
+       tick that groups hosts by static spec and plans every group from one
+       candidate read per tick (MaestroDao). Cross-Cuebot exclusion via
+       pg_try_advisory_lock. -->
   <bean id="maestro" class="com.imageworks.spcue.dispatcher.Maestro" depends-on="cueDataSource"
         destroy-method="onShutdown">
-    <property name="dataSource"  ref="cueDataSource" />
+    <property name="maestroDao"  ref="maestroDao" />
     <property name="dispatcher"  ref="dispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="hostManager" ref="hostManager" />
-    <property name="jobManager"  ref="jobManager" />
     <property name="rqdClient"   ref="rqdClient" />
     <property name="frameCompleteHandler" ref="frameCompleteHandler" />
     <property name="maestroMetrics" ref="maestroMetrics" />
@@ -712,6 +714,19 @@
     <property name="repeatInterval" value="${maintenance.orphaned_frame_check_interval_ms:60000}" />
   </bean>
 
+  <bean id="frameHistoryDrain" class="org.springframework.scheduling.quartz.MethodInvokingJobDetailFactoryBean">
+    <property name="targetObject" ref="historicalSupport" />
+    <property name="targetMethod" value="drainFrameHistory" />
+    <property name="concurrent" value="false" />
+  </bean>
+
+  <bean id="frameHistoryDrainTrigger" class="org.springframework.scheduling.quartz.SimpleTriggerFactoryBean">
+    <property name="jobDetail" ref="frameHistoryDrain" />
+    <property name="startDelay" value="30000" />
+    <!-- frame_history lags by up to this interval (history.frame_drain_interval_ms) -->
+    <property name="repeatInterval" value="${history.frame_drain_interval_ms:300000}" />
+  </bean>
+
   <bean class="org.springframework.scheduling.quartz.SchedulerFactoryBean" destroy-method="destroy">
    <property name="waitForJobsToCompleteOnShutdown"><value>false</value></property>
     <property name="triggers">
@@ -733,6 +748,7 @@
         <ref bean="orphanedFrameCheckTrigger" />
         <ref bean="maestroTrigger" />
         <ref bean="limitUsageRecalculationTrigger" />
+        <ref bean="frameHistoryDrainTrigger" />
       </list>
     </property>
   </bean>

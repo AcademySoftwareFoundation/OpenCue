@@ -493,20 +493,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
         return deleted;
     }
 
-    @Override
-    public List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds) {
-        List<VirtualProc> deleted = getJdbcTemplate().query(
-                "DELETE FROM proc p USING frame f, host h WHERE f.pk_frame = p.pk_frame "
-                        + "AND h.pk_host = p.pk_host " + "AND f.str_state <> 'RUNNING' "
-                        + "AND p.ts_booked < now() - CAST(? AS INTERVAL) "
-                        + "RETURNING p.pk_proc, p.pk_host, p.pk_frame, p.pk_show, p.pk_layer, "
-                        + "p.pk_job, p.b_local, h.pk_alloc, h.str_name, p.int_cores_reserved, "
-                        + "p.int_mem_reserved, p.int_gpus_reserved, p.int_gpu_mem_reserved",
-                DELETED_PROC_MAPPER, olderThanSeconds + " seconds");
-        refundAndCreditDeleted(deleted);
-        return deleted;
-    }
-
     /**
      * Row mapper for the evict/sweep DELETE .. RETURNING: everything the shared refund+credit block
      * and the caller's orphan-render kill need.
@@ -915,9 +901,6 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 String.class, p.getProcId());
     }
 
-    private static final String ORPHANED_PROC_INTERVAL =
-            "interval '" + ORPHAN_AGE_SECONDS + "' second";
-
     // spotless:off
     private static final String GET_ORPHANED_PROC_LIST =
             "SELECT "
@@ -943,21 +926,21 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
                 + "AND "
                 + "job.pk_job = proc.pk_job "
                 + "AND "
-                + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL
+                + "current_timestamp - proc.ts_ping > (? * interval '1 second') "
             // Oldest ping first, so a limited batch is deterministic across passes: the
             // longest-stale procs are always retried (and eventually hit the deferral bound)
             // instead of a nondeterministic subset cycling through the batch window.
-            + " ORDER BY proc.ts_ping";
+            + "ORDER BY proc.ts_ping";
     // spotless:on
 
     public List<VirtualProc> findOrphanedVirtualProcs() {
-        return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER);
+        return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST, VIRTUAL_PROC_MAPPER,
+                ProcDao.orphanAgeSeconds(env));
     }
 
     public List<VirtualProc> findOrphanedVirtualProcs(int limit) {
         return getJdbcTemplate().query(GET_ORPHANED_PROC_LIST + " LIMIT " + limit,
-                VIRTUAL_PROC_MAPPER);
+                VIRTUAL_PROC_MAPPER, ProcDao.orphanAgeSeconds(env));
     }
 
     // spotless:off
@@ -1017,13 +1000,13 @@ public class ProcDaoJdbc extends JdbcDaoSupport implements ProcDao {
             + "WHERE "
                 + "proc.pk_proc = ? "
                 + "AND "
-                + "current_timestamp - proc.ts_ping > "
-            + ORPHANED_PROC_INTERVAL;
+                + "current_timestamp - proc.ts_ping > (? * interval '1 second')";
     // spotless:on
 
     @Override
     public boolean isOrphan(ProcInterface proc) {
-        return getJdbcTemplate().queryForObject(IS_ORPHAN, Integer.class, proc.getProcId()) == 1;
+        return getJdbcTemplate().queryForObject(IS_ORPHAN, Integer.class, proc.getProcId(),
+                ProcDao.orphanAgeSeconds(env)) == 1;
     }
 
     public boolean increaseReservedMemory(ProcInterface p, long value) {

@@ -29,13 +29,29 @@ import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 
+import org.springframework.core.env.Environment;
+
 /**
  * @category DAO
  */
 public interface ProcDao {
 
-    // consumed by ProcDaoJdbc.ORPHANED_PROC_INTERVAL and Maestro.LAUNCH_MAX_AGE_MS
-    long ORPHAN_AGE_SECONDS = 300;
+    /**
+     * Property: seconds a proc may go without a host-report ping before the maintenance pass treats
+     * it as orphaned. A proc stops pinging the moment its frame leaves the host's running list,
+     * which includes a finished frame whose completion Cuebot has received but not yet applied, so
+     * this must stay above the worst completion-apply latency (a slow Maestro tick, RQD's send
+     * backoff) or the sweep resets finished frames. Also bounds how long Maestro lets a launch wait
+     * in its queue. A truly orphaned proc holds its slot for this long, so keep it tight.
+     */
+    String ORPHAN_AGE_PROPERTY = "maintenance.orphaned_proc_age_seconds";
+
+    long DEFAULT_ORPHAN_AGE_SECONDS = 600;
+
+    /** The configured orphan age in seconds: ORPHAN_AGE_PROPERTY, else the default. */
+    static long orphanAgeSeconds(Environment env) {
+        return env.getProperty(ORPHAN_AGE_PROPERTY, Long.class, DEFAULT_ORPHAN_AGE_SECONDS);
+    }
 
     /**
      * Returns the amount of reserved memory a proc has
@@ -143,17 +159,6 @@ public interface ProcDao {
      * @return the deleted stale procs (empty in the normal case)
      */
     java.util.List<VirtualProc> deleteStaleProcsByFrames(java.util.List<String> frameIds);
-
-    /**
-     * Delete every proc whose frame is no longer RUNNING and that has been in that state for at
-     * least the given age, returning them for host-resource refund. The janitor sweep: an orphaned
-     * proc whose frame never gets planned again (job finished or killed) would otherwise hold its
-     * host's cores forever, invisible to the commit-time eviction.
-     *
-     * @param olderThanSeconds minimum age, so an in-flight booking is never swept
-     * @return the deleted orphans (empty in the normal case)
-     */
-    java.util.List<VirtualProc> deleteOrphanedProcs(int olderThanSeconds);
 
     /**
      * Batch variant of {@link #clearVirtualProcAssignment(FrameInterface)}: clears the proc
@@ -301,10 +306,10 @@ public interface ProcDao {
     List<VirtualProc> findOrphanedVirtualProcs();
 
     /**
-     * The procs whose last ping is older than ORPHAN_AGE_SECONDS, oldest first, at most limit of
-     * them. A proc that has not pinged for that long has no host report behind it, and the
-     * maintenance pass reclaims it (lostProc). The same age bounds how long Maestro lets a launch
-     * wait in its queue before it rolls the booking back unsent (LAUNCH_MAX_AGE_MS).
+     * The procs whose last ping is older than the orphan age (orphanAgeSeconds), oldest first, at
+     * most limit of them. A proc that has not pinged for that long has no host report behind it,
+     * and the maintenance pass reclaims it (lostProc). The same age bounds how long Maestro lets a
+     * launch wait in its queue before it rolls the booking back unsent (launchMaxAgeMs).
      *
      * @return
      */

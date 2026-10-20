@@ -340,7 +340,7 @@ public interface JobDao {
 
     /**
      * Updates the int_max_retries column with the value of max_retries. Checks to make sure
-     * max_retries is greater than 0 and less than or equal to MAX_FRAME_RETRIES
+     * max_retries is within job.frame_retries_min and job.frame_retries_max (see FrameRetryLimits)
      *
      * @param Job
      * @param max_retries

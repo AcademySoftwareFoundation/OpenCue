@@ -22,6 +22,8 @@ import java.nio.file.Paths;
 import javax.annotation.Resource;
 
 import org.junit.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.AbstractTransactionalJUnit4SpringContextTests;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
@@ -32,6 +34,7 @@ import com.imageworks.spcue.SpecBuilderException;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
+import com.imageworks.spcue.util.FrameRetryLimits;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -42,6 +45,9 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
 
     @Resource
     JobLauncher jobLauncher;
+
+    @Autowired
+    Environment env;
 
     private static String readJobSpec(String name) {
         String path = "src/test/resources/conf/jobspec/" + name;
@@ -118,6 +124,38 @@ public class JobSpecTests extends AbstractTransactionalJUnit4SpringContextTests 
         BuildableJob job = spec.getJobs().get(0);
         assertEquals(job.maxCoresOverride, Integer.valueOf(420));
         assertEquals(job.maxGpusOverride, Integer.valueOf(42));
+    }
+
+    private int parseMaxRetries(String maxRetriesElement) {
+        String xml = readJobSpec("jobspec_1_12.xml").replace("<maxretries>2</maxretries>",
+                maxRetriesElement);
+        return jobLauncher.parse(xml).getJobs().get(0).detail.maxRetries;
+    }
+
+    @Test
+    public void testMaxRetriesWithinRange() {
+        FrameRetryLimits limits = FrameRetryLimits.from(env);
+        int requested = limits.getMax() - 1;
+        assertEquals(requested, parseMaxRetries("<maxretries>" + requested + "</maxretries>"));
+    }
+
+    @Test
+    public void testMaxRetriesAboveMaxIsClamped() {
+        FrameRetryLimits limits = FrameRetryLimits.from(env);
+        assertEquals(limits.getMax(),
+                parseMaxRetries("<maxretries>" + (limits.getMax() + 5) + "</maxretries>"));
+    }
+
+    @Test
+    public void testMaxRetriesBelowMinIsClamped() {
+        FrameRetryLimits limits = FrameRetryLimits.from(env);
+        assertEquals(limits.getMin(),
+                parseMaxRetries("<maxretries>" + (limits.getMin() - 1) + "</maxretries>"));
+    }
+
+    @Test
+    public void testMaxRetriesDefaultWhenUnset() {
+        assertEquals(FrameRetryLimits.from(env).getDefault(), parseMaxRetries(""));
     }
 
 }

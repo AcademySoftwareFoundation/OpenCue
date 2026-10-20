@@ -191,7 +191,7 @@
     {
       "type": "timeseries",
       "title": "Utilisation",
-      "description": "Cores running as a share of the whole farm, from the live show_cores ledger (no SQL: plus on the batch commit, minus on the drain). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand. Waiting frames (right axis) is the waitlist the tick weighed: the waiting frames of the layers Maestro considered, all reasons, so demand and usage read together.",
+      "description": "Cores running as a share of the whole farm, from show_cores (summed from the proc table each tick). High and steady = healthy. Low with a big waitlist = read 'What's holding frames' for the cause; low with an empty waitlist = no demand. Waiting frames (right axis) is the waitlist the tick weighed: the waiting frames of the layers Maestro considered, all reasons, so demand and usage read together.",
       "datasource": "prometheus",
       "gridPos": {
         "h": 8,
@@ -217,7 +217,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "utilisation"
+              "options": "Core Utilisation"
             },
             "properties": [
               {
@@ -267,6 +267,25 @@
                 }
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "CPU Utilisation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "max",
+                "value": 100
+              }
+            ]
           }
         ]
       },
@@ -282,13 +301,18 @@
       "targets": [
         {
           "expr": "sum(cue_maestro_show_cores) / scalar(max(cue_maestro_farm_cores_total)) * 100",
-          "legendFormat": "utilisation",
+          "legendFormat": "Core Utilisation",
           "refId": "A"
         },
         {
           "expr": "sum(cue_maestro_waiting_frames)",
           "legendFormat": "waiting frames",
           "refId": "B"
+        },
+        {
+          "expr": "sum(cue_maestro_farm_cores_busy) / scalar(max(cue_maestro_farm_cores_total)) * 100",
+          "legendFormat": "CPU Utilisation",
+          "refId": "C"
         }
       ]
     },
@@ -575,6 +599,111 @@
       ]
     },
     {
+      "type": "timeseries",
+      "title": "Maestro tick phases (p95)",
+      "description": "p95 wall-clock of each phase of the leader's tick. drain: queued completions applied; snapshot: hosts and procs read; place: the candidate read, the pins and scoring; read: plan reads and trims; commit: chunked bookings; candidates, pins and score split place into its SQL (the tick's one candidate read), the in-memory pin resolution over it and the rest; usage: live usage and farm-health reads. A tail in the tick histogram shows here as the phase that grew.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "axisLabel": "seconds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_phase_seconds_bucket[5m])) by (le, phase))",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Completion queue",
+      "description": "Frame completions acknowledged and waiting for the tick's drain (depth, left axis) and how long the oldest has waited (right axis). Read at scrape time, so it keeps moving when the tick stalls. Age past maintenance.orphaned_proc_age_seconds means the orphan sweep is resetting finished frames.",
+      "datasource": "prometheus",
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 30
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "fillOpacity": 10,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "oldest age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "expr": "max(cue_maestro_completion_queue_depth)",
+          "legendFormat": "depth",
+          "refId": "A"
+        },
+        {
+          "expr": "max(cue_maestro_completion_queue_oldest_age_seconds)",
+          "legendFormat": "oldest age",
+          "refId": "B"
+        }
+      ]
+    },
+    {
       "type": "text",
       "title": "",
       "transparent": true,
@@ -582,7 +711,7 @@
         "h": 2,
         "w": 24,
         "x": 0,
-        "y": 30
+        "y": 38
       },
       "options": {
         "mode": "html",
@@ -598,7 +727,7 @@
         "h": 8,
         "w": 8,
         "x": 0,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -694,7 +823,7 @@
         "h": 8,
         "w": 8,
         "x": 8,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -755,7 +884,7 @@
         "h": 8,
         "w": 8,
         "x": 16,
-        "y": 32
+        "y": 40
       },
       "fieldConfig": {
         "defaults": {
@@ -815,7 +944,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 40
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -879,7 +1008,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 40
+        "y": 48
       },
       "fieldConfig": {
         "defaults": {
@@ -947,7 +1076,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 48
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {
@@ -1011,7 +1140,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 48
+        "y": 56
       },
       "fieldConfig": {
         "defaults": {

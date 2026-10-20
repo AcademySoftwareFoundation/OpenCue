@@ -15,7 +15,7 @@ OpenCue Maestro is a whole-farm scheduler, gated behind `maestro.enabled`
 (default **off**). It is an alternative to the legacy per-host dispatcher.
 When enabled it owns dispatch and the legacy `BookingQueue` path is
 suppressed. Placement decisions are made single-threaded over an in-memory
-snapshot; only the per-host plan reads run in parallel (see section 4).
+snapshot; only the plan reads run in parallel (see section 4).
 
 The keystone of the design is that Maestro is **stateless between ticks**:
 each tick re-derives its entire picture from a fresh database snapshot and keeps
@@ -55,22 +55,29 @@ Maestro runs a periodic tick (`runTick` → `doTick`). Every Cuebot, leader
 or not, first drains any queued frame-completions (`drainResolvedCompletions`)
 and expires displaced cache-warmth, self-healing that must run regardless of who
 holds the lock. A **leadership gate** follows: only the Cuebot holding the
-planning lock runs the placement pipeline below (the leader also sweeps orphaned
-procs first). That pipeline:
+planning lock runs the placement pipeline below. Orphaned procs are the
+maintenance thread's job (`clearOrphanedProcs`), not the tick's. That pipeline:
 
 1. **Snapshot**: read all hosts in one query (`readAllHosts`,
-   `SELECT_ALL_HOSTS`): every host that is UP and OPEN, busy or idle. The
+   `MaestroDao.getSchedulableHosts`): every host that is UP and OPEN, busy or idle. The
    minimum-idle-core cut is applied later, per group, in `planGroup`.
 2. **Group**: bucket hosts by spec key `(alloc, facility, normalized_tags,
-   os, has_gpu, thread_mode==ALL)` (`groupByHostSpec`). On a homogeneous farm this is a handful of
-   groups, which is what collapses the per-host query storm into a few
-   queries per tick. A host's own name is not part of its spec: a tag that
-   names a host is a pin (§3.10), read once per tick beside the groups.
-3. **For each group:**
-   1. **Candidate query**: one query per group
-      (`readLayerCandidatesForGroup`, `SELECT_CANDIDATES_FOR_GROUP`) for the
-      dispatchable layers that match the group, ranked by a **priority-weighted
-      lottery** (§3.5), not a strict priority sort.
+   os, has_gpu, thread_mode==ALL)` (`groupByHostSpec`). A host's own name is
+   not part of its spec: a tag that names a host is a pin (§3.10), resolved
+   in memory from the candidate read below.
+3. **Candidate read**: one query per tick (`loadTickCandidates`,
+   `MaestroDao.getCandidateRows`) for every dispatchable layer of the shows Maestro
+   plans, with the job's facility and os and the layer's tag regex, plus every
+   subscription. Nothing in it depends on a group.
+4. **For each group:**
+   1. **Candidate cut**: the group's candidates, cut from the tick's read in
+      memory (`readLayerCandidatesForGroup`, `groupCandidates`): the job's
+      facility and os, the group's thread mode, the layer fitting the group's
+      largest host, the show subscribed to the group's allocation and under its
+      burst there, and the layer's tag regex matching the group's tags (compiled
+      once per distinct tag string, remembered per group for the tick); then at
+      most `maestro.layer_candidates_per_group_max` of them by the
+      **priority-weighted lottery** (§3.5), not a strict priority sort.
    2. **Dispatch** (`dispatchGroupWithScoring`): placement slots by lottery.
       Every slot goes first to the show with the lowest subscription tier on
       the allocation (§3.5.1), then to one of its candidates drawn with
@@ -88,11 +95,13 @@ procs first). That pipeline:
    under the per-class and max-grantees caps (section 3.2).
 5. **Commit**: read each recorded placement's frames in parallel by host
    (`planHost`, read-only), then write them in host-aligned chunks of about
-   `COMMIT_CHUNK_FRAMES` frames (`commitInChunks`). Each chunk is its own
+   `maestro.commit_chunk_frames` frames (`commitInChunks`). Each chunk is its own
    transaction (`startFramesAndProcsBatch`), published and handed to the
-   launch pool as soon as it lands. A chunk that fails rolls back alone: its
-   frames stay WAITING for the next tick, and the chunks before and after it
-   still commit. One failed chunk never aborts the tick.
+   launch pool as soon as it lands. A chunk that fails is split on a host
+   boundary and each half retried in its own transaction, recursively
+   (`commitContained`), so only the bookings that actually fail stay WAITING
+   for the next tick; everything else in the chunk lands in the same tick. One
+   failed booking never aborts the tick.
 6. **Sweep**: drop reservations whose layer no longer appears in any
    candidate set.
 
@@ -104,7 +113,7 @@ the launch pool.
 ### The keystone: stateless between ticks
 
 Maestro holds **no durable booking state**. Each tick rebuilds its world from
-the fresh host snapshot (step 1) and the per-group candidate queries (step 3); the
+the fresh host snapshot (step 1) and the candidate read (step 3); the
 only thing carried across ticks is the soft reservation map, and even that is just
 a hint Maestro rebuilds from the database within a tick or two. **The database
 is the single source of truth.** Three properties fall out of that one decision —
@@ -284,14 +293,24 @@ the big job" practice.
 ### 3.3 Plan reads and batched commit
 
 Maestro never writes bookings during placement; it just records the
-`(host, layer)` pairings it chose. After all groups, `doTick` reads each
-pairing's frames in parallel by host (`planHost`, read-only, on a small read
-pool), then writes the bookings in host-aligned chunks (`commitInChunks`), each
+`(host, layer)` pairings it chose and how many frames each accounted for. After
+all groups, `planBookings` reads each planned layer **once**: its next waiting
+frames in dispatch order, as many as every placement of it this tick added up
+to (`FIND_DISPATCH_FRAMES_BY_LAYER`, a plain `ORDER BY ... LIMIT` with no host
+predicate, served by the partial index `i_frame_layer_dispatch_waiting`). Each
+`(host, layer)` slice then takes its disjoint sub-list of that read by offset,
+and one task per host builds the procs in memory (`planHost`, no DB access,
+on a small read pool). Fit, tags, thread mode, limits and caps were decided per
+host in placement and are enforced again at commit, so the read needs only the
+frames; a layer placed on three hundred hosts costs one query, not three
+hundred scans of its waiting list. `doTick` then writes the bookings in
+host-aligned chunks (`commitInChunks`), each
 chunk one batched transaction (`startFramesAndProcsBatch`: batched frame UPDATE
 + proc INSERT + host UPDATE) that is launched as soon as it lands. Frames lost
 to a `frame.int_version` race are dropped from the chunk and retried next tick;
-a chunk whose transaction fails rolls back alone and its frames wait the same
-way. The RQD launches run on a launch pool, so a slow RQD never stalls the
+a chunk whose transaction fails is bisected on host boundaries and retried, and
+only the host pieces that keep failing wait the same way. The RQD launches run
+on a launch pool, so a slow RQD never stalls the
 tick. Each frame reserves exactly the layer's requested cores: `planHost` builds
 procs with the dispatcher's thread-mode idle-core expansion (grab-idle) turned
 off, so the cores committed match the cores Maestro scored and decremented.
@@ -328,13 +347,14 @@ between Cuebots, and its only cost is one mostly idle connection per Cuebot.
 
 ### 3.5 Priority: a weighted lottery (rate, not rank)
 
-The candidate query does **not** order strictly by priority. It draws a
+The candidate cut does **not** order strictly by priority. It draws a
 **priority-weighted lottery** — Efraimidis-Spirakis weighted reservoir sampling:
-each eligible layer gets a random key `power(random(), 1.0 / GREATEST(priority, 1))`
-and the top `layer_candidates_per_group_max` by that key are taken
-(`ORDER BY power(random(), 1.0/…) DESC LIMIT …` in `SELECT_CANDIDATES_FOR_GROUP`).
-A layer's expected selection rate is proportional to its priority, so **priority
-is a rate, not a rank.** This is the single most operator-visible change from the
+each eligible layer gets a random key `random() ^ (1 / max(priority, 1) ^ e)`,
+where `e` is `maestro.priority_exponent` (default 1.5), and the top
+`layer_candidates_per_group_max` by that key are taken (`drawByPriority`, in
+memory over the tick's candidate read). Placement slots are drawn with the same
+weight, `priority ^ e` (`lotteryWeight`). A layer's expected selection rate is
+proportional to that weight, so **priority is a rate, not a rank.** This is the single most operator-visible change from the
 legacy dispatcher, which sorted strictly by `priority DESC` and so gave every free
 core to the highest-priority work until it drained — starving everything below it
 while a high-priority backlog stayed full.
@@ -343,13 +363,13 @@ while a high-priority backlog stayed full.
 and only among work that shares a tier (§3.5.1): between shows on one allocation,
 subscription size decides; priority splits a show's slice among its layers (and
 among shows tied on tier). A job at priority 120 vs one at 100 in the same show
-wins roughly `120/(120+100) ≈ 55%` of the contested selections, not 100%. With
+wins roughly `120^1.5/(120^1.5+100^1.5) ≈ 57%` of the contested selections, not 100%. With
 equal (or zero) sizes, shows on an allocation converge to equal cores whatever
 their jobs' priorities; set sizes to give shows unequal shares. Two consequences:
 
 - **Re-spread clustered values.** If your priority numbers were calibrated for
   rank semantics they often cluster in a narrow band (e.g. 90–110). Under the
-  lottery that band barely differentiates — 110 vs 90 is only a `≈1.22×` rate
+  lottery that band barely differentiates — 110 vs 90 is only a `≈1.35×` rate
   edge. To get meaningful separation, spread the values (e.g. 50 / 100 / 400).
 - **It is a rate, not a guarantee.** The *realized* share of completed frames also
   depends on backlog composition: a stream with far more waiting layers is
@@ -358,8 +378,8 @@ their jobs' priorities; set sizes to give shows unequal shares. Two consequences
   firm guarantee the lottery provides is **anti-starvation** within a tier — any
   eligible layer keeps a nonzero, priority-weighted chance whenever its show
   holds the lowest tier, and never waits behind a saturating higher-priority
-  backlog of its own show forever. `GREATEST(priority, 1)` floors the
-  weight so priority 0 or negative still draws the minimum nonzero share.
+  backlog of its own show forever. Priorities below 1 count as 1, so priority
+  0 or negative still draws the minimum nonzero share.
 
 **Reservation granting uses the same lottery.** The scarce reservation budget is
 handed out in priority-weighted lottery order too (`sortByPriorityLottery`;
@@ -518,6 +538,16 @@ static capped job stays off the panel), and when the same layer is weighed in
 several groups the last group's verdict wins. A `limit` share while cores sit
 idle is the fingerprint of a drifted `job_resource.int_cores` counter.
 
+`cue_maestro_farm_cores_busy` is the cores the running frames really use,
+summed from each frame's `pcpu` in the host reports. The `CPU Utilisation`
+line of the utilisation panel plots it as a share of the farm's cores
+(`cue_maestro_farm_cores_total`), beside `Core Utilisation` (cores held, same
+denominator): the gap between the two lines is cores booked but left idle by
+their frames. `Core Utilisation` can briefly read above 100% on a full farm:
+`show_cores` counts every held proc, while the farm total counts only UP, OPEN
+hosts, so procs still draining off a locked or down host overshoot until they
+finish.
+
 The `no fit` bucket counts frames; its physical counterpart counts cores:
 `cue_farm_health_stranded_cores` is the whole cores idle after planning that
 no still-waiting candidate can buy (on every such host each candidate is
@@ -527,54 +557,62 @@ a group with nothing waiting strands nothing: idle without demand is just
 idle. Sustained growth means the farm's idle is the wrong shape for the
 waiting work.
 
-House rule for every Maestro metric: stats gather NO SQL, only live data the
-tick already holds. The waitlist reuses the loop's own verdicts, and the
-`show_cores` gauge is a live ledger (plus on the batch commit, minus on the
-drain; a show that drains to zero drops out), not a query over procs.
+House rule for Maestro metrics: stats reuse data the tick already holds
+wherever they can. The waitlist reuses the loop's own verdicts. The one
+exception is `show_cores` and `running_frames`, read each tick from one
+`GROUP BY` over the proc table (Maestro's shows only). An in-memory tally of
+bookings minus drained completions started empty on every leader change and
+never subtracted procs released outside the drain (kills, retries, lost hosts,
+failed launches), so it climbed over time.
 
-### 3.9 Rss-driven layer sizing (cores=1 means "let the system decide")
+### 3.9 Memory-driven layer sizing (cores=1 means "let the system decide")
 
 The production disease: a layer whose frames really hold 18G but book 1 core.
 A few frames exhaust a host's memory and the rest of its cores sit idle but
-unbookable. PSTs used to fix it by hand, watching each task's rss and editing
-the layer mid-job; this feature is that loop inside the scheduler. It has no
-configuration beyond one policy ratio: constants live in the code, and the
-metric either derives from the farm or is pinned by `maestro.mem_per_core`.
+unbookable. PSTs used to fix it with `cue-layer-man`, a script that read each
+layer's largest frame rss and set its cores from a memory table; this is that
+loop inside the scheduler, with the same input.
 
-Every RQD host report feeds `LayerLiveMem`, an in-memory ledger of each
-layer's recent per-frame rss peaks (last 32 frames, no SQL). The layer's size
-is the MEDIAN of those peaks over at least 4 sampled frames: declarations are
-never trusted for cores, and a single haywire process is one sample and
-cannot resize a layer (the leaker itself stays the OOM machinery's problem).
-Before placement, a threadable layer with evidence is resized to
-`round(rss / the group's own memory-per-core)` cores and `max(declared, rss)`
-memory, so the placement score, the fit check, every cap and the booking all
-see the layer's real shape. The metric defaults to self-derivation: each
-tick, each host group's own memory-per-core (total memory over total cores),
-so an 18G layer sizes to 5 cores on a 3.5G-per-core farm and follows the
-hardware when the farm changes. Setting `maestro.mem_per_core` (KB per
-core) pins a studio-wide ratio instead. Bounds:
-never below the ask, never past the layer's max cores, non-threadable layers
-never change (a single-threaded renderer cannot use the cores). The resize
-figure rides into `planHost`, so the commit books exactly the shape
-Maestro scored: no divergence.
+A layer's memory is the larger of its ask (`int_mem_min`) and the largest rss
+any of its frames has reported (`layer_mem.int_max_rss`). Every RQD host
+report raises both: the legacy ratchet lifts the ask to the largest rss seen,
+for managed shows too, so the figure is persistent, visible in CueGUI and
+survives a Cuebot restart. Before placement, a threadable layer is sized to
+`round(memory / memory-per-core)` cores, never below its ask, never past its
+max cores or the group's largest host (a grant no host holds fits nowhere).
+Non-threadable layers keep their cores. A layer tagged `manual` keeps its ask,
+as under `cue-layer-man`. The metric defaults to each host group's own
+memory-per-core (total memory over total cores), so an 18G layer sizes to 5
+cores on a 3.5G-per-core farm and follows the hardware; `maestro.mem_per_core`
+(KB per core) pins a studio-wide ratio instead. The size rides into
+`planHost`, so the commit books exactly the shape Maestro scored.
+
+So a layer that declares 18G books 5 cores from its first frame, the shape the
+legacy dispatcher's `getCoreSpan` gives it. A layer that declares 2G and uses
+18G books its first frames at the ask; the first host report raises its
+memory, and every later launch and every restart books at 5 cores. One frame
+is enough: the input is the maximum, as it was for `cue-layer-man` and for
+the legacy ratchet.
 
 The contract for artists and service defaults: setting cores to 1 on a
-threadable layer means "let the system decide". Such a layer, before any rss
-evidence exists, runs at most 8 probe frames (about one report cycle) while
-the farm looks at what it really uses; then every later launch books at its
-true size. An explicit ask of 2 or more cores was sized by a person and books
-at full speed from frame one, corrected only upward. A held layer that
-completes a probe's worth of frames without ever landing in a report runs
-too fast to sample and is released, never starved. Cuebot restarts empty the
-ledger; active layers repopulate it within one report cycle.
+threadable layer means "let the system decide". Such a layer, while no frame
+has reported yet and its memory ask still sizes to 1 core, runs at most
+`maestro.probe_frames` (default 8) probe frames (about one report cycle) while the farm looks at what they
+really use; the first report releases it at its real size. A memory ask above
+one core's share releases the probe too: the frames already hold that memory,
+so leaving the cores beside them idle would strand them. An explicit ask of 2
+or more cores was sized by a person and books at full speed from frame one,
+corrected only upward. A held layer that completes a probe's worth of frames
+without ever landing in a report runs too fast to sample and is released,
+never starved.
 
-Verified by the `STRANDGROW` scenario: an 18G 1-core flood must show a probe
-of ~8 ask-sized frames, later launches at the derived share (500 points on
-the sim farm), an untouched non-threadable control, and the cores back at
-work. The pre-feature disease (every frame at 1 core, ~10% core utilisation
-on a memory-full farm) was demonstrated fail-first against the unmodified
-scheduler.
+Verified by the `STRANDGROW` scenario: an 18G 1-core flood that declares only
+2G must show a probe of ~8 ask-sized frames, later launches at the derived
+share (500 points on the sim farm), an untouched non-threadable control, and
+the cores back at work. A second layer that honestly declares 18G must book
+at 500 points from its first frame, with no probe. The pre-feature disease
+(every frame at 1 core, ~10% core utilisation on a memory-full farm) was
+demonstrated fail-first against the unmodified scheduler.
 
 ### 3.10 Pins (machine lists and local renders)
 
@@ -594,17 +632,22 @@ host's group. A layer tagged with a spec and a name runs anywhere the spec
 allows plus on the named host: it is a group candidate as well, and the
 group's copy wins in that group.
 
-**The mechanism.** One extra read per tick (`SELECT_PINNED_CANDIDATES`,
-`readPinnedCandidates`) returns a row per (layer, named host) for the waiting
-layers whose tags are not all spec tags; the bind is the tick's set of spec
-tags, a few dozen strings. The host is resolved and checked in SQL exactly as
-the group query checks a group: UP and OPEN, the job's facility, its OS list,
-the thread-mode rule, and a host big enough for one frame. `attachPins` turns
-the rows into one candidate per (layer, host-spec group), each carrying its
-pinned hosts, filed under the groups those hosts belong to; a machine list
-that spans two specs becomes two candidates of one layer, and the tick-wide
-layer dedup and backlog already handle that. `planGroup` adds them to the
-group's candidates, skipping a layer the group query already returned. Inside
+**The mechanism.** Pins are resolved in memory from the tick's one candidate
+read (`resolvePins`), right after it and before the groups are planned. The
+spec tags are every token of every group's normalized tags, a few dozen
+strings; a candidate row whose tag tokens (spaces removed, lower-cased, split
+on `|`) are not all spec tags names hosts. Each token is looked up by name in
+the tick's host snapshot, which holds only UP and OPEN hosts, and the host is
+checked exactly as the group cut checks a group: the job's facility, its OS
+list, the thread-mode rule, a host big enough for one frame, and the show's
+subscription in the host's allocation under its burst. The result is one
+candidate per (layer, host-spec group), each carrying its pinned hosts, filed
+under the groups those hosts belong to; a machine list that spans two specs
+becomes two candidates of one layer, and the tick-wide layer dedup and
+backlog already handle that. Each group keeps at most
+`maestro.layer_candidates_per_group_max` pins, drawn by the same priority
+lottery as its other candidates. `planGroup` adds them to the group's
+candidates, skipping a layer the group cut already returned. Inside
 the group the pinned candidate's host scan covers its pinned hosts in the
 group's idle subset and nothing else (`placeOnce`). The soft cap's yield test
 asks a pinned candidate only about its own hosts (`pinsAllow`), and a pinned
@@ -614,8 +657,15 @@ reservation targets its pins.
 tag either, waits with the reason `no host` (§3.8). Pins are host names,
 matched without regard to case, as the legacy tag match (`~*`) is.
 
-**Bound.** One query over the waiting layers with a non-spec tag per tick,
-then O(pins) per pinned candidate; pins never fracture a group.
+**Bound.** O(candidate rows x tag tokens) hash lookups per tick over rows
+already in memory, independent of the host count, then O(pins) per pinned
+candidate; pins never fracture a group. The SQL this replaced joined every
+waiting layer with a non-spec tag against every schedulable host on a
+predicate no index serves (layers x hosts, then a lottery over every row):
+one submission wave of a few thousand layers carrying a tag no live host had
+made it the whole snapshot phase, ten seconds a tick. Parity with that SQL is
+held by an oracle test that keeps the old query text beside the new
+resolution (`MaestroCandidateParityTests`).
 
 **Verification.** The PIN scenario (§8) pins five layers to lists of one to
 four hosts, one list spanning two specs, one with a dead name beside a real
@@ -714,13 +764,43 @@ is reactive and per-host: every host report runs `findDispatchJobs(host)`, a
 heavy multi-table join, so the count of heavy candidate queries grows with the
 host count and the report rate, a per-host "query storm" that worsens as the
 farm grows. Maestro is proactive and farm-wide: one host-snapshot query per
-tick, hosts bucketed into a few static spec groups, then one candidate-layer
-query per group. On a homogeneous farm that is O(G) heavy queries per tick
-(G = distinct host specs, a small constant) instead of O(H) per report cycle
-(H = hosts), so heavy DB query load stops scaling with farm size. The only
-per-host work left is the read-only plan phase, which is light and runs in
-parallel; placement scoring is O(candidates x hosts), but that is in-memory
-arithmetic over the snapshot, not database work.
+tick, one candidate read per tick, and the hosts bucketed into static spec
+groups that each cut their candidates from that read in memory. That is O(1)
+heavy queries per tick instead of O(H) per report cycle (H = hosts), and
+instead of O(G) (G = distinct host specs) as an earlier Maestro did: on a
+production farm G reached ~80 and the per-group query, with its per-row tag
+regex over every pending layer, was 150 ms, so the candidate phase alone was
+~12 s per tick. The plan
+reads are one indexed `LIMIT` query per planned layer per tick, however many
+hosts the layer lands on; the per-host work left is in-memory proc building.
+Placement scoring is O(candidates x hosts), but that is in-memory arithmetic
+over the snapshot, not database work.
+
+**The completion queue is a gauge, read at scrape time.**
+`cue_maestro_completion_queue_depth` is the number of frame completions this
+Cuebot has acknowledged and holds for the tick's drain, and
+`cue_maestro_completion_queue_oldest_age_seconds` is how long the head of that
+queue has waited, which is the floor on every completion behind it. Both read
+the queue when Prometheus scrapes rather than once per tick, because the queue
+grows exactly when the tick stalls. The age is the number to alert on: past
+`maintenance.orphaned_proc_age_seconds` the orphan sweep treats a queued
+completion's proc as dead and resets its finished frame to WAITING.
+
+**Every tick is split by phase in Prometheus.** Beside the tick histogram
+`cue_maestro_tick_duration_seconds`, `cue_maestro_tick_phase_seconds{phase}`
+times each phase of the leader's tick: `drain` (queued completions applied),
+`snapshot` (hosts and procs read), `place` (the candidate read, the pins and
+scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
+bookings) and `usage` (the live show-usage and farm-health reads). `place` is
+also split into `candidates` (its SQL, the tick's one candidate read), `pins`
+(the in-memory pin resolution over that read) and `score` (the rest: the group
+cuts, in-memory placement, the per-candidate epilogue, the waitlist tally and
+the reservation grants), which add up to `place`. A growing
+tail names the phase that grew; the sandbox Maestro dashboard plots the p95 of
+each. The same split is logged at INFO (`Maestro tick breakdown`) for any tick
+over one second, and again at WARN (`Maestro slow tick`) for any tick over
+ten seconds, so a deployment logging at WARN still sees the breakdown of the
+ticks that matter.
 
 **Roughly 10x less DB traffic overall.** Together these move the design from "a
 transaction per booking decision plus a heavy join per host report" to
@@ -740,7 +820,7 @@ already takes most of the load off it.
 | `maestro.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (Maestro owns all shows, legacy BookingQueue globally suppressed), or `managed` (Maestro owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
 | `maestro.read_pool_size` | = launch pool size | Threads for the parallel per-host plan reads (read-only, DB-bound). |
 | `maestro.launch_pool_size` | `8` | Threads for the RQD launches of each committed chunk. The queue in front of them is unbounded. |
-| `maestro.layer_candidates_per_group_max` | `2000` | Cap on candidate layers fetched per group per tick. |
+| `maestro.layer_candidates_per_group_max` | `2000` | Cap on candidate layers a group draws from the tick's candidate read. |
 | `maestro.reservations_enabled` | `true` | Enable reservations and backfill. When off, pure placement scoring. |
 | `maestro.reservation_block_seconds` | `300` | Net blocked time a layer must accrue before it may reserve. |
 | `maestro.reservation_max_fraction` | `0.5` | Max fraction of a layer's fitting hosts that reservations may hold. |
@@ -751,15 +831,26 @@ already takes most of the load off it.
 | `maestro.locality_window_frames` | `64` | Cache-warmth window (§3.7): a vacated host keeps a decayed pull on its layer until this many foreign frames have displaced its cache. 0 disables. |
 | `maestro.stat_interval_seconds` | `300` | Cadence of the consolidated INFO `Maestro stat:` line (Maestro health, farm fill, throughput, reservations). Lower it for live debugging. |
 | `maestro.host_limit_seat_bonus` | `16.0` | Score bonus per HOST-type limit the host already holds a seat in; packs limited work onto the fewest machines. |
-| `maestro.layer_host_max_frac` | `0.25` | SOFT per-host layer cap: one layer may hold at most this fraction of a host's cores (as frames, floor 8), so a flood spills across hosts instead of blanketing one. The cap yields when it is the only blocker: a fitting idle host that only the cap refuses is given to the layer (rss-proven layers only), so a lone farm-sized layer fills the farm instead of stranding it. On a busy farm no such host exists and the cap holds. 0 disables. |
+| `maestro.layer_host_max_frac` | `0.25` | SOFT per-host layer cap: one layer may hold at most this fraction of a host's cores (as frames, never below `maestro.layer_host_cap_min_frames`), so a flood spills across hosts instead of blanketing one. The cap yields when it is the only blocker: a fitting idle host that only the cap refuses is given to the layer (rss-proven layers only), so a lone farm-sized layer fills the farm instead of stranding it. On a busy farm no such host exists and the cap holds. 0 disables. |
 | `maestro.mem_per_core` | `0` | Memory-per-core ratio (KB) for rss-driven layer sizing (§3.9). 0 (the default) derives it from each group's own hosts; set e.g. 4194304 to pin 4G/core studio-wide. |
 | `maestro.plan_zero_warn_ticks` | `40` | Consecutive ticks a layer may plan but commit zero frames before a WARN names it (a commit-time gate Maestro does not model is rejecting it). |
+| `maestro.commit_split_max_tx` | `64` | Retry transactions one tick may spend containing failed commit chunks (`commitContained`). A split costs two; a bad booking in a chunk of H hosts costs about 2·log₂(H). When spent, a failing piece is dropped whole (the old whole-chunk behaviour), which bounds a tick in which everything fails. Healthy ticks spend nothing. |
+| `maestro.commit_chunk_frames` | `500` | Most frames one commit transaction books (`commitInChunks`); chunks are cut on host boundaries, so a host's bookings never span two transactions. |
+| `maestro.layer_host_cap_min_frames` | `8` | Floor, in frames, of the per-host layer cap (`maestro.layer_host_max_frac`), so small hosts still anchor a cache-warm batch. |
+| `maestro.probe_frames` | `8` | Frames an unproven layer (sized to 1 core, no rss reported yet) may run before its rss is known (§3.9). |
+| `maestro.priority_exponent` | `1.5` | Exponent on job priority in the placement and candidate lotteries (weight = priority^exponent, §3.5). 1.0 is proportional to priority. |
+| `maestro.drain_chunk_completions` | `20` | Frame completions applied per drain transaction at the start of each tick. Small, so no booking waits long on a host row the drain holds. |
+| `maestro.leader_probe_strikes` | `2` | Consecutive failed liveness probes of the lock connection before the leader gives up the lock; a closed connection demotes at once (§7). |
+| `maestro.slow_tick_warn_ms` | `10000` | A tick slower than this is logged at WARN with its phase breakdown. |
+| `maestro.group_count_warn_threshold` | `100` | Host-spec group count at which a (5-minute throttled) WARN flags hosts fragmenting into near-per-host groups. |
+| `maestro.shutdown_tick_wait_seconds` | `30` | How long shutdown waits for a tick in flight, so its committed chunks reach the launch pool. |
+| `maestro.shutdown_launch_drain_seconds` | `30` | How long shutdown then waits for queued launches; a launch that misses it is left to the orphaned-proc sweep. |
 | `maestro.forward_completions_to` | *(empty)* | Completion-forward relay (rollout scaffolding, read only when `maestro.enabled=no`): comma-separated `host:port` report endpoints of the isolated Maestro deployment (leader and standby). When set, a legacy cuebot forwards a scheduler-managed show's `FrameCompleteReport`s there unmodified over the report gRPC; any failure processes the report locally through the legacy path. Empty disables the relay (see §6.2). |
 | `maestro.forward_deadline_ms` | `1500` | gRPC deadline for one forward attempt; exactly one attempt per report, then the local fallback. |
 | `maestro.forward_breaker_failures` | `3` | Consecutive forward failures that open the breaker. |
 | `maestro.forward_breaker_cooldown_s` | `30` | While open, managed-show reports take the instant local fallback with no gRPC call; after the cooldown the next report is the probe. |
-| `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings; a Maestro slice is sized by the planner and delivered whole. |
-| `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. A Maestro slice delivers the size the planner accounted (up to `frame_query_max`), not this cap. |
+| `dispatcher.job_frame_dispatch_max` | `8` | The legacy per-call cap on a job's bookings. Not applied by Maestro: `planHost` reads nothing and plans exactly the slice it is handed, sized by the planner. |
+| `dispatcher.host_frame_dispatch_max` | `12` | The legacy per-call cap on a host's bookings. Not applied by Maestro: a host's bookings per tick are the slices the planner accounted for it, each delivered whole. |
 
 The reservation **width gate** (`RESERVATION_MIN_HOST_FRACTION`, 0.5 of the
 largest host in a group) is deliberately a fixed constant, not a property:
@@ -833,9 +924,19 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   thread, so a slow database delays the next tick directly (no worker pool
   hides it). The chunk bounds the lock window and the wait. This is the one
   place where DB latency gates the tick rate.
-- **Failed chunk**: the chunk rolls back alone and is logged. Its frames stay
-  WAITING for the next tick, the chunks before it keep their procs and
-  launches, and the chunks after it still commit. The tick goes on.
+- **Failed chunk**: the chunk rolls back alone, then is split at the host
+  boundary nearest its middle and each half committed in its own transaction,
+  recursively (`commitContained`), until the failure is down to one host's
+  bookings, which are dropped: their frames stay WAITING for the next tick and
+  one WARN names the host, the jobs and the root cause (the SQL error behind
+  the wrappers). Every other booking of the chunk lands in the same tick. The
+  retry is safe because a failed transaction rolled back whole and the retry
+  goes through the same frame-version guard. Splitting is bounded by
+  `maestro.commit_split_max_tx` per tick and stops when the leader lost the
+  lock; a piece that cannot be retried is dropped whole. Exposed as
+  `cue_maestro_commit_retry_tx_total` and
+  `cue_maestro_commit_dropped_bookings_total`, and on the slow-tick line as
+  `splits=N dropped=M`. The tick goes on.
 - **Failed launch**: a launch whose RPC failed without proof that the frame
   never started is resolved before anything is released (`launchOne`): the
   frame may be running on the host, so two not-running polls are required,
@@ -849,7 +950,8 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   matched: a clear that matched no row means the frame moved on, and a kill
   addressed by host and frame would hit the new run. A launch that waited
   more than half the orphan age in the pool's queue
-  (`ProcDao.ORPHAN_AGE_SECONDS`, 300 s, so 150 s) is rolled back unsent and
+  (`maintenance.orphaned_proc_age_seconds`, 600 s by default, so 300 s) is
+  rolled back unsent and
   without a kill: at the orphan age the maintenance pass releases the proc
   and the next tick rebooks the frame. A host whose launch breaker is open
   (`grpc.rqd_launch_breaker_failures` consecutive launches with unknown
@@ -860,12 +962,15 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   each chunk and demotes when it is gone; the frames left stay WAITING for the
   next leader, which plans from the database. The lost leader's reservations,
   blocked debt, warmth and odometers go with the lock, on the tick thread.
-  The probe is one `isValid(1)` per chunk; a probe that times out on a loaded
-  server demotes a leader that still held the lock. That is the chosen side:
+  The probe is one `isValid(1)` per chunk. A closed connection demotes at
+  once; a probe that times out is ambiguous, so only
+  `maestro.leader_probe_strikes` (default 2) consecutive misses demote, even
+  if the leader in fact still held the lock. That is the chosen side:
   one takeover and a rebuilt planner memory cost less than a chunk committed
   without the lock.
 - **Failed chunk, second order**: a flush that fails leaves nothing for the
-  next chunk; the deltas of a rolled-back chunk are discarded with it.
+  next piece; the deltas of a rolled-back attempt are discarded with it, so a
+  retry credits only its own procs.
 - **Slow RQD launch**: absorbed by the launch pool. Its queue is unbounded, so
   a committed booking is always launched and a slow RQD shows as launch
   latency, never as lost work. A launch is refused only while the pool shuts
@@ -877,13 +982,14 @@ steady path, the breaker fallback across an outage, and the ambiguity races.
   left intact.
 - **Spec-group explosion**: if the host-spec group count approaches the host
   count (commonly a host name leaking into the tag set), planning degrades to
-  one candidate query per host, the very storm grouping avoids. Maestro
-  logs a throttled WARNING (at most once every few minutes) so it is caught
-  without flooding the log.
+  one candidate cut and one placement pass per host. The candidate read is
+  one query per tick whatever the count, but the in-memory work scales with it.
+  Maestro logs a throttled WARNING (at most once every few minutes) so it is
+  caught without flooding the log.
 - **A pin that names no host**: cuebot auto-adds each host's own name as a
   tag and `normalizeTags` strips it from the group key (that is what prevents
   the group explosion above); a layer tagged with host names is placed through
-  the pinned read instead (§3.10). A name that resolves to no UP and OPEN host
+  the in-memory pin resolution instead (§3.10). A name that resolves to no UP and OPEN host
   in the job's facility waits with the reason `no host`, so a stale machine
   list shows on the waitlist panel instead of sitting `WAITING` in silence.
 

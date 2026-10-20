@@ -41,7 +41,6 @@ import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.BootReport;
-import com.imageworks.spcue.grpc.report.CoreDetail;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
@@ -105,11 +104,6 @@ public class HostReportHandler {
     // so report handling never depends on it.
     @Autowired(required = false)
     private FarmHealth farmHealth;
-
-    // Live per-layer rss ledger for the scheduler's launch-time core grant; optional
-    // so report handling never depends on it.
-    @Autowired(required = false)
-    private LayerLiveMem layerLiveMem;
 
     // Reconcile idle resources roughly every 10 minutes per host.
     // Host reports arrive ~every 10s, so this fires ~1 in 60 reports.
@@ -184,9 +178,7 @@ public class HostReportHandler {
     public void handleHostReport(HostReport report, boolean isBoot) {
         long startTime = System.currentTimeMillis();
         if (farmHealth != null)
-            farmHealth.record(report.getHost());
-        if (layerLiveMem != null)
-            layerLiveMem.record(report.getFramesList());
+            farmHealth.record(report.getHost(), report.getFramesList());
         try {
             // Record Prometheus metric for host report
             if (prometheusMetrics != null) {
@@ -528,9 +520,9 @@ public class HostReportHandler {
     }
 
     /**
-     * Changes the NIMBY lock state. If the DB indicates a NIMBY lock but RQD does not, then the
-     * host is unlocked. If the DB indicates the host is not locked but RQD indicates it is, the
-     * host is locked.
+     * Mirrors the NIMBY lock state reported by RQD into the DB. If the DB indicates a NIMBY lock
+     * but RQD does not, then the host is unlocked. If the DB indicates the host is not locked but
+     * RQD indicates it is, the host is locked. RQD tracks NIMBY itself, so no RPC is sent back.
      *
      * @param host
      * @param rh
@@ -539,32 +531,13 @@ public class HostReportHandler {
         if (rh.getNimbyLocked()) {
             if (host.lockState.equals(LockState.OPEN)) {
                 host.lockState = LockState.NIMBY_LOCKED;
-                hostManager.setHostLock(host, LockState.NIMBY_LOCKED, new Source("NIMBY"));
+                hostManager.syncHostLock(host, LockState.NIMBY_LOCKED, new Source("NIMBY"));
             }
         } else {
             if (host.lockState.equals(LockState.NIMBY_LOCKED)) {
                 host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host, LockState.OPEN, new Source("NIMBY"));
+                hostManager.syncHostLock(host, LockState.OPEN, new Source("NIMBY"));
             }
-        }
-    }
-
-    /**
-     * Changes the Lock state of the host. Looks at the number of locked cores and sets host to
-     * locked if all cores are locked.
-     *
-     * @param host DispatchHost
-     * @param coreInfo CoreDetail
-     */
-    private void changeLockState(DispatchHost host, CoreDetail coreInfo) {
-        if (host.lockState == LockState.LOCKED) {
-            if (coreInfo.getLockedCores() < coreInfo.getTotalCores()) {
-                host.lockState = LockState.OPEN;
-                hostManager.setHostLock(host, LockState.OPEN, new Source("cores"));
-            }
-        } else if (coreInfo.getLockedCores() >= coreInfo.getTotalCores()) {
-            host.lockState = LockState.LOCKED;
-            hostManager.setHostLock(host, LockState.LOCKED, new Source("cores"));
         }
     }
 
@@ -994,7 +967,7 @@ public class HostReportHandler {
             }
         }
 
-        /* Attempt to update the max RSS value for the job **/
+        /* Attempt to update the max RSS value for the layer **/
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
             layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
