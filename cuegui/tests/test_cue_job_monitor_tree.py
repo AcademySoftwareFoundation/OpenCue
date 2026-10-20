@@ -486,6 +486,24 @@ class CueJobMonitorTreeTests(unittest.TestCase):
 
         self.assertNotIn('missing-show', self.cue_job_monitor_tree.getShowNames())
 
+    @mock.patch('opencue.api.findShow')
+    def test_removeAllShowsDropsQueuedShowLookups(self, find_show_mock):
+        find_show_mock.return_value = opencue.wrappers.show.Show(
+            opencue_proto.show_pb2.Show(name='other-show'))
+        tree = self.cue_job_monitor_tree
+        tree.removeAllShows()
+        app = test_utils.createApplication()
+        runner = _DeferredActionRunner()
+        app.action_runner = runner
+        self.addCleanup(setattr, app, 'action_runner', None)
+
+        tree.addShow('other-show')
+        # Nothing is monitored, so the clear must still invalidate the lookup.
+        tree.removeAllShows()
+        runner.run()
+
+        self.assertNotIn('other-show', tree.getShowNames())
+
     @mock.patch('cuegui.CueJobMonitorTree.plugin_loader.load_plugins', return_value=[])
     @mock.patch('qtpy.QtWidgets.QMenu', new=_NonBlockingMenu)
     def test_contextMenuLoadsPluginsOnce(self, load_plugins_mock):

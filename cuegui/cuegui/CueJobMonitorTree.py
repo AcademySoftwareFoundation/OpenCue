@@ -81,6 +81,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
         self.__shows = {}
+        self.__showLookupGeneration = 0
         self.currtime = time.time()
 
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
@@ -358,7 +359,12 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if name in self.__shows:
             return
 
+        generation = self.__showLookupGeneration
+
         def found(foundShow, error):
+            if generation != self.__showLookupGeneration:
+                # removeAllShows ran while the lookup was queued.
+                return
             if isinstance(error, opencue.exception.EntityNotFoundException):
                 logger.warning("This show does not exist: %s", name)
             elif foundShow is not None:
@@ -381,7 +387,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.forceUpdate(fresh=False)
 
     def removeAllShows(self):
-        """Unmonitors all shows"""
+        """Unmonitors all shows, including any still being looked up"""
+        self.__showLookupGeneration += 1
         if self.__shows:
             self.removeAllItems()
             self.__shows = {}
