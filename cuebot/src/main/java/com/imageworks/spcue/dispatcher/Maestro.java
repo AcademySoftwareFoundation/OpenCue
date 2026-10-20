@@ -190,10 +190,10 @@ public class Maestro extends JdbcDaoSupport {
     // A tick longer than this is logged at WARN with its phase breakdown.
     static final long SLOW_TICK_WARN_MS = 10_000;
 
-    // Completions per drain transaction. Each holds its procs' host rows, and every
-    // stop costs a frame_history close on the production table: 130 rows at 200 ms
-    // held every host of a tick for 27 s. Small, so no one waits long on a host.
-    private static final int DRAIN_CHUNK = 20;
+    // Completions per drain transaction. Each holds its procs' host rows for the
+    // chunk's duration; the per-chunk lock, count and commit overhead is paid once
+    // per 100 stops instead of once per 20.
+    private static final int DRAIN_CHUNK = 100;
 
     // Batched commit, orphan sweep, frame stop/unbook, and RQD launch of committed frames.
     private DispatchSupport dispatchSupport;
