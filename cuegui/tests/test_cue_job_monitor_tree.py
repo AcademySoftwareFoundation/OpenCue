@@ -30,8 +30,10 @@ import opencue.exception
 import opencue.wrappers.job
 import opencue.wrappers.show
 
+import cuegui.AbstractTreeWidget
 import cuegui.Constants
 import cuegui.CueJobMonitorTree
+import cuegui.ItemDelegate
 import cuegui.plugins.MonitorCuePlugin
 import cuegui.Style
 
@@ -194,6 +196,153 @@ class CueJobMonitorTreeTests(unittest.TestCase):
         self.assertIs(tree._items['g1'], tree._items['g2'].parent())
         self.assertEqual(
             {'root': True, 'g1': True, 'g2': True, 'g3': False, 'g4': True}, self._expanded())
+
+    def _showJobs(self, *jobs):
+        """Updates the tree with the jobs in a group of the show."""
+        root = opencue_proto.job_pb2.NestedGroup(id='root', name=self.show_name)
+        group = root.groups.nested_groups.add(id='g1', name='g1')
+        group.parent.CopyFrom(opencue_proto.job_pb2.NestedGroup(id='root', name=self.show_name))
+        for job in jobs:
+            group.jobs.append(job.id)
+            group.inline_jobs.add().CopyFrom(job)
+        show = mock.Mock()
+        show.getJobWhiteboard.return_value = root
+        with mock.patch.object(self.cue_job_monitor_tree, 'getShows', return_value=[show]):
+            self.cue_job_monitor_tree._update()
+
+    @staticmethod
+    def _job(**stats):
+        return opencue_proto.job_pb2.Job(
+            id='job1', name='job1', min_cores=1, max_cores=10, start_time=int(time.time()),
+            job_stats=opencue_proto.job_pb2.JobStats(**stats))
+
+    def _cells(self, item, role):
+        return [item.data(col, role) for col in range(self.cue_job_monitor_tree.columnCount())]
+
+    def test_itemsDoNotOverrideData(self):
+        # Qt calls into Python for every cell painted if data() is overridden.
+        self._showJobs(self._job())
+
+        items = self.cue_job_monitor_tree._items
+        self.assertEqual({'root', 'g1', 'job1'}, set(items))
+        for item in items.values():
+            self.assertIs(qtpy.QtWidgets.QTreeWidgetItem.data, type(item).data)
+
+    def test_jobCellsAreBaked(self):
+        theme = cuegui.Style.ColorTheme
+        self._showJobs(opencue_proto.job_pb2.Job(
+            id='job1', name='job1', min_cores=1, max_cores=10, has_comment=True,
+            start_time=int(time.time()),
+            job_stats=opencue_proto.job_pb2.JobStats(
+                running_frames=3, waiting_frames=4, succeeded_frames=5, reserved_cores=2.5,
+                max_rss=cuegui.Constants.MEMORY_WARNING_LEVEL + 1)))
+        tree = self.cue_job_monitor_tree
+        item = tree._items['job1']
+
+        display = self._cells(item, qtpy.QtCore.Qt.DisplayRole)
+        self.assertEqual(
+            [info[cuegui.Constants.COLUMN_INFO_DISPLAY](item.rpcObject)
+             for info in tree.getColumnInfo(cuegui.Constants.TYPE_JOB)],
+            display)
+        self.assertEqual(['job1', 3, '2.50', 4], [display[0], display[3], display[4], display[6]])
+        self.assertEqual([theme.COLOR_JOB_FOREGROUND] * len(display),
+                         self._cells(item, qtpy.QtCore.Qt.ForegroundRole))
+        background = self._cells(item, qtpy.QtCore.Qt.BackgroundRole)
+        self.assertEqual(theme.COLOR_JOB_HIGH_MEMORY,
+                         background[cuegui.CueJobMonitorTree.COLUMN_MAXRSS])
+        self.assertEqual(qtpy.QtGui.QColor, type(background[0]))
+        self.assertNotEqual(theme.COLOR_JOB_HIGH_MEMORY, background[0])
+        self.assertIsInstance(
+            item.data(cuegui.CueJobMonitorTree.COLUMN_COMMENT, qtpy.QtCore.Qt.DecorationRole),
+            qtpy.QtGui.QIcon)
+        self.assertIsNone(
+            item.data(cuegui.CueJobMonitorTree.COLUMN_EAT, qtpy.QtCore.Qt.DecorationRole))
+
+        bars = [col for col, info in enumerate(tree.getColumnInfo(cuegui.Constants.TYPE_JOB))
+                if info[cuegui.AbstractTreeWidget.COLUMN_DELEGATE]]
+        self.assertEqual(2, len(bars))
+        for col in bars:
+            self.assertEqual(cuegui.Constants.TYPE_JOB, item.data(col, qtpy.QtCore.Qt.UserRole))
+            self.assertEqual(
+                {opencue_proto.job_pb2.WAITING: 4, opencue_proto.job_pb2.RUNNING: 3,
+                 opencue_proto.job_pb2.SUCCEEDED: 5, opencue_proto.job_pb2.CHECKPOINT: 0,
+                 opencue_proto.job_pb2.SETUP: 0, opencue_proto.job_pb2.EATEN: 0,
+                 opencue_proto.job_pb2.DEAD: 0, opencue_proto.job_pb2.DEPEND: 0},
+                item.data(col, qtpy.QtCore.Qt.UserRole + 1))
+            self.assertEqual((3, 4, 2.5, 1, 10), item.data(col, cuegui.ItemDelegate.BOOKING_ROLE))
+
+    def test_jobCellsFollowUpdates(self):
+        job = self._job(running_frames=3)
+        self._showJobs(job)
+        item = self.cue_job_monitor_tree._items['job1']
+
+        job.is_paused = True
+        job.has_comment = True
+        job.job_stats.running_frames = 5
+        self._showJobs(job)
+
+        self.assertIs(item, self.cue_job_monitor_tree._items['job1'])
+        self.assertEqual(5, item.data(3, qtpy.QtCore.Qt.DisplayRole))
+        self.assertEqual([cuegui.Style.ColorTheme.COLOR_JOB_PAUSED_BACKGROUND] * 21,
+                         self._cells(item, qtpy.QtCore.Qt.BackgroundRole))
+        self.assertIsInstance(
+            item.data(cuegui.CueJobMonitorTree.COLUMN_COMMENT, qtpy.QtCore.Qt.DecorationRole),
+            qtpy.QtGui.QIcon)
+        self.assertEqual(5, item.data(9, cuegui.ItemDelegate.BOOKING_ROLE)[0])
+
+    def test_unchangedJobOnlyUpdatesAge(self):
+        job = self._job(waiting_frames=1)
+        self._showJobs(job)
+        item = self.cue_job_monitor_tree._items['job1']
+        self.assertEqual('000:00', item.data(cuegui.CueJobMonitorTree.COLUMN_AGE,
+                                             qtpy.QtCore.Qt.DisplayRole))
+
+        later = time.time() + 3600
+        with mock.patch('time.time', return_value=later), \
+                mock.patch.object(cuegui.CueJobMonitorTree.JobWidgetItem, '_bake') as bake_mock:
+            self._showJobs(job)
+
+        bake_mock.assert_not_called()
+        self.assertEqual('001:00', item.data(cuegui.CueJobMonitorTree.COLUMN_AGE,
+                                             qtpy.QtCore.Qt.DisplayRole))
+        # The job has been waiting without running frames for too long.
+        self.assertEqual([cuegui.Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS] * 21,
+                         self._cells(item, qtpy.QtCore.Qt.BackgroundRole))
+
+    def test_groupCellsAreBaked(self):
+        theme = cuegui.Style.ColorTheme
+        self._showJobs()
+        items = self.cue_job_monitor_tree._items
+
+        for itemId, name, foreground, background in (
+                ('root', self.show_name, theme.COLOR_SHOW_FOREGROUND, theme.COLOR_SHOW_BACKGROUND),
+                ('g1', 'g1', theme.COLOR_GROUP_FOREGROUND, theme.COLOR_GROUP_BACKGROUND)):
+            item = items[itemId]
+            self.assertEqual([foreground] * 21, self._cells(item, qtpy.QtCore.Qt.ForegroundRole))
+            self.assertEqual([background] * 21, self._cells(item, qtpy.QtCore.Qt.BackgroundRole))
+            self.assertEqual([cuegui.CueJobMonitorTree.FONT_BOLD] * 21,
+                             self._cells(item, qtpy.QtCore.Qt.FontRole))
+            self.assertIsInstance(item.data(0, qtpy.QtCore.Qt.DecorationRole), qtpy.QtGui.QIcon)
+            self.assertEqual(name, item.data(0, qtpy.QtCore.Qt.DisplayRole))
+
+    def test_bookingBarPaintsBakedData(self):
+        self._showJobs(self._job(running_frames=3, waiting_frames=4, reserved_cores=3))
+        tree = self.cue_job_monitor_tree
+        item = tree._items['job1']
+        delegate = tree.itemDelegateForColumn(9)
+        self.assertIsInstance(delegate, cuegui.ItemDelegate.JobBookingBarDelegate)
+        image = qtpy.QtGui.QImage(150, 20, qtpy.QtGui.QImage.Format_ARGB32)
+        painter = qtpy.QtGui.QPainter(image)
+        option = qtpy.QtWidgets.QStyleOptionViewItem()
+        option.rect = qtpy.QtCore.QRect(0, 0, 150, 20)
+
+        try:
+            with mock.patch.object(tree, 'itemFromIndex') as item_from_index_mock:
+                delegate.paint(painter, option, tree.indexFromItem(item, 9))
+        finally:
+            painter.end()
+
+        item_from_index_mock.assert_not_called()
 
     @mock.patch('opencue.api.findShow')
     def test_addShowObjectSkipsLookup(self, find_show_mock):
