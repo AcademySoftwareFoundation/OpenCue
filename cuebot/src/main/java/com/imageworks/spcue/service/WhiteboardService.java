@@ -238,6 +238,10 @@ public class WhiteboardService implements Whiteboard {
         return nestedWhiteboardDao.getJobWhiteboard(show);
     }
 
+    public NestedGroup getJobWhiteboard(ShowInterface show, boolean fresh) {
+        return nestedWhiteboardDao.getJobWhiteboard(show, fresh);
+    }
+
     public JobSeq getJobs(GroupInterface group) {
         return whiteboardDao.getJobs(group);
     }

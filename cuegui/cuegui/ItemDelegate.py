@@ -52,6 +52,12 @@ FRAME_STATES = (opencue.api.job_pb2.SUCCEEDED,
 NO_PEN = QtGui.QPen(QtCore.Qt.NoPen)
 NO_BRUSH = QtGui.QBrush(QtCore.Qt.NoBrush)
 
+# Role of the data drawn by the JobBookingBarDelegate, see
+# JobBookingBarDelegate.bookingData. Items that do not provide it are
+# looked up on every paint. Kept clear of the small UserRole offsets, which
+# other trees give their own meanings.
+BOOKING_ROLE = QtCore.Qt.UserRole + 100
+
 
 class AbstractDelegate(QtWidgets.QItemDelegate):
     """Base delegate class.
@@ -174,13 +180,26 @@ class JobBookingBarDelegate(AbstractDelegate):
     def __init__(self, parent, *args):
         AbstractDelegate.__init__(self, parent, *args)
 
+    @staticmethod
+    def bookingData(job):
+        """Returns the data the bar is drawn from.
+        @type  job: opencue.wrappers.job.Job
+        @param job: The job
+        @rtype:  tuple
+        @return: running frames, waiting frames, reserved cores, min cores
+                 and max cores"""
+        return (job.data.job_stats.running_frames, job.data.job_stats.waiting_frames,
+                job.data.job_stats.reserved_cores, job.data.min_cores, job.data.max_cores)
+
     def paint(self, painter, option, index):
         # Only if job
         if index.data(QtCore.Qt.UserRole) == cuegui.Constants.TYPE_JOB and \
            option.rect.width() > 30:
-            # This itemFromIndex could cause problems
-            # I need: minCores, maxCores, totalRunning, totalWaiting
-            job = self.parent().itemFromIndex(index).rpcObject
+            booking = index.data(BOOKING_ROLE)
+            if booking is None:
+                # This itemFromIndex could cause problems
+                booking = self.bookingData(self.parent().itemFromIndex(index).rpcObject)
+            jobRunning, jobWaiting, reservedCores, minCores, maxCores = booking
 
             rect = option.rect.adjusted(12, 6, -12, -6)
 
@@ -189,15 +208,13 @@ class JobBookingBarDelegate(AbstractDelegate):
                 self._drawBackground(painter, option, index)
 
                 try:
-                    jobRunning = job.data.job_stats.running_frames
-                    jobWaiting = job.data.job_stats.waiting_frames
                     # pylint: disable=broad-except
                     try:
-                        cores_per_frame = float(job.data.job_stats.reserved_cores / jobRunning)
+                        cores_per_frame = float(reservedCores / jobRunning)
                     except Exception:
                         cores_per_frame = float(6 / 1)
-                    jobMin = int(job.data.min_cores / cores_per_frame)
-                    jobMax = int(job.data.max_cores / cores_per_frame)
+                    jobMin = int(minCores / cores_per_frame)
+                    jobMax = int(maxCores / cores_per_frame)
                     ratio = rect.width() / float(jobRunning + jobWaiting)
 
                     if jobWaiting:

@@ -314,6 +314,10 @@ message ShowGetJobsResponse {
 // GetJobWhiteboard
 message ShowGetJobWhiteboardRequest {
     Show show = 1;
+    // Bypass the short-lived server-side whiteboard cache. The response then
+    // reflects every change committed before the request was received. Meant
+    // for refreshes that follow a user action, not for periodic polling.
+    bool fresh = 2;
 }
 
 message ShowGetJobWhiteboardResponse {

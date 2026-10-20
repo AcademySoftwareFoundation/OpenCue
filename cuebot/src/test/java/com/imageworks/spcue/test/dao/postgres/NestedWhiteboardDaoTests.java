@@ -27,8 +27,11 @@ import org.springframework.test.context.junit4.AbstractTransactionalJUnit4Spring
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.ShowEntity;
 import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.DepartmentDao;
+import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.NestedWhiteboardDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.grpc.job.Job;
@@ -36,8 +39,11 @@ import com.imageworks.spcue.grpc.job.NestedGroup;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.test.AssumingPostgresEngine;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
 @Transactional
@@ -56,6 +62,12 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
 
     @Resource
     JobLauncher jobLauncher;
+
+    @Resource
+    GroupDao groupDao;
+
+    @Resource
+    DepartmentDao departmentDao;
 
     public ShowEntity getShow() {
         return showDao.findShowDetail("pipe");
@@ -90,6 +102,88 @@ public class NestedWhiteboardDaoTests extends AbstractTransactionalJUnit4SpringC
         assertNotNull(root);
         boolean foundInlineJob = hasInlineJob(root);
         assertTrue("expected at least one NestedGroup to expose inline_jobs", foundInlineJob);
+    }
+
+    /**
+     * A fresh request must not be served from the whiteboard cache: it has to reflect changes
+     * committed before it was made, such as a job launched right after the cache was filled.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetJobWhiteboardFreshBypassesCache() {
+        String jobName = "pipe-dev.cue-testuser_shell_v1";
+
+        NestedGroup primed = nestedWhiteboardDao.getJobWhiteboard(getShow(), true);
+        assertFalse(hasInlineJobNamed(primed, jobName));
+        // A regular request right after is served from the cache.
+        assertSame(primed, nestedWhiteboardDao.getJobWhiteboard(getShow()));
+
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+
+        NestedGroup fresh = nestedWhiteboardDao.getJobWhiteboard(getShow(), true);
+        assertNotSame(primed, fresh);
+        assertTrue("fresh whiteboard is missing the job launched after the cache was filled",
+                hasInlineJobNamed(fresh, jobName));
+        // The fresh result replaces the cached entry for later regular requests.
+        assertSame(fresh, nestedWhiteboardDao.getJobWhiteboard(getShow()));
+    }
+
+    /**
+     * Each group only carries the id and name of its parent: copying the whole parent would send
+     * its jobs again with each of its groups.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetJobWhiteboardSendsMinimalParents() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        GroupDetail group = createGroup("whiteboard", groupDao.getRootGroupDetail(getShow()));
+        createGroup("whiteboard_sub", group);
+
+        NestedGroup root = nestedWhiteboardDao.getJobWhiteboard(getShow(), true);
+
+        assertFalse(root.hasParent());
+        assertFalse("the jobs should be in the root group", root.getInlineJobsList().isEmpty());
+        assertEquals(2, assertMinimalParents(root));
+    }
+
+    private GroupDetail createGroup(String name, GroupDetail parent) {
+        GroupDetail group = new GroupDetail();
+        group.name = name;
+        group.parentId = parent.id;
+        group.showId = getShow().getId();
+        group.deptId = departmentDao.getDefaultDepartment().getId();
+        groupDao.insertGroup(group, parent);
+        return group;
+    }
+
+    /** Checks the parents of the groups under the group and returns the number of groups. */
+    private int assertMinimalParents(NestedGroup group) {
+        int count = 0;
+        for (NestedGroup child : group.getGroups().getNestedGroupsList()) {
+            assertEquals(
+                    NestedGroup.newBuilder().setId(group.getId()).setName(group.getName()).build(),
+                    child.getParent());
+            count += 1 + assertMinimalParents(child);
+        }
+        return count;
+    }
+
+    private boolean hasInlineJobNamed(NestedGroup group, String jobName) {
+        for (Job job : group.getInlineJobsList()) {
+            if (job.getName().equals(jobName)) {
+                return true;
+            }
+        }
+        for (NestedGroup child : group.getGroups().getNestedGroupsList()) {
+            if (hasInlineJobNamed(child, jobName)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private boolean hasInlineJob(NestedGroup group) {

@@ -24,6 +24,11 @@ without affecting the GUI too much.
 
 Worker threads are started the first time work is placed in the queue.
 
+The callbacks run on the GUI thread, which also releases the work and its
+result: the work usually references widgets, and Qt objects must not be
+destroyed on a worker thread. Workers do not wait for the callbacks, so a busy
+GUI thread does not stop them. A callback is only run when the work succeeds.
+
 Example code:
 # Setup a threadpool with 2 threads:
 import threadpool
@@ -47,7 +52,9 @@ from __future__ import print_function
 from __future__ import division
 
 from builtins import range
+import collections
 import os
+import threading
 
 from qtpy import QtCore
 import grpc
@@ -73,6 +80,11 @@ def systemCpuCount():
 class ThreadPool(QtCore.QObject):
     """A general purpose work queue class."""
 
+    # Carries no Python objects across threads: the finished work is handed
+    # over through self._done, and this only wakes the GUI thread up to
+    # collect it.
+    _workDone = QtCore.Signal()
+
     def __init__(self, num_threads, max_queue=50, parent=None):
         QtCore.QObject.__init__(self, parent=parent)
         self.app = cuegui.app()
@@ -86,6 +98,12 @@ class ThreadPool(QtCore.QObject):
         self._q_queue = []
         self._dropped_tasks = {}
 
+        # (work, result, succeeded) of the finished work, until the GUI thread
+        # collects it.
+        self._done = collections.deque()
+        self._done_lock = threading.Lock()
+        self._workDone.connect(self.__deliver, QtCore.Qt.QueuedConnection)
+
     def start(self):
         """Initializes the thread pool and starts running work."""
         if self.__started:
@@ -96,8 +114,6 @@ class ThreadPool(QtCore.QObject):
             self.app.threads.append(thread)
             self.__threads.append(thread)
             self.__threads[i].start()
-            self.__threads[i].workComplete.connect(self.runCallback,
-                                                   QtCore.Qt.BlockingQueuedConnection)
 
     def queue(self, callable_to_queue, callback, comment, *args):
         """Queues up a callable to be run from within a separate thread of execution."""
@@ -149,6 +165,20 @@ class ThreadPool(QtCore.QObject):
             except AttributeError as e:
                 logger.error("Error executing callback for task '%s': %s", comment, e)
 
+    def __deliver(self):
+        """Runs the callbacks of the finished work on the GUI thread."""
+        while True:
+            with self._done_lock:
+                if not self._done:
+                    return
+                work, result, succeeded = self._done.popleft()
+            if succeeded:
+                # pylint: disable=broad-except
+                try:
+                    self.runCallback(work, result)
+                except Exception:
+                    logger.exception("Error in callback function for '%s'", work[2])
+
     def runCallback(self, work, result):
         """Runs the callback function."""
         if work[1]:  # Ensure callback exists
@@ -165,13 +195,7 @@ class ThreadPool(QtCore.QObject):
                 logger.error("RuntimeError in callback function for '%s': %s", work[2], e)
 
     class WorkerThread(QtCore.QThread):
-        """A thread for parsing job log files.
-
-        The log file is parsed using SpiCue.cueprofile and emits a "parsingComplete" signal
-        when complete.
-        """
-
-        workComplete = QtCore.Signal(object, object)
+        """A thread running the work of the pool."""
 
         def __init__(self, name, parent):
             QtCore.QThread.__init__(self, parent)
@@ -206,14 +230,14 @@ class ThreadPool(QtCore.QObject):
                 if not work:
                     continue
 
+                result = None
+                succeeded = False
                 try:
                     if work[3]:
                         result = work[0](*work[3])
                     else:
                         result = work[0]()
-                    if work[1]:
-                        self.workComplete.emit(work, result)
-                        del result
+                    succeeded = True
                 except grpc.RpcError as e:
                     # Handle gRPC errors gracefully - these are often transient
                     # pylint: disable=no-member
@@ -234,6 +258,17 @@ class ThreadPool(QtCore.QObject):
                     logger.error("Unexpected error processing work for '%s': %s", work[2], e)
 
                 logger.info("Done:' %s '", work[2])
+                # Hand the work over to the GUI thread, even when it failed, so
+                # that the last references to it are dropped there. This thread
+                # drops its own before the GUI thread can collect them.
+                with self.__parent._done_lock:
+                    self.__parent._done.append((work, result, succeeded))
+                    work = result = None
+                try:
+                    self.__parent._workDone.emit()
+                except RuntimeError:
+                    # The pool is being destroyed.
+                    return
             logger.debug("Thread Stopping")
 
         def stop(self):
