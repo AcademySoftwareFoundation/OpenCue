@@ -227,6 +227,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # AbstractTreeWidget.__init__ — the base ctor calls updateRequest()
         # which dispatches into our overridden _update().
         self._updateInFlight = False
+        # Set while a reconcile has disabled sorting.
+        self.__sortingPaused = False
         # Set when a forced update arrives while a fetch is in flight. That
         # fetch may have been sent before the action that asked for the
         # refresh, so another one runs as soon as it lands.
@@ -504,6 +506,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         what makes the 5s cadence non-disruptive. Only the groups created by
         this reconcile get expanded; the other items keep their expansion
         state, so there is no need to expand the whole tree on every tick.
+        Sorting is disabled once the reconcile adds or moves an item, so the
+        tree is sorted once at the end; with sorting enabled, Qt sorts the
+        whole tree again after each of them.
 
         @type  work: from threadpool
         @param work: from threadpool
@@ -513,6 +518,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if rpcObjects is None:
             return
         self._itemsLock.lockForWrite()
+        self.__sortingPaused = False
         # pylint: disable=broad-except
         try:
             new_ids = set(rpcObjects[1])
@@ -539,7 +545,23 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         except Exception:
             logger.warning("Failed to process update.", exc_info=True)
         finally:
+            if self.__sortingPaused:
+                self.__sortingPaused = False
+                self.setSortingEnabled(True)
             self._itemsLock.unlock()
+
+    def __pauseSorting(self):
+        """Disables sorting until the end of the reconcile."""
+        if self.isSortingEnabled():
+            self.setSortingEnabled(False)
+            self.__sortingPaused = True
+
+    def __updateItem(self, item, rpcObject, parent):
+        """Updates an item, pausing sorting first if it moves to another
+        parent."""
+        if parent is not None and item.parent() is not None and parent is not item.parent():
+            self.__pauseSorting()
+        item.update(rpcObject, parent)
 
     def __getNestedIds(self, group, updated):
         """Returns all the ids founds in the nested list including
@@ -571,8 +593,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             if group.id() in self._items:
                 groupItem = self._items[group.id()]
-                groupItem.update(group, parent)
+                self.__updateItem(groupItem, group, parent)
             else:
+                self.__pauseSorting()
                 if group.data.parent.id:
                     groupItem = GroupWidgetItem(group, parent)
                 else:
@@ -600,8 +623,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             for job in jobsObject:
                 try:
                     if job.id() in self._items:
-                        self._items[job.id()].update(job, groupItem)
+                        self.__updateItem(self._items[job.id()], job, groupItem)
                     else:
+                        self.__pauseSorting()
                         self._items[job.id()] = JobWidgetItem(job, groupItem)
                 except RuntimeError:
                     logger.warning(
@@ -831,6 +855,40 @@ class _BakedWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         """Sets the data of every cell of the item for a role."""
         for col in range(len(self.column_info)):
             self.setData(col, role, value)
+
+    def __lt__(self, other):
+        """Compares the sort keys of the items in the sort column; they are
+        computed once per update instead of on every comparison."""
+        column = self.treeWidget().sortColumn()
+        try:
+            try:
+                return self._cache[column] < other._cache[column]
+            except KeyError:
+                return self._sortKey(column) < other._sortKey(column)
+        except (AttributeError, TypeError):
+            # other is not one of these items, or the keys are not comparable
+            return self.text(column) < other.text(column)
+
+    def _sortKey(self, column):
+        """Returns the value the items are sorted by in the column: the value
+        of the sort function of the column if it has one, its text otherwise.
+        It is computed once until the next update."""
+        try:
+            return self._cache[column]
+        except KeyError:
+            pass
+        key = None
+        sortLambda = self.column_info[column][cuegui.AbstractWidgetItem.SORT_LAMBDA]
+        if sortLambda:
+            # pylint: disable=broad-except
+            try:
+                key = sortLambda(self.rpcObject)
+            except Exception:
+                logger.info("Sort failed on column %s, using text sort.", column)
+        if key is None:
+            key = self.text(column)
+        self._cache[column] = key
+        return key
 
 
 class RootGroupWidgetItem(_BakedWidgetItem):

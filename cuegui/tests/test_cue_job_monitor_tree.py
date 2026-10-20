@@ -31,6 +31,7 @@ import opencue.wrappers.job
 import opencue.wrappers.show
 
 import cuegui.AbstractTreeWidget
+import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.ItemDelegate
@@ -343,6 +344,86 @@ class CueJobMonitorTreeTests(unittest.TestCase):
             painter.end()
 
         item_from_index_mock.assert_not_called()
+
+    def _runningJobs(self, **running):
+        """Updates the tree with jobs that have the given numbers of running frames."""
+        self._showJobs(*[
+            opencue_proto.job_pb2.Job(
+                id=name, name=name, start_time=int(time.time()),
+                job_stats=opencue_proto.job_pb2.JobStats(running_frames=frames))
+            for name, frames in running.items()])
+
+    def _jobOrder(self):
+        group = self.cue_job_monitor_tree._items['g1']
+        return [group.child(i).rpcObject.data.name for i in range(group.childCount())]
+
+    def test_jobsAreSortedByKeysComputedOncePerUpdate(self):
+        tree = self.cue_job_monitor_tree
+        tree.sortByColumn(3, qtpy.QtCore.Qt.AscendingOrder)
+        info = tree.getColumnInfo(cuegui.Constants.TYPE_JOB)[3]
+        sort_mock = mock.Mock(side_effect=info[cuegui.AbstractWidgetItem.SORT_LAMBDA])
+        info[cuegui.AbstractWidgetItem.SORT_LAMBDA] = sort_mock
+
+        self._runningJobs(a=5, b=1, c=3, d=4, e=2)
+
+        self.assertEqual(['b', 'e', 'c', 'd', 'a'], self._jobOrder())
+        self.assertLessEqual(sort_mock.call_count, 5)
+
+        sort_mock.reset_mock()
+        self._runningJobs(a=0, b=1, c=3, d=4, e=2, f=6)
+
+        self.assertEqual(['a', 'b', 'e', 'c', 'd', 'f'], self._jobOrder())
+        self.assertLessEqual(sort_mock.call_count, 6)
+
+    def test_sortingIsPausedWhileItemsAreAdded(self):
+        tree = self.cue_job_monitor_tree
+        tree.sortByColumn(3, qtpy.QtCore.Qt.DescendingOrder)
+        self._runningJobs(a=1)
+        sorting = []
+        job_widget_item = cuegui.CueJobMonitorTree.JobWidgetItem
+
+        def addJob(job, parent):
+            sorting.append(tree.isSortingEnabled())
+            return job_widget_item(job, parent)
+
+        with mock.patch.object(cuegui.CueJobMonitorTree, 'JobWidgetItem', side_effect=addJob):
+            self._runningJobs(a=1, b=3, c=2)
+
+        self.assertEqual([False, False], sorting)
+        self.assertTrue(tree.isSortingEnabled())
+        self.assertEqual(['b', 'c', 'a'], self._jobOrder())
+
+    def test_sortingIsRestoredWhenUpdateFails(self):
+        tree = self.cue_job_monitor_tree
+        self._runningJobs(a=1)
+
+        with mock.patch.object(
+                cuegui.CueJobMonitorTree, 'JobWidgetItem', side_effect=ValueError):
+            self._runningJobs(a=1, b=2)
+
+        self.assertTrue(tree.isSortingEnabled())
+
+    def test_dataChangesKeepSortingEnabled(self):
+        tree = self.cue_job_monitor_tree
+        tree.sortByColumn(3, qtpy.QtCore.Qt.AscendingOrder)
+        self._runningJobs(a=5, b=1, c=3)
+
+        with mock.patch.object(tree, 'setSortingEnabled') as set_sorting_mock:
+            self._runningJobs(a=0, b=1, c=3)
+
+        set_sorting_mock.assert_not_called()
+        self.assertEqual(['a', 'b', 'c'], self._jobOrder())
+
+    def test_groupsStayAlphabetical(self):
+        tree = self.cue_job_monitor_tree
+        tree.sortByColumn(3, qtpy.QtCore.Qt.DescendingOrder)
+
+        with self._whiteboard({'gb': 'root', 'gc': 'root', 'ga': 'root'}):
+            tree._update()
+
+        root = tree._items['root']
+        self.assertEqual(['ga', 'gb', 'gc'],
+                         [root.child(i).rpcObject.name() for i in range(root.childCount())])
 
     @mock.patch('opencue.api.findShow')
     def test_addShowObjectSkipsLookup(self, find_show_mock):
