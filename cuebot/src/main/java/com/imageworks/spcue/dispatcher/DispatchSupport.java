@@ -182,14 +182,6 @@ public interface DispatchSupport {
     public void startFrameAndProc(VirtualProc proc, DispatchFrame frame);
 
     /**
-     * The janitor sweep: delete every proc whose frame is no longer RUNNING (older than the given
-     * age) and refund its host resources. Catches orphans on frames that never get planned again
-     * (job finished or killed), which the commit-time eviction cannot reach. Returns how many were
-     * swept.
-     */
-    int sweepOrphanedProcs(int olderThanSeconds);
-
-    /**
      * Commit a chunk of queued frame completions as ONE transaction: host rows pre-locked (sorted,
      * the same global order as the booking commit), every frame stopped with the state+version
      * guard in one batch (stat triggers fire on pre-locked counter rows), winners' max-RSS marks
