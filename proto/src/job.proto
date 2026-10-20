@@ -783,6 +783,8 @@ message NestedGroup {
     float min_cores = 7;
     float max_cores = 8;
     int32 level = 9;
+    // Only id and name are set; the full parent is the NestedGroup this one
+    // is nested in.
     NestedGroup parent = 10;
     NestedGroupSeq groups = 11;
     repeated string jobs = 12;

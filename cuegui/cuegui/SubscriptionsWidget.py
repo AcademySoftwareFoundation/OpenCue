@@ -88,10 +88,22 @@ class SubscriptionsWidget(QtWidgets.QWidget):
     def __changeFacilityDone(self, shows, error):
         if error is not None:
             shows = {}
+        # Keep the show if it was selected while the shows were being listed.
+        current = self.__show.name() if self.__show else ""
+        self.__show = None
         self.__shows = shows
-        self.__comboShows.clear()
-        self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
-        self.setShow()
+        self.__fillComboShows()
+        self.setShow(current if current in self.__shows else "")
+
+    def __fillComboShows(self):
+        # Changing the items changes the current index; do not treat that as
+        # a show selection.
+        self.__comboShows.blockSignals(True)
+        try:
+            self.__comboShows.clear()
+            self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
+        finally:
+            self.__comboShows.blockSignals(False)
 
     def setShow(self, show=""):
         """Sets the active show.
@@ -105,6 +117,10 @@ class SubscriptionsWidget(QtWidgets.QWidget):
                 return
             self.__show = show
             show = show.name()
+            if show not in self.__shows:
+                # The shows are not listed yet, or this one is not active.
+                self.__shows[show] = self.__show
+                self.__fillComboShows()
         elif isinstance(show, str):
             if self.__show and self.__show.name() == show:
                 return

@@ -54,8 +54,8 @@ Body = namedtuple("Body", "group_names, group_ids, job_names, job_ids")
 
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
-COLUMN_MAXRSS = 13
 COLUMN_AGE = 14
+COLUMN_MAXRSS = 17
 FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
 UPDATE_INTERVAL = 5
 
@@ -233,6 +233,8 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # fetch may have been sent before the action that asked for the
         # refresh, so another one runs as soon as it lands.
         self._forceUpdatePending = False
+        # Whether the deferred forced update must bypass the server cache.
+        self._forceUpdateFresh = False
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -349,7 +351,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if show.name() not in self.__shows:
                 self.__shows[show.name()] = show
                 if update:
-                    self._update()
+                    self.forceUpdate(fresh=False)
             return
 
         name = str(show)
@@ -376,14 +378,14 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 del self.__shows[show]
         finally:
             self._itemsLock.unlock()
-        self._update()
+        self.forceUpdate(fresh=False)
 
     def removeAllShows(self):
         """Unmonitors all shows"""
         if self.__shows:
             self.removeAllItems()
             self.__shows = {}
-            self._update()
+            self.forceUpdate(fresh=False)
 
     def getShows(self):
         """Returns a list of monitored show objects
@@ -429,16 +431,19 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             finally:
                 self._updateInFlight = False
 
-    def forceUpdate(self):
+    def forceUpdate(self, fresh=True):
         """Overrides AbstractTreeWidget.forceUpdate so a forced update that
-        arrives while a fetch is in flight is deferred instead of dropped, and
-        so it bypasses the server-side whiteboard cache: the cache may have
-        been filled before the action that asked for this refresh."""
+        arrives while a fetch is in flight is deferred instead of dropped.
+
+        @param fresh: bypass the server-side whiteboard cache. Needed after an
+                      action, as the cache may have been filled before it; not
+                      needed when only the monitored shows changed."""
         if self._updateInFlight:
             self._forceUpdatePending = True
+            self._forceUpdateFresh = self._forceUpdateFresh or fresh
             return
         self._restartUpdateTimer()
-        self._update(fresh=True)
+        self._update(fresh=fresh)
 
     def _processUpdateGuarded(self, work, rpcObjects):
         """Wraps _processUpdate so _updateInFlight is always cleared, even if
@@ -448,8 +453,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         finally:
             self._updateInFlight = False
             if self._forceUpdatePending:
+                fresh = self._forceUpdateFresh
                 self._forceUpdatePending = False
-                self.forceUpdate()
+                self._forceUpdateFresh = False
+                self.forceUpdate(fresh)
 
     def _getUpdate(self, fresh=False):
         """Returns a list of NestedGroup from the cuebot for the monitored shows
@@ -731,8 +738,10 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             # Dynamically add plugin actions for right-clicked job(s). The set
             # of plugins does not depend on the job, so scan for them once.
+            # Groups may be selected too; plugins only get the jobs.
+            selectedJobs = [obj for obj in selectedObjects if cuegui.Utils.isJob(obj)]
             plugins_by_type = {}
-            for plugin in plugin_loader.load_plugins(job=selectedObjects[-1], parent=self):
+            for plugin in plugin_loader.load_plugins(job=selectedJobs[-1], parent=self):
                 plugins_by_type[type(plugin)] = plugin
 
             for plugin_type, plugin_instance in plugins_by_type.items():
@@ -743,7 +752,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                     def make_launch_all(ptype):
                         def launch_all():
-                            for job in selectedObjects:
+                            for job in selectedJobs:
                                 plugin = ptype(job=job, parent=self)
                                 plugin.launch_subprocess()
 

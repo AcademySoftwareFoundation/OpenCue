@@ -27,6 +27,7 @@ import qtpy.QtWidgets
 import opencue_proto.job_pb2
 import opencue_proto.show_pb2
 import opencue.exception
+import opencue.wrappers.group
 import opencue.wrappers.job
 import opencue.wrappers.show
 
@@ -41,7 +42,7 @@ import cuegui.Style
 from . import test_utils
 
 
-class _NonBlockingMenu(qtpy.QtWidgets.QMenu):
+class _NonBlockingMenu(qtpy.QtWidgets.QMenu):  # pylint: disable=too-few-public-methods
     """A QMenu that does not block when shown."""
 
     def exec_(self, *args):  # pylint: disable=arguments-differ,unused-argument
@@ -249,8 +250,11 @@ class CueJobMonitorTreeTests(unittest.TestCase):
         self.assertEqual([theme.COLOR_JOB_FOREGROUND] * len(display),
                          self._cells(item, qtpy.QtCore.Qt.ForegroundRole))
         background = self._cells(item, qtpy.QtCore.Qt.BackgroundRole)
-        self.assertEqual(theme.COLOR_JOB_HIGH_MEMORY,
-                         background[cuegui.CueJobMonitorTree.COLUMN_MAXRSS])
+        names = [info[cuegui.AbstractTreeWidget.COLUMN_NAME]
+                 for info in tree.getColumnInfo(cuegui.Constants.TYPE_JOB)]
+        self.assertEqual(names.index('MaxRss'), cuegui.CueJobMonitorTree.COLUMN_MAXRSS)
+        self.assertEqual(names.index('Age'), cuegui.CueJobMonitorTree.COLUMN_AGE)
+        self.assertEqual(theme.COLOR_JOB_HIGH_MEMORY, background[names.index('MaxRss')])
         self.assertEqual(qtpy.QtGui.QColor, type(background[0]))
         self.assertNotEqual(theme.COLOR_JOB_HIGH_MEMORY, background[0])
         self.assertIsInstance(
@@ -429,12 +433,39 @@ class CueJobMonitorTreeTests(unittest.TestCase):
     def test_addShowObjectSkipsLookup(self, find_show_mock):
         show = opencue.wrappers.show.Show(opencue_proto.show_pb2.Show(name='other-show'))
 
-        with mock.patch.object(self.cue_job_monitor_tree, '_update') as update_mock:
+        with mock.patch.object(self.cue_job_monitor_tree, 'forceUpdate') as update_mock:
             self.cue_job_monitor_tree.addShow(show)
 
             find_show_mock.assert_not_called()
-            update_mock.assert_called_once_with()
+            update_mock.assert_called_once_with(fresh=False)
         self.assertIn('other-show', self.cue_job_monitor_tree.getShowNames())
+
+    def test_showChangeWhileInFlightUpdatesAfterCurrentFetch(self):
+        tree = self.cue_job_monitor_tree
+        tree._updateInFlight = True
+
+        with mock.patch.object(tree, '_getUpdate', return_value=None) as get_update_mock:
+            tree.removeShow(self.show_name)
+            get_update_mock.assert_not_called()
+            self.assertTrue(tree._forceUpdatePending)
+
+            # The in-flight fetch still had the removed show; refetch without it.
+            tree._processUpdateGuarded(None, None)
+
+            get_update_mock.assert_called_once_with(False)
+            self.assertFalse(tree._forceUpdatePending)
+
+    def test_deferredForcedUpdateIsFreshIfAnyRequestWas(self):
+        tree = self.cue_job_monitor_tree
+        tree._updateInFlight = True
+
+        with mock.patch.object(tree, '_getUpdate', return_value=None) as get_update_mock:
+            tree.forceUpdate()
+            tree.forceUpdate(fresh=False)
+            tree._processUpdateGuarded(None, None)
+
+            get_update_mock.assert_called_once_with(True)
+            self.assertFalse(tree._forceUpdateFresh)
 
     @mock.patch('opencue.api.findShow')
     def test_addShowNameLooksShowUp(self, find_show_mock):
@@ -465,6 +496,36 @@ class CueJobMonitorTreeTests(unittest.TestCase):
             self.cue_job_monitor_tree.contextMenuEvent(mock.Mock())
 
         load_plugins_mock.assert_called_once_with(job=jobs[-1], parent=self.cue_job_monitor_tree)
+
+    @mock.patch('cuegui.CueJobMonitorTree.plugin_loader.load_plugins')
+    @mock.patch('qtpy.QtWidgets.QMenu', new=_NonBlockingMenu)
+    def test_contextMenuPluginsOnlyGetJobs(self, load_plugins_mock):
+        launched = []
+
+        # The tree launches plugins of this type name once per selected job.
+        class Plugin(object):  # pylint: disable=too-few-public-methods
+            def __init__(self, job, parent=None):
+                del parent
+                self.job = job
+                self._config = {'menu_label': 'arbitrary-plugin'}
+
+            def launch_subprocess(self):
+                launched.append(self.job)
+
+        job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name='job1'))
+        group = opencue.wrappers.group.Group(opencue_proto.job_pb2.Group(name='group1'))
+        load_plugins_mock.return_value = [Plugin(job)]
+        tree = self.cue_job_monitor_tree
+
+        with mock.patch.object(tree, 'selectedObjects', return_value=[job, group]):
+            tree.contextMenuEvent(mock.Mock())
+
+        load_plugins_mock.assert_called_once_with(job=job, parent=tree)
+        actions = [action for action in tree.findChildren(qtpy.QtWidgets.QAction)
+                   if action.text() == 'arbitrary-plugin']
+        self.assertEqual(1, len(actions))
+        actions[0].trigger()
+        self.assertEqual([job], launched)
 
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())

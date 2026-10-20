@@ -111,6 +111,78 @@ class SubscriptionsTreeWidgetTests(unittest.TestCase):
 
         self.assertEqual({}, self.tree._items)
 
+    def test_olderUpdateLandingLastIsDropped(self):
+        show = _show('show1')
+        with mock.patch.object(self.tree, '_update'):
+            self.tree.setShow(show)
+        app = self.tree.app
+        app.threadpool = mock.Mock()
+        self.addCleanup(setattr, app, 'threadpool', None)
+
+        self.tree._update()
+        self.tree._update()
+        older, newer = [call[0][1] for call in app.threadpool.queue.call_args_list]
+        newer(None, (show, [_subscription('sub2')]))
+        older(None, (show, [_subscription('sub1')]))
+
+        self.assertEqual(['Subscription.sub2'], sorted(self.tree._items))
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+@mock.patch('opencue.wrappers.show.Show.getSubscriptions', new=mock.Mock(return_value=[]))
+class SubscriptionsWidgetTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        self.app = test_utils.createApplication()
+        self.app.settings = qtpy.QtCore.QSettings()
+        cuegui.Style.init()
+        # Holds the show listing back until the test hands it over.
+        self.app.action_runner = mock.Mock()
+        self.addCleanup(setattr, self.app, 'action_runner', None)
+        self.widget = cuegui.SubscriptionsWidget.SubscriptionsWidget(None)
+        self.combo = self.widget._SubscriptionsWidget__comboShows
+
+    def _listShows(self, *names):
+        _, callback, _ = self.app.action_runner.submit.call_args[0]
+        callback({name: _show(name) for name in names}, None)
+
+    def _comboItems(self):
+        return [self.combo.itemText(i) for i in range(self.combo.count())]
+
+    def test_setShowBeforeShowsAreListed(self):
+        show = _show('show1')
+
+        self.widget.setShow(show)
+
+        self.assertIs(show, self.widget.getShow())
+        self.assertEqual('show1', self.combo.currentText())
+
+    def test_listingKeepsSelectedShow(self):
+        self.widget.setShow(_show('show2'))
+
+        self._listShows('show1', 'show2')
+
+        self.assertEqual('show2', self.widget.getShowName())
+        self.assertEqual('show2', self.combo.currentText())
+        self.assertEqual(['Select Show:', 'show1', 'show2'], self._comboItems())
+
+    def test_listingDropsUnlistedShow(self):
+        self.widget.setShow(_show('show3'))
+
+        self._listShows('show1')
+
+        self.assertIsNone(self.widget.getShow())
+        self.assertEqual(0, self.combo.currentIndex())
+        self.assertEqual(['Select Show:', 'show1'], self._comboItems())
+
+    def test_comboSelectsShow(self):
+        self._listShows('show1', 'show2')
+
+        self.combo.setCurrentIndex(2)
+
+        self.assertEqual('show2', self.widget.getShowName())
+
 
 if __name__ == '__main__':
     unittest.main()

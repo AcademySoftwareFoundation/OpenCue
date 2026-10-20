@@ -113,12 +113,18 @@ class ActionRunner(QtCore.QObject):
         self.__done = collections.deque()
         self.__doneLock = threading.Lock()
         self.__thread = None
+        self.__stopped = False
         # pylint: disable=no-member
         self._workDone.connect(self.__deliver, QtCore.Qt.QueuedConnection)
         # pylint: enable=no-member
 
     def submit(self, work, callback=None, description=None):
-        """Queues work. See cuegui.ActionRunner.submit."""
+        """Queues work. See cuegui.ActionRunner.submit. Work submitted after
+        shutdown is ignored."""
+        if self.__stopped:
+            logger.warning("Not running '%s': the application is exiting",
+                           description or "action")
+            return
         if self.__thread is None:
             self.__thread = threading.Thread(
                 target=self.__run, name="cuegui-action-runner", daemon=True)
@@ -127,7 +133,9 @@ class ActionRunner(QtCore.QObject):
 
     def shutdown(self, timeout=SHUTDOWN_TIMEOUT):
         """Stops the worker once the work queued so far is done, waiting at
-        most timeout seconds. Callbacks are not run anymore."""
+        most timeout seconds. From then on, callbacks are not run and new work
+        is ignored: the widgets they belong to are being torn down."""
+        self.__stopped = True
         if self.__thread is None:
             return
         self.__pending.put(None)
@@ -160,5 +168,5 @@ class ActionRunner(QtCore.QObject):
                 if not self.__done:
                     return
                 callback, result, error, description = self.__done.popleft()
-            if callback is not None:
+            if callback is not None and not self.__stopped:
                 _callCallback(callback, result, error, description)

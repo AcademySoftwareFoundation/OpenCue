@@ -1,0 +1,2622 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "datasource",
+          "uid": "grafana"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Maestro migration watchboard: whole-farm utilization across both schedulers, Maestro's growing share, booking pace, managed-show health and the double-booking safety net. Built for the managed-mode rollout (one show, two shows, facility).",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": 317,
+  "links": [
+    {
+      "asDropdown": true,
+      "tags": [
+        "opencue",
+        "scheduler"
+      ],
+      "title": "OpenCue Maestro (full board)",
+      "type": "dashboards"
+    }
+  ],
+  "panels": [
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #73BF69;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">UTILISATION &mdash; the headline</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.3.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "The apples-to-apples number for the whole migration: cores in use over cores on UP+OPEN hosts, from the shared host table (cue_cores_total / cue_cores_idle). Both dispatchers decrement the same columns, so this is true across every phase (managed, two shows, facility). The dashed line is the same series one week earlier: the impact of each migration step reads as the gap between the two. max by (alloc) dedupes the per-Cuebot copies of the gauge.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "% of farm cores in use",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "utilisation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "one week ago"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#808080",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    10,
+                    10
+                  ],
+                  "fill": "dash"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 2
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})) / sum(max by (alloc) (cue_cores_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})))",
+          "legendFormat": "utilisation",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"} offset 1w)) / sum(max by (alloc) (cue_cores_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"} offset 1w)))",
+          "legendFormat": "one week ago",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Whole-farm utilisation (both schedulers)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "sum(cue_maestro_show_cores) over the farm total, as measured by Maestro's own booking ledger. CAREFUL WITH THE SEMANTICS: show_cores counts only cores MAESTRO booked, while farm_cores_total is the WHOLE farm. In managed mode this is therefore the managed shows' share of the farm (expect it small and growing per phase), NOT utilisation. Only at facility cutover does it converge to farm utilisation as Maestro sees it. The green reference line is whole-farm utilisation from the host table; the gap between them is legacy-booked plus idle.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "% of farm cores",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 25,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "booked by maestro"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "whole-farm utilisation"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "dash": [
+                    4,
+                    4
+                  ],
+                  "fill": "dash"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 2
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "sum(cue_maestro_show_cores{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}) / scalar(max(cue_maestro_farm_cores_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})) * 100",
+          "legendFormat": "booked by maestro",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "100 * (1 - sum(max by (alloc) (cue_cores_idle{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})) / sum(max by (alloc) (cue_cores_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})))",
+          "legendFormat": "whole-farm utilisation",
+          "refId": "B"
+        }
+      ],
+      "title": "(This chart drifts over time, ignore it for now) Maestro's slice of the farm",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Cores in use per allocation over that allocation's total, from the shared host table. Localizes a utilisation move: if the farm number dips, this tells you whether it is the allocation the managed show renders on (Maestro's doing) or somewhere else (not Maestro's doing).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "% of alloc cores in use",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 2
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "mean"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "100 * (1 - max by (alloc) (cue_cores_idle{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}) / max by (alloc) (cue_cores_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}))",
+          "legendFormat": "{{alloc}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Utilisation by allocation",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 5,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #5794F2;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">BOOKING PACE</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.3.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 19,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "exemplar": false,
+          "expr": "sum by (outcome) (rate (cue_completion_forward_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"} [5m]))",
+          "format": "time_series",
+          "legendFormat": "{{ outcome }}",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Forwarded Complete Reports",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Frames completed per second, per show, from cue_frames_completed_total. Cuebot emits this for BOTH schedulers (RQD reports completions to Cuebot either way), so it is the one throughput axis comparable across the migration boundary: the managed show against its own pre-migration history, and the unmanaged shows as the control group. An unmanaged show slowing down when a show flips to Maestro is the fairness-coupling fingerprint.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "frames completed / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "__systemRef": "hideSeriesFrom",
+            "matcher": {
+              "id": "byNames",
+              "options": {
+                "mode": "exclude",
+                "names": [
+                  "ap1",
+                  "gnzo",
+                  "hta5"
+                ],
+                "prefix": "All except:",
+                "readOnly": true
+              }
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": false,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (show) (rate(cue_frames_completed_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", show=~\"$show\"}[10m]))",
+          "legendFormat": "{{show}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Completion throughput per show (shared truth)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Frames booked per second by Maestro, per show (rate of cue_maestro_frames_dispatched_total). Sustained zero with a non-empty waitlist means the managed show is not flowing: read 'What's holding frames' below for the cause.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "frames / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 0,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 20
+      },
+      "id": 8,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (show) (rate(cue_maestro_frames_dispatched_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m]))",
+          "legendFormat": "{{show}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Maestro booking throughput",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Tick wall-clock p50/p95/p99. Maestro's core health signal; the batched commit is synchronous, so DB latency shows up here first. Watch it as each phase adds shows: it should stay well under the 3s tick interval.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 20
+      },
+      "id": 15,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max",
+            "mean"
+          ],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.50, sum(rate(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m])) by (le))",
+          "legendFormat": "p50",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m])) by (le))",
+          "legendFormat": "p95",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "histogram_quantile(0.99, sum(rate(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m])) by (le))",
+          "legendFormat": "p99",
+          "refId": "C"
+        }
+      ],
+      "title": "Maestro tick duration",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "The waiting backlog Maestro weighed this tick (all cue_maestro_waiting_frames buckets) divided by Maestro's booking rate = the average time a waiting frame will take to book at the current pace. In managed mode the waitlist covers only managed shows, which is exactly what we want here. Under a deep backlog this number is dominated by backlog depth, so read the TREND against the show's own history, not the absolute value. The precise per-frame version is the proposed cue_frame_time_to_book_seconds histogram (next panel).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "estimated seconds to book",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "est. time to book"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 28
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum(cue_maestro_waiting_frames{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}) / sum(rate(cue_maestro_frames_dispatched_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[10m]))",
+          "legendFormat": "est. time to book",
+          "refId": "A"
+        }
+      ],
+      "title": "Time to book, estimated (managed shows)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "p95 wall-clock of each phase of the leader's tick. drain: queued completions applied; snapshot: hosts, procs and pins read; place: candidate queries and scoring; read: plan reads and trims; commit: chunked bookings; usage: live usage and farm-health reads. A tail in the tick histogram shows here as the phase that grew.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 28
+      },
+      "id": 21,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_phase_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m])) by (le, phase))",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Maestro tick phases (p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "frame_history events waiting in the outbox (depth, left axis) and how long the oldest has waited (right axis). Age should reset every history.frame_drain_interval_ms (5 min by default); a climbing age means the history drain is falling behind.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "oldest age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "id": 25,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max(cue_frame_history_queue_depth{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "depth",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max(cue_frame_history_queue_oldest_age_seconds{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "oldest age",
+          "refId": "B"
+        }
+      ],
+      "title": "Frame history queue",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Frame completions acknowledged and waiting for the tick's drain (depth, left axis) and how long the oldest has waited (right axis). Read at scrape time, so it keeps moving when the tick stalls. Age past maintenance.orphaned_proc_age_seconds means the orphan sweep is resetting finished frames.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "oldest age"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "id": 24,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max(cue_maestro_completion_queue_depth{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "depth",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max(cue_maestro_completion_queue_oldest_age_seconds{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "oldest age",
+          "refId": "B"
+        }
+      ],
+      "title": "Completion queue",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "id": 10,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #FF9830;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">MANAGED SHOW HEALTH</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.3.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Of all frames Maestro handles (running + waiting), the share blocked by each cause. In managed mode this covers only the managed shows. capacity = farm full (fine). no fit = idle exists but wrong shape. limit = a cap. no license = pool exhausted or stale. held = reserved for a wide job. All near zero = everything flows. A 'limit' share while cores sit idle = check for a drifted job_resource counter.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "% of all managed frames",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "linear",
+            "lineWidth": 0,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 1,
+          "mappings": [],
+          "max": 100,
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "capacity"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "blue",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "held"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "limit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no fit"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "no license"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 46
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (reason) (cue_maestro_waiting_frames{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", reason!=\"flowing\"}) / scalar(sum(cue_maestro_waiting_frames{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}) + sum(cue_maestro_running_frames{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})) * 100",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "What's holding frames (managed shows)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Frames completed per second by final state (cue_frames_completed_total, both schedulers). The regression canary: a rise in DEAD or EATEN on the managed show after the flip means frames are failing under Maestro that succeeded under the dispatcher (e.g. a layer class Maestro places differently, or a limit failure-rule misfire). SUCCEEDED should track the completion panel above.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "frames / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "DEAD"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "SUCCEEDED"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 46
+      },
+      "id": 12,
+      "options": {
+        "legend": {
+          "calcs": [
+            "mean",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (state) (rate(cue_frames_completed_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", show=~\"$show\"}[10m]))",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Frame outcomes by state",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "The absolute waitlist Maestro weighed, stacked by reason, including 'flowing' (booked this tick, backlog moving). The denominator of the time-to-book estimate: a rising estimate with a flat backlog means booking slowed; a rising estimate with a rising backlog means more work arrived. A layer stuck WAITING that never appears here at all is the silent class (e.g. a bare-hostname tag pin, which Maestro never dispatches).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "waiting frames",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 45,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "flowing"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 46
+      },
+      "id": 13,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (reason) (cue_maestro_waiting_frames{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "{{reason}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Waiting backlog (managed shows)",
+      "type": "timeseries"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "id": 14,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"background:#1f2733;border-left:4px solid #F2495C;padding:10px 16px;border-radius:3px;font-family:system-ui;font-size:20px;font-weight:700;letter-spacing:2px;color:#d8d9da\">BOTH ENGINES &amp; THE SAFETY NET</div>",
+        "mode": "html"
+      },
+      "pluginVersion": "11.3.0",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "Tick wall-clock p50/p95/p99. Maestro's core health signal; the batched commit is synchronous, so DB latency shows up here first. Watch it as each phase adds shows: it should stay well under the 3s tick interval.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "seconds",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 10,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 56
+      },
+      "id": 20,
+      "options": {
+        "legend": {
+          "calcs": [
+            "max",
+            "mean"
+          ],
+          "displayMode": "list",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(\n  cue_booking_durations_histogram_in_millis_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", stage_desc=\"findNextDispatchFrames by layer query\"}[5m])))",
+          "legendFormat": "booking by layer p90",
+          "range": true,
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.95, sum(rate(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[5m])) by (le))",
+          "hide": false,
+          "legendFormat": "tick duration p95",
+          "range": true,
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "histogram_quantile(0.90, sum by (le) (rate(\n  cue_booking_durations_histogram_in_millis_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", stage_desc=\"findNextDispatchFrames by layer and host query\"}[5m])))",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "booking by layer and host p90",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Maestro p95 tick duration + query",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "The other engine is still doing most of the work during managed mode: BookingQueue backlog and rejections per Cuebot. A queue backing up or rejecting after a show flips to Maestro would mean the migration is hurting the legacy side (it should not: the managed show simply disappears from its query).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "queued booking tasks",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/rejected/"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 56
+      },
+      "id": 16,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max by (cuebot_hosts) (cue_booking_waiting_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "{{cuebot_hosts}} waiting",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max by (cuebot_hosts) (cue_booking_rejected_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "{{cuebot_hosts}} rejected",
+          "refId": "B"
+        }
+      ],
+      "title": "Legacy dispatcher health (unmanaged shows)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "The double-booking and lost-launch counters, all emitted by Cuebot for both schedulers. zombie = RQD rendering a frame the DB forgot (a dropped Maestro launch shows up here until the reaper resets it). launch unknown = launch RPC failed without proving the frame never started. superseded / dropped = completion reports that could not be applied to their frame. All of these should be flat near zero; any sustained rate after a flip is the first sign the two dispatchers or the fire-and-forget launch path are stepping on each other.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "events / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "zombie renders"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 64
+      },
+      "id": 17,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum(rate(cue_frame_zombie_render_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[10m]))",
+          "legendFormat": "zombie renders",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (resolution) (rate(cue_frame_launch_outcome_unknown_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[10m]))",
+          "legendFormat": "launch unknown: {{resolution}}",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum by (reason) (rate(cue_frame_complete_superseded_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[10m]))",
+          "legendFormat": "superseded: {{reason}}",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum(rate(cue_frame_complete_dropped_total{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}[10m]))",
+          "legendFormat": "completions dropped",
+          "refId": "D"
+        }
+      ],
+      "title": "Booking safety net",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "maestro view = cue_farm_health_stranded_cores, idle cores after planning that no waiting managed frame can buy. host table view = cue_cores_memory_stranded summed over allocations, idle cores on hosts out of memory, covering the whole farm and both schedulers. Sustained growth in either after a flip means the migrated load is packing hosts into shapes the remaining work cannot use (the rss-sizing and no-grab-idle behaviors changing the memory mix is the usual suspect).",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "cores idle but unsellable",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 12,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "maestro view (managed work)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "orange",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "host table view (whole farm)"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "purple",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 64
+      },
+      "id": 18,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "max(cue_farm_health_stranded_cores{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"})",
+          "legendFormat": "maestro view (managed work)",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "expr": "sum(max by (alloc) (cue_cores_memory_stranded{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\"}))",
+          "legendFormat": "host table view (whole farm)",
+          "refId": "B"
+        }
+      ],
+      "title": "Stranded cores (two views)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "bfgly9cbkvs3ke"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "events / sec",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 8,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green"
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "zombie renders"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "red",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 72
+      },
+      "id": 22,
+      "options": {
+        "legend": {
+          "calcs": [
+            "last",
+            "max"
+          ],
+          "displayMode": "table",
+          "placement": "right",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "pluginVersion": "11.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "bfgly9cbkvs3ke"
+          },
+          "editorMode": "code",
+          "expr": "rate(cue_maestro_tick_phase_seconds_count{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", phase=\"drain\"}[5m])\n  - rate(cue_maestro_tick_phase_seconds_bucket{namespace=\"opencue\", env=\"[[cuebot_facility]]\", pod=~\"[[pod]]\", phase=\"drain\",le=\"30\"}[5m])",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Completition Forward",
+      "type": "timeseries"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 40,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "text": "os_eat",
+          "value": "os_eat"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "bfgly9cbkvs3ke"
+        },
+        "definition": "query_result(count by (env) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\"}[$__range])))",
+        "description": "Uses query_result instead of label_values because the label values API ignores match[] selectors on this datasource.",
+        "label": "Cuebot Facility",
+        "name": "cuebot_facility",
+        "options": [],
+        "query": {
+          "qryType": 3,
+          "query": "query_result(count by (env) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\"}[$__range])))",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery",
+          "varQuery": "count by (env) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\"}[$__range]))"
+        },
+        "refresh": 2,
+        "regex": "/env=\"([^\"]+)\"/",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "bfgly9cbkvs3ke"
+        },
+        "definition": "query_result(count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range])) or count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range] offset 1w)))",
+        "description": "Pods active in the current time range or the same range one week ago (for week-over-week panels). Uses query_result instead of label_values because the label values API ignores match[] selectors on this datasource.",
+        "includeAll": true,
+        "label": "pod",
+        "multi": true,
+        "name": "pod",
+        "options": [],
+        "query": {
+          "qryType": 3,
+          "query": "query_result(count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range])) or count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range] offset 1w)))",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery",
+          "varQuery": "count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range])) or count by (pod) (last_over_time(cue_maestro_tick_duration_seconds_bucket{namespace=\"opencue\", env=\"$cuebot_facility\"}[$__range] offset 1w))"
+        },
+        "refresh": 2,
+        "regex": "/pod=\"([^\"]+)\"/",
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "allValue": ".*",
+        "current": {
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "bfgly9cbkvs3ke"
+        },
+        "definition": "",
+        "description": "Sourced from cue_frames_completed_total, which Cuebot emits for BOTH schedulers, so every show appears here regardless of who books it.",
+        "includeAll": true,
+        "label": "Show",
+        "multi": true,
+        "name": "show",
+        "options": [],
+        "query": "",
+        "refresh": 2,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "OpenCue Maestro Migration",
+  "uid": "dfykf455gzj7ka",
+  "version": 20,
+  "weekStart": ""
+}
