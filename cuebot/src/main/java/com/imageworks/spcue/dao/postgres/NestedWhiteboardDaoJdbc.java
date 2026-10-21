@@ -53,11 +53,27 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
      */
     private class CachedJobWhiteboardMapper {
         public final long time;
+        // System.nanoTime() taken right before the query that produced this entry was sent.
+        public final long queryStartNanos;
         public final NestedJobWhiteboardMapper mapper;
 
-        public CachedJobWhiteboardMapper(NestedJobWhiteboardMapper result) {
+        public CachedJobWhiteboardMapper(NestedJobWhiteboardMapper result, long queryStartNanos) {
             this.mapper = result;
+            this.queryStartNanos = queryStartNanos;
             this.time = System.currentTimeMillis();
+        }
+
+        /**
+         * Whether this entry can serve a request that arrived at requestNanos. A fresh request only
+         * accepts an entry whose query started after it arrived, so the entry reflects every change
+         * committed before the request. That still lets concurrent fresh requests for the same show
+         * share a single query.
+         */
+        public boolean isUsable(boolean fresh, long requestNanos) {
+            if (fresh) {
+                return queryStartNanos - requestNanos >= 0;
+            }
+            return System.currentTimeMillis() - time < CACHE_TIMEOUT_MS;
         }
     }
 
@@ -294,10 +310,14 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
 
         for (ChildrenEntry entry : orderedChildren) {
             NestedGroup group = mapper.groups.get(entry.getKey());
+            // Only the id and name of the parent are sent with each child: a copy of the whole
+            // parent would include its jobs.
+            NestedGroup parent =
+                    NestedGroup.newBuilder().setId(group.getId()).setName(group.getName()).build();
             NestedGroupSeq.Builder childrenBuilder = NestedGroupSeq.newBuilder();
             for (String childId : entry.getChildren()) {
                 NestedGroup child = mapper.groups.get(childId);
-                child = child.toBuilder().setParent(group).build();
+                child = child.toBuilder().setParent(parent).build();
                 childrenBuilder.addNestedGroups(child);
                 mapper.groups.put(childId, child);
             }
@@ -308,11 +328,15 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
     }
 
     public NestedGroup getJobWhiteboard(ShowInterface show) {
+        return getJobWhiteboard(show, false);
+    }
+
+    public NestedGroup getJobWhiteboard(ShowInterface show, boolean fresh) {
         String showId = show.getShowId();
+        long requestNanos = System.nanoTime();
 
         CachedJobWhiteboardMapper cachedMapper = jobCache.get(showId);
-        if (cachedMapper != null
-                && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+        if (cachedMapper != null && cachedMapper.isUsable(fresh, requestNanos)) {
             return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
         }
 
@@ -324,18 +348,18 @@ public class NestedWhiteboardDaoJdbc extends JdbcDaoSupport implements NestedWhi
         Object lock = refreshLocks.computeIfAbsent(showId, k -> new Object());
         synchronized (lock) {
             cachedMapper = jobCache.get(showId);
-            if (cachedMapper != null
-                    && System.currentTimeMillis() - cachedMapper.time < CACHE_TIMEOUT_MS) {
+            if (cachedMapper != null && cachedMapper.isUsable(fresh, requestNanos)) {
                 return cachedMapper.mapper.groups.get(cachedMapper.mapper.rootGroupID);
             }
 
+            long queryStartNanos = System.nanoTime();
             NestedJobWhiteboardMapper mapper = new NestedJobWhiteboardMapper();
             getJdbcTemplate().query(
                     GET_NESTED_GROUPS + " AND show.pk_show=? ORDER BY folder_level.int_level ASC",
                     mapper, showId);
 
             mapper = updateConnections(mapper);
-            jobCache.put(showId, new CachedJobWhiteboardMapper(mapper));
+            jobCache.put(showId, new CachedJobWhiteboardMapper(mapper, queryStartNanos));
             return mapper.groups.get(mapper.rootGroupID);
         }
     }

@@ -20,10 +20,13 @@ from __future__ import print_function
 from __future__ import division
 from __future__ import absolute_import
 
+import threading
+import time
 import unittest
 
 import getpass
 import mock
+import qtpy.QtCore
 import qtpy.QtGui
 import qtpy.QtWidgets
 
@@ -35,6 +38,7 @@ import opencue_proto.job_pb2
 import opencue_proto.limit_pb2
 import opencue_proto.subscription_pb2
 import opencue_proto.task_pb2
+import opencue.exception
 import opencue.wrappers.allocation
 import opencue.wrappers.depend
 import opencue.wrappers.filter
@@ -49,6 +53,7 @@ import opencue.wrappers.show
 import opencue.wrappers.subscription
 import opencue.wrappers.task
 
+import cuegui.ActionRunner
 import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.Main
@@ -221,6 +226,52 @@ class JobActionsTests(unittest.TestCase):
         self.job_actions.pause(rpcObjects=[job])
 
         job.pause.assert_called()
+
+    @mock.patch('qtpy.QtWidgets.QMessageBox.critical')
+    def test_pauseReportsFailuresTogether(self, criticalMock):
+        updateMock = mock.Mock()
+        job_actions = cuegui.MenuActions.JobActions(self.widgetMock, updateMock, None, None)
+        jobs = [opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name='job%d' % i))
+                for i in range(3)]
+        for job in jobs:
+            job.pause = mock.Mock()
+        jobs[0].pause.side_effect = opencue.exception.CueException('arbitrary-error')
+        jobs[1].pause.side_effect = RuntimeError('other-error')
+
+        job_actions.pause(rpcObjects=jobs)
+
+        for job in jobs:
+            job.pause.assert_called_once_with()
+        criticalMock.assert_called_once()
+        message = criticalMock.call_args[0][2]
+        self.assertIn('job0: arbitrary-error', message)
+        self.assertIn('job1: other-error', message)
+        self.assertNotIn('job2', message)
+        updateMock.assert_called_once_with()
+
+    @mock.patch('qtpy.QtWidgets.QMessageBox.critical')
+    def test_actionRunsOffGuiThread(self, criticalMock):
+        updateMock = mock.Mock()
+        job_actions = cuegui.MenuActions.JobActions(self.widgetMock, updateMock, None, None)
+        job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(name='job'))
+        workThreads = []
+        job.pause = mock.Mock(side_effect=lambda: workThreads.append(threading.current_thread()))
+        runner = cuegui.ActionRunner.ActionRunner()
+        self.app.action_runner = runner
+        try:
+            job_actions.pause(rpcObjects=[job])
+            deadline = time.time() + 5
+            while not updateMock.called and time.time() < deadline:
+                qtpy.QtCore.QCoreApplication.processEvents()
+                time.sleep(0.01)
+        finally:
+            runner.shutdown()
+            self.app.action_runner = None
+
+        self.assertEqual(1, len(workThreads))
+        self.assertNotEqual(threading.main_thread(), workThreads[0])
+        updateMock.assert_called_once_with()
+        criticalMock.assert_not_called()
 
     def test_resume(self):
         job = opencue.wrappers.job.Job()

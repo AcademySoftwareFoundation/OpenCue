@@ -42,6 +42,7 @@ import opencue.wrappers.depend
 
 # pylint: disable=cyclic-import
 import cuegui.Action
+import cuegui.ActionRunner
 import cuegui.Comments
 import cuegui.Constants
 import cuegui.CreatorDialog
@@ -77,6 +78,12 @@ DEFAULT_JOB_KILL_REASON = "Manual Job Kill Request in Cuegui by " + getpass.getu
 DEFAULT_FRAME_KILL_REASON = "Manual Frame(s) Kill Request in Cuegui by " + getpass.getuser()
 
 # pylint: disable=missing-function-docstring,unused-argument
+
+
+def _describe(rpcObject):
+    """Returns a name for the object to use in messages."""
+    data = getattr(rpcObject, "data", None)
+    return getattr(data, "name", None) or str(rpcObject)
 
 
 class AbstractActions(object):
@@ -182,6 +189,65 @@ class AbstractActions(object):
 
         menu.addAction(self.__actionCache[key])
         return self.__actionCache[key]
+
+    def _showStatus(self, message):
+        """Shows a message on the status bar of the window the actions belong to."""
+        try:
+            window = self._caller.window()
+        except (AttributeError, RuntimeError):
+            return
+        showStatusBarMessage = getattr(window, "showStatusBarMessage", None)
+        if callable(showStatusBarMessage):
+            showStatusBarMessage(message)
+
+    def _runAction(self, title, objects, call, update=True):
+        """Calls call(obj) for every object, in order, off the GUI thread.
+
+        A slow or unreachable Cuebot then does not freeze the GUI. Failures do
+        not stop the remaining calls; they are reported together, on the GUI
+        thread, once all calls are done. The post-action refresh runs after
+        that, so it sees the result of the calls.
+
+        @type  title: str
+        @param title: what is being done, e.g. "Pause jobs"
+        @type  objects: list
+        @param objects: the objects to act on
+        @type  call: callable
+        @param call: called with each object; runs off the GUI thread
+        @type  update: bool
+        @param update: whether to refresh the caller once done"""
+        objects = list(objects)
+        if not objects:
+            return
+        self._showStatus("%s (%d)..." % (title, len(objects)))
+
+        def work():
+            errors = []
+            for obj in objects:
+                try:
+                    call(obj)
+                # Report every failure, not only CueExceptions, as they would
+                # otherwise be lost on the worker thread.
+                # pylint: disable=broad-except
+                except Exception as e:
+                    logger.warning("%s failed for %s", title, _describe(obj), exc_info=True)
+                    errors.append("%s: %s" % (_describe(obj), e))
+            return errors
+
+        def done(errors, error):
+            if error is not None:
+                errors = [str(error)]
+            if errors:
+                self._showStatus("%s: %d failed" % (title, len(errors)))
+                QtWidgets.QMessageBox.critical(
+                    self._caller if isinstance(self._caller, QtWidgets.QWidget) else None,
+                    "%s failed" % title, "\n".join(errors), QtWidgets.QMessageBox.Ok)
+            else:
+                self._showStatus("%s: done" % title)
+            if update:
+                self._update()
+
+        cuegui.ActionRunner.submit(work, done, title)
 
     def cuebotCall(self, functionToCall, errorMessageTitle, *args):
         """Makes the given call to the Cuebot, displaying exception info if needed.
@@ -322,9 +388,8 @@ class JobActions(AbstractActions):
                                                                current,
                                                                0, 50000, 0)
             if choice:
-                for job in jobs:
-                    job.setMinCores(float(value))
-                self._update()
+                self._runAction("Set minimum cores", jobs,
+                                lambda job: job.setMinCores(float(value)))
 
     setMaxCores_info = ["Set Maximum Cores...", "Set Job(s) Maximum Cores", "configure"]
 
@@ -339,9 +404,8 @@ class JobActions(AbstractActions):
                                                                current,
                                                                0, 50000, 0)
             if choice:
-                for job in jobs:
-                    job.setMaxCores(float(value))
-                self._update()
+                self._runAction("Set maximum cores", jobs,
+                                lambda job: job.setMaxCores(float(value)))
 
     setMinGpus_info = ["Set Minimum Gpus...", "Set Job(s) Minimum Gpus", "configure"]
     def setMinGpus(self, rpcObjects=None):
@@ -355,9 +419,8 @@ class JobActions(AbstractActions):
                                                                current,
                                                                0, 500, 0)
             if choice:
-                for job in jobs:
-                    job.setMinGpus(int(value))
-                self._update()
+                self._runAction("Set minimum GPUs", jobs,
+                                lambda job: job.setMinGpus(int(value)))
 
     setMaxGpus_info = ["Set Maximum Gpus...", "Set Job(s) Maximum Gpus", "configure"]
     def setMaxGpus(self, rpcObjects=None):
@@ -371,9 +434,8 @@ class JobActions(AbstractActions):
                                                                current,
                                                                0, 500, 0)
             if choice:
-                for job in jobs:
-                    job.setMaxGpus(int(value))
-                self._update()
+                self._runAction("Set maximum GPUs", jobs,
+                                lambda job: job.setMaxGpus(int(value)))
 
     setPriority_info = ["Set Priority...", None, "configure"]
 
@@ -388,9 +450,8 @@ class JobActions(AbstractActions):
                                                             current,
                                                             0, 1000000, 1)
             if choice:
-                for job in jobs:
-                    job.setPriority(int(value))
-                self._update()
+                self._runAction("Set priority", jobs,
+                                lambda job: job.setPriority(int(value)))
 
     setMaxRetries_info = ["Set Max Retries...", None, "configure"]
 
@@ -404,29 +465,22 @@ class JobActions(AbstractActions):
                                                             title, body,
                                                             0, 0, 10, 1)
             if choice:
-                for job in jobs:
-                    job.setMaxRetries(int(value))
-                self._update()
+                self._runAction("Set max retries", jobs,
+                                lambda job: job.setMaxRetries(int(value)))
 
     pause_info = ["&Pause", None, "pause"]
 
     def pause(self, rpcObjects=None):
         """pause selected jobs"""
-        jobs = self._getOnlyJobObjects(rpcObjects)
-        if jobs:
-            for job in jobs:
-                job.pause()
-            self._update()
+        self._runAction("Pause jobs", self._getOnlyJobObjects(rpcObjects),
+                        lambda job: job.pause())
 
     resume_info = ["&Unpause", None, "unpause"]
 
     def resume(self, rpcObjects=None):
         """resume selected jobs"""
-        jobs = self._getOnlyJobObjects(rpcObjects)
-        if jobs:
-            for job in jobs:
-                job.resume()
-            self._update()
+        self._runAction("Unpause jobs", self._getOnlyJobObjects(rpcObjects),
+                        lambda job: job.resume())
 
     shutdownIfCompleted_info = [
         "Shutdown If &Completed",
@@ -444,18 +498,19 @@ class JobActions(AbstractActions):
         if cuegui.Utils.questionBoxYesNo(self._caller, "Shutdown completed jobs?", msg,
                                          [job.data.name for job in jobs]):
             blocked_job_owners = []
+            authorized_jobs = []
             for job in jobs:
                 if not cuegui.Utils.isPermissible(job):
                     blocked_job_owners.append(job.username())
-                    continue
-                self.cuebotCall(job.shutdownIfCompleted,
-                                "Failed to shutdown %s" % job.data.name)
+                else:
+                    authorized_jobs.append(job)
+            self._runAction("Shutdown completed jobs", authorized_jobs,
+                            lambda job: job.shutdownIfCompleted())
             if blocked_job_owners:
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "shutdown some of the selected jobs",
                         ", ".join(blocked_job_owners)))
-            self._update()
 
     kill_info = ["&Kill", None, "kill"]
 
@@ -475,40 +530,44 @@ class JobActions(AbstractActions):
                     if not cuegui.Utils.isPermissible(job):
                         blocked_job_owners.append(job.username())
                     else:
-                        job.kill(reason=DEFAULT_JOB_KILL_REASON)
                         authorized_jobs.append(job)
                 if authorized_jobs:
+                    self._runAction("Kill jobs", authorized_jobs,
+                                    lambda job: job.kill(reason=DEFAULT_JOB_KILL_REASON))
+                    # Queued after the kills, so it runs once they are done.
                     self.killDependents(authorized_jobs)
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "kill some of the selected jobs",
                             ", ".join(blocked_job_owners)))
-                self._update()
 
     def killDependents(self, jobs):
-        dependents = self.getRecursiveDependentJobs(jobs)
-        if not dependents:
-            return
+        """Looks up the jobs depending on the given jobs off the GUI thread,
+        then asks whether to kill them or to drop their dependencies."""
+        def done(dependents, error):
+            if error is not None:
+                logger.warning("Failed to look up depending jobs: %s", error)
+                return
+            if dependents:
+                self.__killOrReleaseDependents(dependents)
+
+        cuegui.ActionRunner.submit(lambda: self.getRecursiveDependentJobs(jobs), done,
+                                   "Looking up depending jobs")
+
+    def __killOrReleaseDependents(self, dependents):
         if cuegui.Utils.questionBoxYesNo(self._caller,
                                   "Kill depending jobs?",
                                   "The jobs have been killed. "
                                   "Do you want to kill %s jobs that depend on it?" %
                                   len(dependents),
                                   sorted([dep.name() for dep in dependents])):
-            for depJob in dependents:
-                try:
-                    depJob.kill(reason=DEFAULT_JOB_KILL_REASON)
-                except opencue.exception.CueException as e:
-                    errMsg = "Failed to kill depending job: %s - %s" % (depJob.name(), e)
-                    logger.warning(errMsg)
+            self._runAction("Kill depending jobs", dependents,
+                            lambda job: job.kill(reason=DEFAULT_JOB_KILL_REASON))
         else:
             # Drop only direct dependents.
-            for job in dependents:
-                try:
-                    self.dropJobsDependingOnThis(job)
-                except opencue.exception.CueException as e:
-                    logger.warning("Failed to drop dependencies: %s", e)
+            self._runAction("Drop dependencies on killed jobs", dependents,
+                            self.dropJobsDependingOnThis)
 
     def getRecursiveDependentJobs(self, jobs, seen=None, active_only=True):
         seen = set() if seen is None else seen
@@ -554,18 +613,20 @@ class JobActions(AbstractActions):
                                              "Eat all DEAD frames in selected jobs?",
                                              [job.data.name for job in jobs]):
                 blocked_job_owners = []
+                authorized_jobs = []
                 for job in jobs:
                     # check permissions
                     if not cuegui.Utils.isPermissible(job):
                         blocked_job_owners.append(job.username())
                     else:
-                        job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
+                        authorized_jobs.append(job)
+                self._runAction("Eat dead frames", authorized_jobs,
+                                lambda job: job.eatFrames(state=[opencue_proto.job_pb2.DEAD]))
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "eat dead for some of the selected jobs",
                             ", ".join(blocked_job_owners)))
-                self._update()
 
     autoEatOn_info = ["Enable auto eating", None, "eat"]
 
@@ -573,18 +634,23 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             blocked_job_owners = []
+            authorized_jobs = []
             for job in jobs:
                 if not cuegui.Utils.isPermissible(job):
                     blocked_job_owners.append(job.username())
                 else:
-                    job.setAutoEat(True)
-                    job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
+                    authorized_jobs.append(job)
+
+            def enableAutoEat(job):
+                job.setAutoEat(True)
+                job.eatFrames(state=[opencue_proto.job_pb2.DEAD])
+
+            self._runAction("Enable auto eating", authorized_jobs, enableAutoEat)
             if blocked_job_owners:
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "enable auto eating frames",
                         ", ".join(blocked_job_owners)))
-            self._update()
 
     autoEatOff_info = ["Disable auto eating", None, "eat"]
 
@@ -592,17 +658,19 @@ class JobActions(AbstractActions):
         jobs = self._getOnlyJobObjects(rpcObjects)
         if jobs:
             blocked_job_owners = []
+            authorized_jobs = []
             for job in jobs:
                 if not cuegui.Utils.isPermissible(job):
                     blocked_job_owners.append(job.username())
                 else:
-                    job.setAutoEat(False)
+                    authorized_jobs.append(job)
+            self._runAction("Disable auto eating", authorized_jobs,
+                            lambda job: job.setAutoEat(False))
             if blocked_job_owners:
                 cuegui.Utils.showErrorMessageBox(
                     AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                         "disable auto eating frames",
                         ", ".join(blocked_job_owners)))
-            self._update()
 
     retryDead_info = ["Retry dead frames", None, "retry"]
 
@@ -614,18 +682,19 @@ class JobActions(AbstractActions):
                                              "Retry all DEAD frames in selected jobs?",
                                              [job.data.name for job in jobs]):
                 blocked_job_owners = []
+                authorized_jobs = []
                 for job in jobs:
                     if not cuegui.Utils.isPermissible(job):
                         blocked_job_owners.append(job.username())
                     else:
-                        job.retryFrames(
-                            state=[opencue_proto.job_pb2.DEAD])
+                        authorized_jobs.append(job)
+                self._runAction("Retry dead frames", authorized_jobs,
+                                lambda job: job.retryFrames(state=[opencue_proto.job_pb2.DEAD]))
                 if blocked_job_owners:
                     cuegui.Utils.showErrorMessageBox(
                         AbstractActions.USER_INTERACTION_PERMISSIONS.format(
                             "retry dead for some of the selected jobs",
                             ", ".join(blocked_job_owners)))
-                self._update()
 
     dropExternalDependencies_info = ["Drop External Dependencies", None, "kill"]
 
@@ -635,9 +704,8 @@ class JobActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Drop all external dependencies in selected jobs?",
                                              [job.data.name for job in jobs]):
-                for job in jobs:
-                    job.dropDepends(opencue.api.depend_pb2.EXTERNAL)
-                self._update()
+                self._runAction("Drop external dependencies", jobs,
+                                lambda job: job.dropDepends(opencue.api.depend_pb2.EXTERNAL))
 
     dropInternalDependencies_info = ["Drop Internal Dependencies", None, "kill"]
 
@@ -647,9 +715,8 @@ class JobActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Drop all internal dependencies in selected jobs?",
                                              [job.data.name for job in jobs]):
-                for job in jobs:
-                    job.dropDepends(opencue.api.depend_pb2.INTERNAL)
-                self._update()
+                self._runAction("Drop internal dependencies", jobs,
+                                lambda job: job.dropDepends(opencue.api.depend_pb2.INTERNAL))
 
     viewComments_info = ["Comments...", None, "comment"]
 
@@ -760,9 +827,9 @@ class JobActions(AbstractActions):
                                                      event_item=None,
                                                      items=body_content,
                                                      dst_groups=groups,
-                                                     send_to_groups=True)
+                                                     send_to_groups=True,
+                                                     update_callback=self._update)
         dialog.exec_()
-        self._update()
 
     useLocalCores_info = [
         "Use local cores...", "Set a single job to use the local desktop cores", "configure"]
@@ -1719,10 +1786,10 @@ class GroupActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                              "Delete selected groups?",
                                              [group.name() for group in groups]):
-                for group in groups:
-                    if isinstance(group, opencue.wrappers.group.NestedGroup):
-                        group = group.asGroup()
-                    self.cuebotCall(group.delete, "Delete Group {} Failed".format(group.name()))
+                groups = [group.asGroup()
+                          if isinstance(group, opencue.wrappers.group.NestedGroup) else group
+                          for group in groups]
+                self._runAction("Delete groups", groups, lambda group: group.delete())
 
 
 class SubscriptionActions(AbstractActions):
@@ -1755,11 +1822,8 @@ class SubscriptionActions(AbstractActions):
                 if msg.exec_() == QtWidgets.QMessageBox.No:
                     return
 
-                for sub in subs:
-                    self.cuebotCall(sub.setSize,
-                                    "Set Size on Subscription %s Failed" % sub.data.name,
-                                    int(value*100.0))
-                self._update()
+                self._runAction("Set subscription size", subs,
+                                lambda sub: sub.setSize(int(value*100.0)))
 
     editBurst_info = ["Edit Subscription Burst...", None, "configure"]
     def editBurst(self, rpcObjects=None):
@@ -1775,11 +1839,8 @@ class SubscriptionActions(AbstractActions):
                 self._caller, title, body, current/100.0, minSize, cuegui.Constants.QT_MAX_INT,
                 decimalPlaces)
             if choice:
-                for sub in subs:
-                    self.cuebotCall(sub.setBurst,
-                                    "Set Burst on Subscription %s Failed" % sub.data.name,
-                                    int(value*100.0))
-                self._update()
+                self._runAction("Set subscription burst", subs,
+                                lambda sub: sub.setBurst(int(value*100.0)))
 
     delete_info = ["Delete Subscription", None, "configure"]
     def delete(self, rpcObjects=None):
@@ -1788,10 +1849,7 @@ class SubscriptionActions(AbstractActions):
             if cuegui.Utils.questionBoxYesNo(self._caller, "Delete Subscriptions?",
                                              "Are you sure you want to delete these subscriptions?",
                                              [sub.data.name for sub in subs]):
-                for sub in subs:
-                    self.cuebotCall(sub.delete,
-                                    "Delete Subscription %s Failed" % sub.data.name)
-                self._update()
+                self._runAction("Delete subscriptions", subs, lambda sub: sub.delete())
 
 
 class AllocationActions(AbstractActions):

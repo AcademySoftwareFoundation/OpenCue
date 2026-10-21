@@ -84,6 +84,10 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
         self._items = {}
         self._lastUpdate = 0
+        # Fetches can overlap (forceUpdate does not wait for the periodic one),
+        # so results older than the ones shown already are dropped.
+        self._updateSeq = 0
+        self._appliedUpdateSeq = 0
 
         self._itemsLock = QtCore.QReadWriteLock()
         self._timer = QtCore.QTimer(self)
@@ -392,12 +396,25 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
         """Updates the items in the TreeWidget without checking when it was last
         updated"""
         self._lastUpdate = time.time()
+        self._updateSeq += 1
+        seq = self._updateSeq
         if self.app.threadpool is not None:
             self.app.threadpool.queue(
-                self._getUpdate, self._processUpdate, "getting data for %s" % self.__class__)
+                self._getUpdate,
+                lambda work, rpcObjects: self._processUpdateInOrder(seq, work, rpcObjects),
+                "getting data for %s" % self.__class__)
         else:
             logger.warning("threadpool not found, doing work in gui thread")
-            self._processUpdate(None, self._getUpdate())
+            self._processUpdateInOrder(seq, None, self._getUpdate())
+
+    def _processUpdateInOrder(self, seq, work, rpcObjects):
+        """Calls _processUpdate, unless the results of a later fetch have been
+        processed already."""
+        if seq < self._appliedUpdateSeq:
+            logger.debug("Dropping out of order update for %s", self.__class__)
+            return
+        self._appliedUpdateSeq = seq
+        self._processUpdate(work, rpcObjects)
 
     def _processUpdate(self, work, rpcObjects):
         """A generic function that Will:
@@ -432,13 +449,29 @@ class AbstractTreeWidget(QtWidgets.QTreeWidget):
 
     def updateSoon(self):
         """Returns immediately. Causes an update to happen
-        Constants.AFTER_ACTION_UPDATE_DELAY after calling this function."""
+        Constants.AFTER_ACTION_UPDATE_DELAY after calling this function.
+
+        Used after the user acts on an item, so the update is forced: it is not
+        subject to MINIMUM_UPDATE_INTERVAL or to the scroll-skip check that
+        gate the periodic and broadcast refreshes."""
         if hasattr(self, "ticksWithoutUpdate"):
             self.ticksWithoutUpdate = self.updateInterval - \
                                       cuegui.Constants.AFTER_ACTION_UPDATE_DELAY // 1000
         else:
             QtCore.QTimer.singleShot(cuegui.Constants.AFTER_ACTION_UPDATE_DELAY,
-                                     self.updateRequest)
+                                     self.forceUpdate)
+
+    def forceUpdate(self):
+        """Updates the items now, bypassing MINIMUM_UPDATE_INTERVAL and the
+        scroll-skip check, and restarts the periodic timer so the next
+        scheduled update does not land right after this one."""
+        self._restartUpdateTimer()
+        self._update()
+
+    def _restartUpdateTimer(self):
+        timer = getattr(self, "_timer", None)
+        if timer is not None and timer.isActive():
+            timer.start()
 
     def redraw(self):
         """Forces the displayed items to be redrawn"""

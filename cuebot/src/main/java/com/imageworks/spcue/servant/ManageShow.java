@@ -227,7 +227,7 @@ public class ManageShow extends ShowInterfaceGrpc.ShowInterfaceImplBase {
             StreamObserver<ShowGetJobWhiteboardResponse> responseObserver) {
         ShowEntity show = getShowEntity(request.getShow());
         ShowGetJobWhiteboardResponse response = ShowGetJobWhiteboardResponse.newBuilder()
-                .setWhiteboard(whiteboard.getJobWhiteboard(show)).build();
+                .setWhiteboard(whiteboard.getJobWhiteboard(show, request.getFresh())).build();
         responseObserver.onNext(response);
         responseObserver.onCompleted();
     }

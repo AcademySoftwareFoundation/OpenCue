@@ -61,12 +61,28 @@ class AbstractWidgetItem(QtWidgets.QTreeWidgetItem):
         @param parent: Changes the current parent to this parent if different"""
         # Changes parent if needed
         if parent and self.parent() and parent != self.parent():
+            # Qt forgets which of the item and its descendants were expanded
+            # when the item leaves the tree, so restore that after the move.
+            expanded = self.__expandedItems()
             self.parent().removeChild(self)
             parent.addChild(self)
+            for item in expanded:
+                item.setExpanded(True)
 
         if rpcObject:
             self.rpcObject = rpcObject
             self._cache = {}
+
+    def __expandedItems(self):
+        """Returns this item and its descendants that are expanded."""
+        expanded = []
+        items = [self]
+        while items:
+            item = items.pop()
+            if item.isExpanded():
+                expanded.append(item)
+            items.extend(item.child(i) for i in range(item.childCount()))
+        return expanded
 
     def data(self, col, role):
         """Returns the proper display data for the given column and role

@@ -43,6 +43,7 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ProcDao;
+import com.imageworks.spcue.dao.postgres.MaestroDaoJdbc;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.HostManager;
@@ -965,7 +966,7 @@ public class MaestroTests {
 
     @Test
     public void aChunkNeverSplitsAHost() {
-        // 3 on host a, 499 on host b, 2 on host c: the cut at COMMIT_CHUNK_FRAMES
+        // 3 on host a, 499 on host b, 2 on host c: the cut at commitChunkFrames
         // falls inside host b and moves to its last booking.
         List<FrameBooking> planned = new ArrayList<>();
         for (int i = 0; i < 3; i++)
@@ -993,6 +994,7 @@ public class MaestroTests {
      */
     private static Maestro schedulerWithLeaderConn(Connection conn) throws Exception {
         Maestro s = new Maestro();
+        s.setMaestroDao(new MaestroDaoJdbc(new MockEnvironment()));
         set(s, "leaderConn", conn);
         set(s, "transactionManager", mock(PlatformTransactionManager.class));
         return s;
@@ -1309,10 +1311,10 @@ public class MaestroTests {
     @Test
     public void aCutOnAHostBoundaryDoesNotExtend() {
         List<FrameBooking> planned = new ArrayList<>();
-        for (int i = 0; i < Maestro.COMMIT_CHUNK_FRAMES; i++)
+        for (int i = 0; i < Maestro.commitChunkFrames; i++)
             planned.add(bookingOn("a"));
         planned.add(bookingOn("b"));
-        assertEquals(Maestro.COMMIT_CHUNK_FRAMES, Maestro.chunkEnd(planned, 0));
+        assertEquals(Maestro.commitChunkFrames, Maestro.chunkEnd(planned, 0));
         List<FrameBooking> one = new ArrayList<>();
         for (int i = 0; i < 1200; i++)
             one.add(bookingOn("a"));
@@ -1630,6 +1632,11 @@ public class MaestroTests {
         final Set<String> badHosts = new HashSet<>();
         final List<List<FrameBooking>> attempts = new ArrayList<>();
         final List<FrameBooking> committed = new ArrayList<>();
+
+        SplittingMaestro() {
+            // the lock release on demotion runs through the DAO, against the mocked connection
+            setMaestroDao(new MaestroDaoJdbc(new MockEnvironment()));
+        }
 
         @Override
         List<FrameBooking> commitPiece(List<FrameBooking> piece) {

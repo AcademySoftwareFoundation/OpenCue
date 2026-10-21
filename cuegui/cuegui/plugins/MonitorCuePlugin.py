@@ -33,6 +33,7 @@ import opencue
 
 import cuegui.AbstractDockWidget
 import cuegui.Action
+import cuegui.ActionRunner
 import cuegui.Constants
 import cuegui.CueJobMonitorTree
 import cuegui.CueStateBarWidget
@@ -55,9 +56,15 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
     def __init__(self, parent):
         cuegui.AbstractDockWidget.AbstractDockWidget.__init__(self, parent, PLUGIN_NAME)
 
-        self.__showMenuActions = None
 
         self.__monitorCue = cuegui.CueJobMonitorTree.CueJobMonitorTree(self)
+        # Active shows by name, as of the last time they were listed
+        self.__shows = {}
+        self.__showsLoaded = False
+        # Shows to monitor once the active shows are listed
+        self.__pendingShows = []
+        self.__monitorAllShowsWhenLoaded = False
+        self.__showMenuActions = {}
         self.__toolbar = QtWidgets.QToolBar(self)
         self.__showMenuSetup()
         self.__expandAllSetup()
@@ -81,7 +88,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__monitorCue.view_object.connect(self.app.view_object.emit)
 
         self.pluginRegisterSettings([("shows",
-                                      self.__monitorCue.getShowNames,
+                                      self.__getShowNames,
                                       self.addShows),
                                       ("columnVisibility",
                                        self.__monitorCue.getColumnVisibility,
@@ -199,24 +206,49 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         @type  action: QAction
         @param action: Click action"""
         if action.text() == 'All Shows':
-            try:
-                shows = sorted([show.name() for show in opencue.api.getActiveShows()])
-            except opencue.CueException as e:
-                logger.critical(e)
-                shows = []
-            for show in shows:
-                self.__monitorCue.addShow(show)
+            self.__monitorAllShowsWhenLoaded = True
             self.__showMenuUpdate()
         elif action.text() == 'Clear':
             self.__monitorCue.removeAllShows()
             self.__showMenuUpdate()
         elif action.isChecked():
-            self.__monitorCue.addShow(action.text())
+            self.__monitorCue.addShow(self.__shows.get(action.text(), action.text()))
         else:
             self.__monitorCue.removeShow(action.text())
 
     def __showMenuUpdate(self):
-        """Updates the show selection menu with the known shows"""
+        """Lists the active shows off the GUI thread, then rebuilds the show
+        selection menu"""
+        self.__showsLoaded = False
+        cuegui.ActionRunner.submit(
+            lambda: {show.name(): show for show in opencue.api.getActiveShows()},
+            self.__showMenuUpdateDone, "Listing active shows")
+
+    def __showMenuUpdateDone(self, shows, error):
+        if error is not None:
+            logger.critical(error)
+            shows = {}
+        self.__shows = shows
+        self.__showsLoaded = error is None
+
+        monitorAll = self.__monitorAllShowsWhenLoaded
+        self.__monitorAllShowsWhenLoaded = False
+        pending = self.__pendingShows if self.__showsLoaded else []
+        if self.__showsLoaded:
+            self.__pendingShows = []
+
+        added = False
+        for name in (sorted(self.__shows) if monitorAll else pending):
+            if name in self.__shows:
+                self.__monitorCue.addShow(self.__shows[name], False)
+                added = True
+
+        self.__showMenuBuild()
+        if added:
+            self.__monitorCue.forceUpdate(fresh=False)
+
+    def __showMenuBuild(self):
+        """Rebuilds the show selection menu from the listed shows"""
         self.__showMenu.clear()
         self.__showMenuActions = {}
 
@@ -229,15 +261,9 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         self.__showMenuActions['Clear'] = action
         self.__showMenu.addSeparator()
 
-        try:
-            shows = sorted([show.name() for show in opencue.api.getActiveShows()])
-        except opencue.exception.CueException as e:
-            logger.critical(e)
-            shows = []
+        monitored = set(self.__monitorCue.getShowNames())
 
-        monitored = [show.name() for show in self.__monitorCue.getShows()]
-
-        for show in shows:
+        for show in sorted(self.__shows):
             action = QtWidgets.QAction(show, self.__showMenu)
             action.setCheckable(True)
             if show in monitored:
@@ -246,8 +272,8 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
             self.__showMenuActions[show] = action
 
     def __showMenuCheck(self):
-        """Populate the list of shows if it is empty"""
-        if not self.__showMenuActions:
+        """List the active shows again if that failed before"""
+        if not self.__showsLoaded:
             self.__showMenuUpdate()
 
 ################################################################################
@@ -338,11 +364,22 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
 ################################################################################
 
     def addShows(self, shows):
-        """Adds a list of shows to be monitored."""
+        """Adds a list of shows to be monitored. Shows that are not active are
+        ignored. Until the active shows are listed, the shows are kept aside
+        and added once they are."""
+        if not self.__showsLoaded:
+            self.__pendingShows.extend(shows)
+            return
         for show in shows:
-            if show in self.__showMenuActions:
-                self.__monitorCue.addShow(show, False)
+            if show in self.__shows:
+                self.__monitorCue.addShow(self.__shows[show], False)
                 self.__showMenuActions[show].setChecked(True)
+
+    def __getShowNames(self):
+        """Returns the names of the monitored shows, including the ones still
+        waiting for the active shows to be listed"""
+        names = self.__monitorCue.getShowNames()
+        return names + [name for name in self.__pendingShows if name and name not in names]
 
     def pluginRestoreState(self, saved_settings):
         """Called on plugin start with any previously saved state.
@@ -350,9 +387,7 @@ class MonitorCueDockWidget(cuegui.AbstractDockWidget.AbstractDockWidget):
         @type  saved_settings: any"""
         cuegui.AbstractDockWidget.AbstractDockWidget.pluginRestoreState(self, saved_settings)
 
-        # pylint: disable=protected-access
-        self.__monitorCue._update()
-        # pylint: enable=protected-access
+        self.__monitorCue.forceUpdate(fresh=False)
         QtCore.QTimer.singleShot(1000, self.__monitorCue.expandAll)
 
 

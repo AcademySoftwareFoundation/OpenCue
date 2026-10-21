@@ -34,8 +34,10 @@ from qtpy import QtWidgets
 import opencue_proto.job_pb2
 import opencue
 import opencue.wrappers.group
+import opencue.wrappers.job
 
 import cuegui.AbstractTreeWidget
+import cuegui.ActionRunner
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.ItemDelegate
@@ -52,9 +54,13 @@ Body = namedtuple("Body", "group_names, group_ids, job_names, job_ids")
 
 COLUMN_COMMENT = 1
 COLUMN_EAT = 2
-COLUMN_MAXRSS = 13
+COLUMN_AGE = 14
+COLUMN_MAXRSS = 17
 FONT_BOLD = QtGui.QFont("Luxi Sans", -1, QtGui.QFont.Bold)
 UPDATE_INTERVAL = 5
+
+# Marks cells that were never set
+_UNSET = object()
 
 
 def getEta(stats):
@@ -75,6 +81,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     def __init__(self, parent):
 
         self.__shows = {}
+        self.__showLookupGeneration = 0
         self.currtime = time.time()
 
         self.startColumnsForType(cuegui.Constants.TYPE_JOB)
@@ -221,6 +228,14 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # AbstractTreeWidget.__init__ — the base ctor calls updateRequest()
         # which dispatches into our overridden _update().
         self._updateInFlight = False
+        # Set while a reconcile has disabled sorting.
+        self.__sortingPaused = False
+        # Set when a forced update arrives while a fetch is in flight. That
+        # fetch may have been sent before the action that asked for the
+        # refresh, so another one runs as soon as it lands.
+        self._forceUpdatePending = False
+        # Whether the deferred forced update must bypass the server cache.
+        self._forceUpdateFresh = False
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -322,23 +337,41 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                                     event_item=item,
                                     items=body_content,
                                     dst_groups={},
-                                    parent=self)
+                                    parent=self,
+                                    update_callback=self.updateSoon)
                 dialog.exec_()
 
     def addShow(self, show, update=True):
         """Adds a show to the list of monitored shows
-        @type  show: Show name
-        @param show: string
+        @type  show: opencue.wrappers.show.Show or str
+        @param show: The show, or its name. A name is looked up off the GUI
+                     thread and the show is added once found.
         @type  update: boolean
         @param update: True if the display should update the displayed shows/jobs"""
-        show = str(show)
-        if show not in self.__shows:
-            try:
-                self.__shows[show] = opencue.api.findShow(show)
-            except opencue.exception.EntityNotFoundException:
-                logger.warning("This show does not exist: %s", show)
-            if update:
-                self._update()
+        if cuegui.Utils.isShow(show):
+            if show.name() not in self.__shows:
+                self.__shows[show.name()] = show
+                if update:
+                    self.forceUpdate(fresh=False)
+            return
+
+        name = str(show)
+        if name in self.__shows:
+            return
+
+        generation = self.__showLookupGeneration
+
+        def found(foundShow, error):
+            if generation != self.__showLookupGeneration:
+                # removeAllShows ran while the lookup was queued.
+                return
+            if isinstance(error, opencue.exception.EntityNotFoundException):
+                logger.warning("This show does not exist: %s", name)
+            elif foundShow is not None:
+                self.addShow(foundShow, update)
+
+        cuegui.ActionRunner.submit(lambda: opencue.api.findShow(name), found,
+                                   "Finding show %s" % name)
 
     def removeShow(self, show):
         """Unmonitors a show
@@ -351,14 +384,15 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 del self.__shows[show]
         finally:
             self._itemsLock.unlock()
-        self._update()
+        self.forceUpdate(fresh=False)
 
     def removeAllShows(self):
-        """Unmonitors all shows"""
+        """Unmonitors all shows, including any still being looked up"""
+        self.__showLookupGeneration += 1
         if self.__shows:
             self.removeAllItems()
             self.__shows = {}
-            self._update()
+            self.forceUpdate(fresh=False)
 
     def getShows(self):
         """Returns a list of monitored show objects
@@ -372,20 +406,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         @return: List of monitored shows"""
         return list(self.__shows.keys())
 
-    def __getCollapsed(self):
-        return [item.rpcObject.id() for item in list(self._items.values()) if not item.isExpanded()]
-
-    def __setCollapsed(self, collapsed):
-        self.expandAll()
-        for itemId in collapsed:
-            if itemId in self._items:
-                self._items[itemId].setExpanded(False)
-
-    def _update(self):
+    def _update(self, fresh=False):
         """Overrides AbstractTreeWidget._update to drop ticks while a previous
         _getUpdate is still on the threadpool. Necessary at the 5s cadence
         because a cold-cache server miss can take longer than the tick interval;
-        without this guard the threadpool would pile up overlapping requests."""
+        without this guard the threadpool would pile up overlapping requests.
+
+        @param fresh: bypass the server-side whiteboard cache"""
         if self._updateInFlight:
             return
         self._lastUpdate = time.time()
@@ -398,7 +425,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             try:
                 self.app.threadpool.queue(
                     self._getUpdate, self._processUpdateGuarded,
-                    "getting data for %s" % self.__class__)
+                    "getting data for %s" % self.__class__, fresh)
             except Exception:
                 self._updateInFlight = False
                 logger.warning(
@@ -407,9 +434,23 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         else:
             logger.warning("threadpool not found, doing work in gui thread")
             try:
-                self._processUpdate(None, self._getUpdate())
+                self._processUpdate(None, self._getUpdate(fresh))
             finally:
                 self._updateInFlight = False
+
+    def forceUpdate(self, fresh=True):
+        """Overrides AbstractTreeWidget.forceUpdate so a forced update that
+        arrives while a fetch is in flight is deferred instead of dropped.
+
+        @param fresh: bypass the server-side whiteboard cache. Needed after an
+                      action, as the cache may have been filled before it; not
+                      needed when only the monitored shows changed."""
+        if self._updateInFlight:
+            self._forceUpdatePending = True
+            self._forceUpdateFresh = self._forceUpdateFresh or fresh
+            return
+        self._restartUpdateTimer()
+        self._update(fresh=fresh)
 
     def _processUpdateGuarded(self, work, rpcObjects):
         """Wraps _processUpdate so _updateInFlight is always cleared, even if
@@ -418,9 +459,15 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             self._processUpdate(work, rpcObjects)
         finally:
             self._updateInFlight = False
+            if self._forceUpdatePending:
+                fresh = self._forceUpdateFresh
+                self._forceUpdatePending = False
+                self._forceUpdateFresh = False
+                self.forceUpdate(fresh)
 
-    def _getUpdate(self):
+    def _getUpdate(self, fresh=False):
         """Returns a list of NestedGroup from the cuebot for the monitored shows
+        @param fresh: bypass the server-side whiteboard cache
         @rtype:  [list<NestedGroup>, set(str)]
         @return: List that contains updated nested groups and a set of all
         updated item ideas"""
@@ -431,7 +478,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         # _updateInFlight. Letting an exception escape would leave the guard
         # pinned and block all future refresh ticks.
         try:
-            groups = [show.getJobWhiteboard() for show in self.getShows()]
+            groups = [show.getJobWhiteboard(fresh=fresh) for show in self.getShows()]
             nestedGroups = []
             allIds = []
             for group in groups:
@@ -467,9 +514,15 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         """Incrementally reconciles the tree against the latest whiteboard.
 
         Adds/updates/reparents items via __processUpdateHandleNested (which
-        preserves widget identity, so JobWidgetItem._cache, selection, and
-        scroll all survive). Then detaches items whose IDs are no longer
-        present. Avoiding clear() is what makes the 5s cadence non-disruptive.
+        preserves widget identity, so selection, expansion and scroll all
+        survive, and only the cells whose data changed are updated). Then
+        detaches items whose IDs are no longer present. Avoiding clear() is
+        what makes the 5s cadence non-disruptive. Only the groups created by
+        this reconcile get expanded; the other items keep their expansion
+        state, so there is no need to expand the whole tree on every tick.
+        Sorting is disabled once the reconcile adds or moves an item, so the
+        tree is sorted once at the end; with sorting enabled, Qt sorts the
+        whole tree again after each of them.
 
         @type  work: from threadpool
         @param work: from threadpool
@@ -479,11 +532,15 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if rpcObjects is None:
             return
         self._itemsLock.lockForWrite()
+        self.__sortingPaused = False
         # pylint: disable=broad-except
         try:
             new_ids = set(rpcObjects[1])
             old_ids = set(self._items.keys())
-            collapsed = self.__getCollapsed()
+            # With a layout pending, the view does not look up where each
+            # updated cell is displayed to repaint it; it relayouts and
+            # repaints once, after the reconcile.
+            self.scheduleDelayedItemsLayout()
             # Save scroll position around the reconcile: takeChild on a stale item
             # above the viewport collapses indices and would shift visible content
             # otherwise.
@@ -497,13 +554,28 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 idx = parent.indexOfChild(item)
                 if idx >= 0:
                     parent.takeChild(idx)
-            self.__setCollapsed(collapsed)
             self.verticalScrollBar().setValue(scrolled)
             self.redraw()
         except Exception:
             logger.warning("Failed to process update.", exc_info=True)
         finally:
+            if self.__sortingPaused:
+                self.__sortingPaused = False
+                self.setSortingEnabled(True)
             self._itemsLock.unlock()
+
+    def __pauseSorting(self):
+        """Disables sorting until the end of the reconcile."""
+        if self.isSortingEnabled():
+            self.setSortingEnabled(False)
+            self.__sortingPaused = True
+
+    def __updateItem(self, item, rpcObject, parent):
+        """Updates an item, pausing sorting first if it moves to another
+        parent."""
+        if parent is not None and item.parent() is not None and parent is not item.parent():
+            self.__pauseSorting()
+        item.update(rpcObject, parent)
 
     def __getNestedIds(self, group, updated):
         """Returns all the ids founds in the nested list including
@@ -535,11 +607,17 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
             if group.id() in self._items:
                 groupItem = self._items[group.id()]
-                groupItem.update(group, parent)
-            elif group.data.parent.id:
-                self._items[group.id()] = groupItem = GroupWidgetItem(group, parent)
+                self.__updateItem(groupItem, group, parent)
             else:
-                self._items[group.id()] = groupItem = RootGroupWidgetItem(group, parent)
+                self.__pauseSorting()
+                if group.data.parent.id:
+                    groupItem = GroupWidgetItem(group, parent)
+                else:
+                    groupItem = RootGroupWidgetItem(group, parent)
+                self._items[group.id()] = groupItem
+                # New groups start expanded. Qt keeps this even while the
+                # group has no children yet.
+                groupItem.setExpanded(True)
 
             nestedGroups = [
                 opencue.wrappers.group.NestedGroup(nestedGroup)
@@ -559,8 +637,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             for job in jobsObject:
                 try:
                     if job.id() in self._items:
-                        self._items[job.id()].update(job, groupItem)
+                        self.__updateItem(self._items[job.id()], job, groupItem)
                     else:
+                        self.__pauseSorting()
                         self._items[job.id()] = JobWidgetItem(job, groupItem)
                 except RuntimeError:
                     logger.warning(
@@ -664,11 +743,13 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                 self.__menuActions.jobs().addAction(menu, "shutdownIfCompleted")
             self.__menuActions.jobs().addAction(menu, "kill")
 
-            # Dynamically add plugin actions for right-clicked job(s)
+            # Dynamically add plugin actions for right-clicked job(s). The set
+            # of plugins does not depend on the job, so scan for them once.
+            # Groups may be selected too; plugins only get the jobs.
+            selectedJobs = [obj for obj in selectedObjects if cuegui.Utils.isJob(obj)]
             plugins_by_type = {}
-            for job in selectedObjects:
-                for plugin in plugin_loader.load_plugins(job=job, parent=self):
-                    plugins_by_type[type(plugin)] = plugin
+            for plugin in plugin_loader.load_plugins(job=selectedJobs[-1], parent=self):
+                plugins_by_type[type(plugin)] = plugin
 
             for plugin_type, plugin_instance in plugins_by_type.items():
                 if plugin_type.__name__ == "Plugin":
@@ -678,7 +759,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
                     def make_launch_all(ptype):
                         def launch_all():
-                            for job in selectedObjects:
+                            for job in selectedJobs:
                                 plugin = ptype(job=job, parent=self)
                                 plugin.launch_subprocess()
 
@@ -720,7 +801,113 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         pass
 
 
-class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+class _BakedWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+    """Base class for the items of the CueJobMonitorTree.
+
+    The data of the cells is computed when the item is created or updated,
+    and stored in the item, so Qt answers data() natively. With a Python
+    data() override, Qt calls into Python for every visible cell and role on
+    every repaint (hover, selection, scrolling), which made repainting large
+    shows slow."""
+
+    # Use the native data(), not the AbstractWidgetItem override.
+    data = QtWidgets.QTreeWidgetItem.data
+
+    # pylint: disable=super-init-not-called,non-parent-init-called
+    def __init__(self, itemType, rpcObject, parent):
+        # Same as AbstractWidgetItem.__init__, except that the cells are
+        # filled before the item is added to the tree: once it is in the tree,
+        # every change to a cell notifies the view.
+        QtWidgets.QTreeWidgetItem.__init__(self, itemType)
+        self.app = cuegui.app()
+        self.column_info = parent.treeWidget().getColumnInfo(itemType)
+        self._cache = {}
+        self._source = None
+        self.rpcObject = rpcObject
+        self.__display = [_UNSET] * len(self.column_info)
+        # The delegates drawing the bars check the type of the item.
+        self._delegateColumns = [
+            col for col, columnInfo in enumerate(self.column_info)
+            if columnInfo[cuegui.AbstractTreeWidget.COLUMN_DELEGATE]]
+        for col in self._delegateColumns:
+            self.setData(col, QtCore.Qt.UserRole, itemType)
+        self._bakeStatic()
+        self._bake()
+        parent.addChild(self)
+
+    def update(self, rpcObject=None, parent=None):
+        """Updates the cells with the latest data
+        @type  rpcObject: Object
+        @param rpcObject: The object that contains updated information
+        @type  parent: QTreeWidgetItem
+        @param parent: Changes the current parent to this parent if different"""
+        cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, rpcObject, parent)
+        self._bake()
+
+    def _bakeStatic(self):
+        """Sets the data of the cells that does not depend on self.rpcObject."""
+
+    def _bake(self):
+        """Sets the data of the cells from self.rpcObject. Only the cells
+        whose text changed are set."""
+        values = [columnInfo[cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+                  for columnInfo in self.column_info]
+        previous = self.__display
+        if values == previous:
+            return
+        self.__display = values
+        for col, value in enumerate(values):
+            if value != previous[col]:
+                self.setData(col, QtCore.Qt.DisplayRole, value)
+
+    def _bakeColumn(self, col):
+        """Sets the text of a cell from self.rpcObject, if it changed."""
+        value = self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
+        if value != self.__display[col]:
+            self.__display[col] = value
+            self.setData(col, QtCore.Qt.DisplayRole, value)
+
+    def _setAllColumns(self, role, value):
+        """Sets the data of every cell of the item for a role."""
+        for col in range(len(self.column_info)):
+            self.setData(col, role, value)
+
+    def __lt__(self, other):
+        """Compares the sort keys of the items in the sort column; they are
+        computed once per update instead of on every comparison."""
+        column = self.treeWidget().sortColumn()
+        try:
+            try:
+                return self._cache[column] < other._cache[column]
+            except KeyError:
+                return self._sortKey(column) < other._sortKey(column)
+        except (AttributeError, TypeError):
+            # other is not one of these items, or the keys are not comparable
+            return self.text(column) < other.text(column)
+
+    def _sortKey(self, column):
+        """Returns the value the items are sorted by in the column: the value
+        of the sort function of the column if it has one, its text otherwise.
+        It is computed once until the next update."""
+        try:
+            return self._cache[column]
+        except KeyError:
+            pass
+        key = None
+        sortLambda = self.column_info[column][cuegui.AbstractWidgetItem.SORT_LAMBDA]
+        if sortLambda:
+            # pylint: disable=broad-except
+            try:
+                key = sortLambda(self.rpcObject)
+            except Exception:
+                logger.info("Sort failed on column %s, using text sort.", column)
+        if key is None:
+            key = self.text(column)
+        self._cache[column] = key
+        return key
+
+
+class RootGroupWidgetItem(_BakedWidgetItem):
     """Widget item representing a single root group."""
 
     __initialized = False
@@ -734,39 +921,14 @@ class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__icon = QtGui.QIcon(":show.png")
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_SHOW_FOREGROUND
             self.__class__.__backgroundColor = cuegui.Style.ColorTheme.COLOR_SHOW_BACKGROUND
-            self.__class__.__type = cuegui.Constants.TYPE_ROOTGROUP
 
-        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_ROOTGROUP, rpcObject, parent)
+        _BakedWidgetItem.__init__(self, cuegui.Constants.TYPE_ROOTGROUP, rpcObject, parent)
 
-    def data(self, col, role):
-        """Returns the proper display data for the given column and role
-        @type  col: int
-        @param col: The column being displayed
-        @type  role: QtCore.Qt.ItemDataRole
-        @param role: The role being displayed
-        @rtype:  object
-        @return: The desired data"""
-        if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
-
-        if role == QtCore.Qt.FontRole:
-            return FONT_BOLD
-
-        if role == QtCore.Qt.ForegroundRole:
-            return self.__foregroundColor
-
-        if role == QtCore.Qt.BackgroundRole:
-            return self.__backgroundColor
-
-        if role == QtCore.Qt.DecorationRole:
-            if col == 0:
-                return self.__icon
-
-        elif role == QtCore.Qt.UserRole:
-            return self.__type
-
-        return cuegui.Constants.QVARIANT_NULL
+    def _bakeStatic(self):
+        self._setAllColumns(QtCore.Qt.FontRole, FONT_BOLD)
+        self._setAllColumns(QtCore.Qt.ForegroundRole, self.__foregroundColor)
+        self._setAllColumns(QtCore.Qt.BackgroundRole, self.__backgroundColor)
+        self.setData(0, QtCore.Qt.DecorationRole, self.__icon)
 
     def __lt__(self, other):
         """The shows are always ascending alphabetical"""
@@ -778,7 +940,7 @@ class RootGroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         return other.rpcObject != self.rpcObject
 
 
-class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+class GroupWidgetItem(_BakedWidgetItem):
     """Represents a group entry in the MonitorCue widget."""
 
     __initialized = False
@@ -790,38 +952,14 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__icon = QtGui.QIcon(":group.png")
             self.__class__.__foregroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_FOREGROUND
             self.__class__.__backgroundColor = cuegui.Style.ColorTheme.COLOR_GROUP_BACKGROUND
-            self.__class__.__type = cuegui.Constants.TYPE_GROUP
 
-        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_GROUP, rpcObject, parent)
+        _BakedWidgetItem.__init__(self, cuegui.Constants.TYPE_GROUP, rpcObject, parent)
 
-    def data(self, col, role):
-        """Returns the proper display data for the given column and role
-        @type  col: int
-        @param col: The column being displayed
-        @type  role: QtCore.Qt.ItemDataRole
-        @param role: The role being displayed
-        @rtype:  object
-        @return: The desired data"""
-        if role == QtCore.Qt.DisplayRole:
-            return self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
-
-        if role == QtCore.Qt.FontRole:
-            return FONT_BOLD
-
-        if role == QtCore.Qt.ForegroundRole:
-            return self.__foregroundColor
-
-        if role == QtCore.Qt.BackgroundRole:
-            return self.__backgroundColor
-
-        if role == QtCore.Qt.DecorationRole and col == 0:
-            return self.__icon
-
-        if role == QtCore.Qt.UserRole:
-            return self.__type
-
-        return cuegui.Constants.QVARIANT_NULL
+    def _bakeStatic(self):
+        self._setAllColumns(QtCore.Qt.FontRole, FONT_BOLD)
+        self._setAllColumns(QtCore.Qt.ForegroundRole, self.__foregroundColor)
+        self._setAllColumns(QtCore.Qt.BackgroundRole, self.__backgroundColor)
+        self.setData(0, QtCore.Qt.DecorationRole, self.__icon)
 
     def __lt__(self, other):
         """Groups are always ascending alphabetical"""
@@ -835,7 +973,7 @@ class GroupWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
         return True
 
 
-class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
+class JobWidgetItem(_BakedWidgetItem):
     """Represents a job entry in the MonitorCue widget."""
 
     __initialized = False
@@ -854,72 +992,90 @@ class JobWidgetItem(cuegui.AbstractWidgetItem.AbstractWidgetItem):
             self.__class__.__dependedColor = cuegui.Style.ColorTheme.COLOR_JOB_DEPENDED
             self.__class__.__noRunningColor = cuegui.Style.ColorTheme.COLOR_JOB_WITHOUT_PROCS
             self.__class__.__highMemoryColor = cuegui.Style.ColorTheme.COLOR_JOB_HIGH_MEMORY
-            self.__class__.__type = cuegui.Constants.TYPE_JOB
 
         rpcObject.parent = None
+        self.__background = None
+        self.__decorations = None
+        self.__bars = None
 
-        cuegui.AbstractWidgetItem.AbstractWidgetItem.__init__(
-            self, cuegui.Constants.TYPE_JOB, rpcObject, parent)
+        _BakedWidgetItem.__init__(self, cuegui.Constants.TYPE_JOB, rpcObject, parent)
 
-    def data(self, col, role):
-        """Returns the proper display data for the given column and role
-        @type  col: int
-        @param col: The column being displayed
-        @type  role: QtCore.Qt.ItemDataRole
-        @param role: The role being displayed
-        @rtype:  object
-        @return: The desired data"""
-        if role == QtCore.Qt.DisplayRole:
-            if col not in self._cache:
-                self._cache[col] = \
-                    self.column_info[col][cuegui.Constants.COLUMN_INFO_DISPLAY](self.rpcObject)
-            return self._cache.get(col, cuegui.Constants.QVARIANT_NULL)
+    def _bakeStatic(self):
+        self._setAllColumns(QtCore.Qt.ForegroundRole, self.__foregroundColor)
 
-        if role == QtCore.Qt.ForegroundRole:
-            return self.__foregroundColor
+    def update(self, rpcObject=None, parent=None):
+        """Updates the cells with the latest data
+        @type  rpcObject: Object
+        @param rpcObject: The object that contains updated information
+        @type  parent: QTreeWidgetItem
+        @param parent: Changes the current parent to this parent if different"""
+        if rpcObject is not None and rpcObject.data is not self.rpcObject.data and \
+                rpcObject.data == self.rpcObject.data:
+            # Most jobs do not change between two refreshes; only what
+            # depends on the time has to be updated for them.
+            cuegui.AbstractWidgetItem.AbstractWidgetItem.update(self, rpcObject, parent)
+            self.__bakeBackground()
+            self._bakeColumn(COLUMN_AGE)
+            return
+        _BakedWidgetItem.update(self, rpcObject, parent)
 
-        if role == QtCore.Qt.BackgroundRole:
-            if col == COLUMN_MAXRSS and \
-               self.rpcObject.data.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL:
-                return self.__highMemoryColor
-            if self.rpcObject.data.is_paused:
-                return self.__pausedColor
-            if self.rpcObject.data.job_stats.dead_frames:
-                return self.__dyingColor
-            if not self.rpcObject.data.job_stats.running_frames:
-                if not self.rpcObject.data.job_stats.waiting_frames and \
-                   self.rpcObject.data.job_stats.depend_frames:
-                    return self.__dependedColor
-                if self.rpcObject.data.job_stats.waiting_frames and \
-                   time.time() - self.rpcObject.data.start_time > 30:
-                    return self.__noRunningColor
-            return self.__backgroundColor
+    def __bakeBackground(self):
+        background = (self.__getBackground(),
+                      self.rpcObject.data.job_stats.max_rss > cuegui.Constants.MEMORY_WARNING_LEVEL)
+        if background != self.__background:
+            self.__background = background
+            self._setAllColumns(QtCore.Qt.BackgroundRole, background[0])
+            if background[1]:
+                self.setData(COLUMN_MAXRSS, QtCore.Qt.BackgroundRole, self.__highMemoryColor)
 
-        if role == QtCore.Qt.DecorationRole:
-            if col == COLUMN_COMMENT and self.rpcObject.data.has_comment:
-                return self.__commentIcon
-            if col == COLUMN_EAT and self.rpcObject.data.auto_eat:
-                return self.__eatIcon
+    def _bake(self):
+        job = self.rpcObject.data
+        jobStats = job.job_stats
 
-        elif role == QtCore.Qt.UserRole:
-            return self.__type
+        self.__bakeBackground()
 
-        elif role == QtCore.Qt.UserRole + 1:
-            if "FST" not in self._cache:
-                jobStats = self.rpcObject.data.job_stats
-                self._cache["FST"] = {
-                    opencue_proto.job_pb2.WAITING: jobStats.waiting_frames,
-                    opencue_proto.job_pb2.RUNNING: jobStats.running_frames,
-                    opencue_proto.job_pb2.SUCCEEDED: jobStats.succeeded_frames,
-                    opencue_proto.job_pb2.CHECKPOINT: 0,
-                    opencue_proto.job_pb2.SETUP: 0,
-                    opencue_proto.job_pb2.EATEN: jobStats.eaten_frames,
-                    opencue_proto.job_pb2.DEAD: jobStats.dead_frames,
-                    opencue_proto.job_pb2.DEPEND: jobStats.depend_frames,
-                }
-            return self._cache.get("FST", cuegui.Constants.QVARIANT_NULL)
+        decorations = (job.has_comment, job.auto_eat)
+        if decorations != self.__decorations:
+            self.__decorations = decorations
+            self.setData(COLUMN_COMMENT, QtCore.Qt.DecorationRole,
+                         self.__commentIcon if job.has_comment else None)
+            self.setData(COLUMN_EAT, QtCore.Qt.DecorationRole,
+                         self.__eatIcon if job.auto_eat else None)
 
-        return cuegui.Constants.QVARIANT_NULL
+        # Read by the delegates drawing the bars
+        frameStateTotals = {
+            opencue_proto.job_pb2.WAITING: jobStats.waiting_frames,
+            opencue_proto.job_pb2.RUNNING: jobStats.running_frames,
+            opencue_proto.job_pb2.SUCCEEDED: jobStats.succeeded_frames,
+            opencue_proto.job_pb2.CHECKPOINT: 0,
+            opencue_proto.job_pb2.SETUP: 0,
+            opencue_proto.job_pb2.EATEN: jobStats.eaten_frames,
+            opencue_proto.job_pb2.DEAD: jobStats.dead_frames,
+            opencue_proto.job_pb2.DEPEND: jobStats.depend_frames,
+        }
+        booking = cuegui.ItemDelegate.JobBookingBarDelegate.bookingData(self.rpcObject)
+        bars = (frameStateTotals, booking)
+        if bars != self.__bars:
+            self.__bars = bars
+            for col in self._delegateColumns:
+                self.setData(col, QtCore.Qt.UserRole + 1, frameStateTotals)
+                self.setData(col, cuegui.ItemDelegate.BOOKING_ROLE, booking)
+
+        _BakedWidgetItem._bake(self)
+
+    def __getBackground(self):
+        job = self.rpcObject.data
+        jobStats = job.job_stats
+        if job.is_paused:
+            return self.__pausedColor
+        if jobStats.dead_frames:
+            return self.__dyingColor
+        if not jobStats.running_frames:
+            if not jobStats.waiting_frames and jobStats.depend_frames:
+                return self.__dependedColor
+            if jobStats.waiting_frames and time.time() - job.start_time > 30:
+                return self.__noRunningColor
+        return self.__backgroundColor
 
 
 class MoveDialog(QtWidgets.QDialog):
@@ -927,7 +1083,7 @@ class MoveDialog(QtWidgets.QDialog):
     A dialog for moving selected Jobs/Groups into another Group
     """
     def __init__(self, title, text, event_item, items, dst_groups,
-                 send_to_groups=False, parent=None):
+                 send_to_groups=False, parent=None, update_callback=None):
         """
         Initializes the list of jobs/groups to move
         @type  title: str
@@ -942,9 +1098,12 @@ class MoveDialog(QtWidgets.QDialog):
         @param dst_groups: dict of destination groups to move jobs/groups to
         @type  parent: AbstractTreeWidget
         @param parent: The dialog's parent
+        @type  update_callback: callable
+        @param update_callback: called once the items have been moved
         """
         QtWidgets.QDialog.__init__(self, parent)
         self.parent = parent
+        self.update_callback = update_callback
         self.items = items
         self.event_item = event_item
         self.send_to_groups = send_to_groups
@@ -990,16 +1149,33 @@ class MoveDialog(QtWidgets.QDialog):
 
     def move_items(self):
         """Reparent jobs to new group"""
-
         if not self.send_to_groups:
-            if self.items.job_ids:
-                jobs = [opencue.api.getJob(id_) for id_ in self.items.job_ids]
-                self.event_item.rpcObject.asGroup().reparentJobs(jobs)
+            group = self.event_item.rpcObject.asGroup()
+            # Cuebot only reads the job ids, so there is no need to fetch the jobs.
+            jobs = [opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id=id_))
+                    for id_ in self.items.job_ids]
+            group_ids = list(self.items.group_ids)
 
-            if self.items.group_ids:
-                self.event_item.rpcObject.asGroup().reparentGroupIds(self.items.group_ids)
-            self.parent.updateRequest()
+            def work():
+                if jobs:
+                    group.reparentJobs(jobs)
+                if group_ids:
+                    group.reparentGroupIds(group_ids)
         else:
-            selected_group = self.combo.currentText()
-            self.dst_groups[str(selected_group)].reparentJobs(self.items.job_ids)
+            group = self.dst_groups[str(self.combo.currentText())]
+            jobs = self.items.job_ids
+
+            def work():
+                group.reparentJobs(jobs)
+
+        update_callback = self.update_callback
+
+        def done(_, error):
+            if error is not None:
+                QtWidgets.QMessageBox.critical(
+                    None, "Move Groups/Jobs failed", str(error), QtWidgets.QMessageBox.Ok)
+            if update_callback is not None:
+                update_callback()
+
+        cuegui.ActionRunner.submit(work, done, "Moving jobs/groups to %s" % group.name())
         self.accept()

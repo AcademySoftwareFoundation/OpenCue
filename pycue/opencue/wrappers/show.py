@@ -299,14 +299,19 @@ class Show(object):
         groupSeq = response.groups
         return [opencue.wrappers.group.Group(grp) for grp in groupSeq.groups]
 
-    def getJobWhiteboard(self):
+    def getJobWhiteboard(self, fresh=False):
         """Gets the whiteboard for the show.
 
+        :type  fresh: bool
+        :param fresh: if True, bypass the short-lived server-side whiteboard
+                      cache so the result reflects every change committed
+                      before this call. Use it for the refresh that follows a
+                      user action, not for periodic polling.
         :rtype:  job_pb2.NestedGroup
         :return: NestedGroup whiteboard for the show
         """
         response = self.stub.GetJobWhiteboard(show_pb2.ShowGetJobWhiteboardRequest(
-            show=self.data),
+            show=self.data, fresh=fresh),
             timeout=Cuebot.Timeout)
         return response.whiteboard
 

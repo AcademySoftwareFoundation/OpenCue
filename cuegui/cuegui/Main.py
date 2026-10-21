@@ -27,6 +27,7 @@ from qtpy import QtGui
 from qtpy import QtCore
 
 import cuegui
+import cuegui.ActionRunner
 import cuegui.Layout
 import cuegui.Constants
 import cuegui.Logger
@@ -70,6 +71,7 @@ def startup(app_name, app_version, argv):
     app.lastWindowClosed.connect(app.quit)  # pylint: disable=no-member
 
     app.threadpool = cuegui.ThreadPool.ThreadPool(3, parent=app)
+    app.action_runner = cuegui.ActionRunner.ActionRunner(parent=app)
 
     settings = cuegui.Layout.startup(app_name)
     app.settings = settings
@@ -145,6 +147,8 @@ def warning_handler(msg_type, msg_log_context, msg_string):
 def closingTime():
     """Window close callback."""
     logger.info("Closing all threads...")
+    if cuegui.app().action_runner is not None:
+        cuegui.app().action_runner.shutdown()
     threads = cuegui.app().threads
     for thread in threads:
         cuegui.Utils.shutdownThread(thread)
