@@ -350,6 +350,19 @@ class ShowTests(unittest.TestCase):
         self.assertEqual(whiteboard.name, TEST_GROUP_NAME)
         self.assertEqual(whiteboard.department, TEST_GROUP_DEPT)
 
+    def testGetJobWhiteboardFresh(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetJobWhiteboard.return_value = show_pb2.ShowGetJobWhiteboardResponse(
+            whiteboard=job_pb2.NestedGroup(name=TEST_GROUP_NAME))
+        getStubMock.return_value = stubMock
+
+        show = opencue.wrappers.show.Show(show_pb2.Show(name=TEST_SHOW_NAME))
+        whiteboard = show.getJobWhiteboard(fresh=True)
+
+        stubMock.GetJobWhiteboard.assert_called_with(
+            show_pb2.ShowGetJobWhiteboardRequest(show=show.data, fresh=True), timeout=mock.ANY)
+        self.assertEqual(whiteboard.name, TEST_GROUP_NAME)
+
     def testGetRootGroup(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.GetRootGroup.return_value = show_pb2.ShowGetRootGroupResponse(

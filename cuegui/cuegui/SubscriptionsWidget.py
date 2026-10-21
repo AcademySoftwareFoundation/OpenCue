@@ -28,6 +28,7 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import cuegui.AbstractTreeWidget
+import cuegui.ActionRunner
 import cuegui.AbstractWidgetItem
 import cuegui.Constants
 import cuegui.MenuActions
@@ -43,7 +44,7 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.app = cuegui.app()
 
         self.__show = None
-        self.__shows = None
+        self.__shows = {}
 
         self.__comboShows = QtWidgets.QComboBox(self)
         self.__comboShows.setFocusPolicy(QtCore.Qt.NoFocus)
@@ -78,14 +79,31 @@ class SubscriptionsWidget(QtWidgets.QWidget):
         self.changeFacility()
 
     def changeFacility(self):
-        """Changes the active facility."""
+        """Changes the active facility. The active shows are listed off the GUI
+        thread."""
+        cuegui.ActionRunner.submit(
+            lambda: {show.name(): show for show in opencue.api.getActiveShows()},
+            self.__changeFacilityDone, "Listing active shows")
+
+    def __changeFacilityDone(self, shows, error):
+        if error is not None:
+            shows = {}
+        # Keep the show if it was selected while the shows were being listed.
+        current = self.__show.name() if self.__show else ""
+        self.__show = None
+        self.__shows = shows
+        self.__fillComboShows()
+        self.setShow(current if current in self.__shows else "")
+
+    def __fillComboShows(self):
+        # Changing the items changes the current index; do not treat that as
+        # a show selection.
+        self.__comboShows.blockSignals(True)
         try:
-            self.__shows = {show.name(): show for show in opencue.api.getActiveShows()}
-        except opencue.exception.CueException:
-            self.__shows = {}
-        self.__comboShows.clear()
-        self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
-        self.setShow()
+            self.__comboShows.clear()
+            self.__comboShows.addItems(["Select Show:"] + sorted(self.__shows.keys()))
+        finally:
+            self.__comboShows.blockSignals(False)
 
     def setShow(self, show=""):
         """Sets the active show.
@@ -99,6 +117,10 @@ class SubscriptionsWidget(QtWidgets.QWidget):
                 return
             self.__show = show
             show = show.name()
+            if show not in self.__shows:
+                # The shows are not listed yet, or this one is not active.
+                self.__shows[show] = self.__show
+                self.__fillComboShows()
         elif isinstance(show, str):
             if self.__show and self.__show.name() == show:
                 return
@@ -135,14 +157,25 @@ class SubscriptionsWidget(QtWidgets.QWidget):
 
     def selectedObjects(self):
         """Gets a list of the active show(s)."""
-        return [opencue.api.findShow(self.__show.name())]
+        return [self.__show] if self.__show else []
 
     def __showProperties(self):
         if self.__show:
-            dialog = cuegui.ShowDialog.ShowDialog(opencue.api.findShow(self.__show.name()), self)
-            dialog.exec_()
+            # Fetch the show again, off the GUI thread, so the dialog shows its
+            # current settings.
+            name = self.__show.name()
+            cuegui.ActionRunner.submit(lambda: opencue.api.findShow(name),
+                                       self.__showPropertiesDone, "Finding show %s" % name)
         else:
             self.__comboShows.showPopup()
+
+    def __showPropertiesDone(self, show, error):
+        if error is not None:
+            QtWidgets.QMessageBox.critical(
+                self, "Show Properties", str(error), QtWidgets.QMessageBox.Ok)
+            return
+        dialog = cuegui.ShowDialog.ShowDialog(show, self)
+        dialog.exec_()
 
     def __addSubscription(self):
         if self.__show:
@@ -190,9 +223,11 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=lambda sub: ("%.2f" % (sub.data.reserved_cores/100.0)),
                        sort=lambda sub: (sub.data.reserved_cores/100.0))
 
-        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
-
+        # Set before AbstractTreeWidget.__init__, which requests the first
+        # update.
         self.__show = None
+
+        cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
         # Used to build right click context menus
         self.__menuActions = cuegui.MenuActions.MenuActions(
@@ -202,20 +237,22 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
     def setShow(self, show=None):
         """Sets the active show."""
+        newShow = self.__show
+        if not show:
+            newShow = None
+        elif cuegui.Utils.isShow(show):
+            newShow = show
+        elif isinstance(show, str):
+            try:
+                newShow = opencue.api.findShow(show)
+            except opencue.exception.CueException:
+                pass
         self._itemsLock.lockForWrite()
         try:
-            if not show:
-                self.__show = None
-            elif cuegui.Utils.isShow(show):
-                self.__show = show
-            elif isinstance(show, str):
-                try:
-                    self.__show = opencue.api.findShow(show)
-                except opencue.exception.CueException:
-                    pass
-            self._update()
+            self.__show = newShow
         finally:
             self._itemsLock.unlock()
+        self._update()
 
     def getShow(self):
         """Gets the active show."""
@@ -226,14 +263,25 @@ class SubscriptionsTreeWidget(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         return SubscriptionWidgetItem(rpcObject, self)
 
     def _getUpdate(self):
-        """Returns the proper data from the cuebot"""
-        self._itemsLock.lockForWrite()
+        """Returns the show and its subscriptions from the cuebot. The lock is
+        not held during the call, so changing the show does not wait for it."""
+        self._itemsLock.lockForRead()
         try:
-            if self.__show:
-                return self.__show.getSubscriptions()
-            return []
+            show = self.__show
         finally:
             self._itemsLock.unlock()
+        if show:
+            return show, show.getSubscriptions()
+        return show, []
+
+    def _processUpdate(self, work, rpcObjects):
+        """Shows the subscriptions, unless the show changed since they were
+        requested."""
+        show, subscriptions = rpcObjects
+        if show is not self.__show:
+            return
+        # pylint: disable=protected-access
+        cuegui.AbstractTreeWidget.AbstractTreeWidget._processUpdate(self, work, subscriptions)
 
     def contextMenuEvent(self, e):
         """When right clicking on an item, this raises a context menu"""

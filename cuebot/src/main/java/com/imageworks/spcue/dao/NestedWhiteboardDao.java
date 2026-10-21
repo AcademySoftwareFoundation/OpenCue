@@ -35,6 +35,16 @@ public interface NestedWhiteboardDao {
     NestedGroup getJobWhiteboard(ShowInterface show);
 
     /**
+     * returns a grouped whiteboard for specified show.
+     *
+     * @param show
+     * @param fresh if true, the result reflects every change committed before this call, instead of
+     *        possibly being served from the short-lived whiteboard cache.
+     * @return
+     */
+    NestedGroup getJobWhiteboard(ShowInterface show, boolean fresh);
+
+    /**
      * get a list of hosts
      *
      * @return List<Host>

@@ -445,11 +445,12 @@
   <!-- Single-thread Maestro. Disabled by default (maestro.enabled).
        When enabled, HostReportHandler suppresses the legacy per-host
        BookingQueue enqueue, and the Quartz trigger below drives a single
-       tick that groups hosts by static spec and runs one candidate-layer
-       query per group. Cross-Cuebot exclusion via pg_try_advisory_lock. -->
+       tick that groups hosts by static spec and plans every group from one
+       candidate read per tick (MaestroDao). Cross-Cuebot exclusion via
+       pg_try_advisory_lock. -->
   <bean id="maestro" class="com.imageworks.spcue.dispatcher.Maestro" depends-on="cueDataSource"
         destroy-method="onShutdown">
-    <property name="dataSource"  ref="cueDataSource" />
+    <property name="maestroDao"  ref="maestroDao" />
     <property name="dispatcher"  ref="dispatcher" />
     <property name="dispatchSupport" ref="dispatchSupport" />
     <property name="hostManager" ref="hostManager" />
