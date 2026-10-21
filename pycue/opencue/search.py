@@ -374,8 +374,8 @@ def _setOptions(criteria, options):
         elif k == "memory_less_than":
             if not v:
                 continue
-            criteria.memory_greater_than.append(
-                _createCriterion(v, int, lambda mem: (mem)))
+            criteria.memory_less_than.append(
+                _createCriterion("lt%s" % v, int, lambda mem: (mem)))
         elif k == "duration":
             if not v:
                 continue

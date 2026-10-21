@@ -24,6 +24,7 @@ import unittest
 import mock
 
 from opencue_proto import job_pb2
+from opencue_proto import criterion_pb2
 from opencue_proto import host_pb2
 import opencue.search
 
@@ -82,6 +83,35 @@ class JobSearchTests(unittest.TestCase):
             opencue.search.raiseIfNotList('user', {'iamnotalist'})
 
         self.assertIsNone(opencue.search.raiseIfNotList('user', ['iamnotalist']))
+
+
+class ProcSearchMemoryCriteriaTests(unittest.TestCase):
+    """Tests for the memory bounds accepted by ProcSearch.criteriaFromOptions."""
+
+    def testMemoryLessThanBuildsALessThanCriterion(self):
+        """memory_less_than must populate criteria.memory_less_than with a
+        LessThan criterion and leave criteria.memory_greater_than alone."""
+        criteria = opencue.search.ProcSearch.criteriaFromOptions(
+            job=["testing-job"], memory_less_than=5242880)
+
+        self.assertEqual(0, len(criteria.memory_greater_than))
+        self.assertEqual(1, len(criteria.memory_less_than))
+        self.assertIsInstance(criteria.memory_less_than[0],
+                              criterion_pb2.LessThanIntegerSearchCriterion)
+        self.assertEqual(5242880, criteria.memory_less_than[0].value)
+
+    def testMemoryLowerAndUpperBoundsTogether(self):
+        """Both memory bounds must survive; otherwise one silently overrides
+        the other and Cuebot only ever sees the first bound."""
+        criteria = opencue.search.ProcSearch.criteriaFromOptions(
+            job=["testing-job"],
+            memory_greater_than=1048576,
+            memory_less_than=5242880)
+
+        self.assertEqual(1, len(criteria.memory_greater_than))
+        self.assertEqual(1048576, criteria.memory_greater_than[0].value)
+        self.assertEqual(1, len(criteria.memory_less_than))
+        self.assertEqual(5242880, criteria.memory_less_than[0].value)
 
 
 if __name__ == '__main__':
