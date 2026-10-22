@@ -97,7 +97,7 @@ curl -H "X-Api-Key: $CLIENT_API_KEY" \
      -d '{"r": {"show": "testing"}}'
 
 # Option B: Using Authorization header
-curl -H "Authorization: Bearer $JWT_TOKEN" \
+curl -H "Authorization: ApiKey $CLIENT_API_KEY" \
      -H "Content-Type: application/json" \
      -X POST \
      "http://localhost:8448/job.JobInterface/GetJobs" \
