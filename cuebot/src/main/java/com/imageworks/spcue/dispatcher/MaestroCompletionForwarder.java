@@ -168,6 +168,13 @@ public class MaestroCompletionForwarder {
             return Outcome.notAttempted(null);
         }
 
+        // A local-dispatch proc is always Cuebot-owned: Maestro never books local assignments, so
+        // its next frame must be booked by this cuebot's legacy path, never by the isolated
+        // deployment's drain.
+        if (proc.isLocalDispatch) {
+            return Outcome.notAttempted(proc);
+        }
+
         boolean managed;
         try {
             managed = showDao.isSchedulerManaged(proc.getShowId());

@@ -244,11 +244,17 @@ public class FrameCompleteHandler {
      * interleaving with a job shutdown could throw mid-way and leave an orphaned proc behind, and
      * one orphaned proc wedges Maestro's batch commit permanently. The resolve stays on the report
      * threads because spread across them it is free, while done serially in the tick it would
-     * multiply tick time by the completion rate. Ownership is decided before anything else: in
-     * managed mode the show flag is read from the proc first, so a legacy-owned report never meets
-     * the drain's resolve, whatever the mode switch says. There is deliberately no off switch (it
-     * would bring the orphan races back). Legacy-owned shows skip the drain and process the report
-     * to the end right here, on this thread.
+     * multiply tick time by the completion rate. Ownership is decided before anything else: the
+     * proc is read first, and in managed mode its show flag decides, so a legacy-owned report never
+     * meets the drain's resolve, whatever the mode switch says. There is deliberately no off switch
+     * (it would bring the orphan races back). Legacy-owned shows skip the drain and process the
+     * report to the end right here, on this thread.
+     *
+     * Local-dispatch procs are never Maestro's, in any mode: Maestro does not book local host
+     * assignments, and the drain's post-complete work never rebooks a proc. A local proc's report
+     * therefore always takes the legacy path, which books the proc's next frame through the
+     * {@link LocalDispatcher}; through the drain the proc would be left idle, holding its local
+     * assignment's resources, after its first frame.
      *
      * @param report
      */
@@ -264,8 +270,9 @@ public class FrameCompleteHandler {
         // relay failure falls back to the legacy path. Only mode-off
         // cuebots forward, so a Maestro cuebot can never forward to itself.
         // - Facility mode: Maestro owns every show; queue for the drain.
-        // - Managed mode: the proc's show flag decides, read once and handed
-        // to the resolve.
+        // - Managed mode: the proc's show flag decides.
+        // In both Maestro modes the proc is read once and handed to the
+        // resolve; a local-dispatch proc always takes the legacy path.
         if (!MaestroMode.enabled(env)) {
             if (completionForwarder == null) {
                 processReportNow(report);
@@ -276,10 +283,6 @@ public class FrameCompleteHandler {
             if (!outcome.forwarded()) {
                 processReportNow(report, outcome.proc());
             }
-            return;
-        }
-        if (MaestroMode.facility(env)) {
-            queueForDrain(report, null);
             return;
         }
         VirtualProc owned = ownedProc(report);
@@ -294,8 +297,7 @@ public class FrameCompleteHandler {
      * Maestro's path: resolve the report here, on the report thread (pure reads), and hand the
      * resolved completion to the tick's drain (see the class header). A transient resolve failure
      * becomes the retry signal to RQD, the same contract as processReportNow, never a raw exception
-     * over gRPC. The known proc is the one ownedProc read in managed mode; null lets the resolve
-     * read it.
+     * over gRPC. The known proc is the one ownedProc read; null lets the resolve read it.
      */
     private void queueForDrain(FrameCompleteReport report, VirtualProc known) {
         QueuedFrameCompletion resolved;
@@ -313,13 +315,21 @@ public class FrameCompleteHandler {
     }
 
     /**
-     * Managed mode: the report's proc when its show is flagged for Maestro, else null. Null also
-     * when the proc is gone: the legacy path finalizes the orphan, as it does in every mode. A
-     * transient read failure becomes the retry signal, never a raw exception over gRPC.
+     * The report's proc when Maestro owns it (every show in facility mode, a show flagged for
+     * Maestro in managed mode), else null. Null for a local-dispatch proc, which is always
+     * Cuebot-owned (see the class header). Null also when the proc is gone: the legacy path
+     * finalizes the orphan, as it does in every mode. A transient read failure becomes the retry
+     * signal, never a raw exception over gRPC.
      */
     private VirtualProc ownedProc(FrameCompleteReport report) {
         try {
             VirtualProc proc = hostManager.getVirtualProc(report.getFrame().getResourceId());
+            if (proc.isLocalDispatch) {
+                return null;
+            }
+            if (MaestroMode.facility(env)) {
+                return proc;
+            }
             return showDao.isSchedulerManaged(proc.getShowId()) ? proc : null;
         } catch (EmptyResultDataAccessException e) {
             return null;

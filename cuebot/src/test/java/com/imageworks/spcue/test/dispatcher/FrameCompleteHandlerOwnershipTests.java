@@ -37,11 +37,13 @@ import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
 import com.imageworks.spcue.dispatcher.OomMemoryTracker;
 import com.imageworks.spcue.dispatcher.MaestroCompletionQueue;
 import com.imageworks.spcue.dispatcher.RedirectManager;
+import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
 import com.imageworks.spcue.grpc.job.FrameState;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
+import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
@@ -87,6 +89,7 @@ public class FrameCompleteHandlerOwnershipTests {
     private DispatchQueue dispatchQueue;
     private PrometheusMetricsCollector prometheusMetrics;
     private ShowDao showDao;
+    private Environment env;
 
     private VirtualProc proc;
     private FrameCompleteReport report;
@@ -101,7 +104,7 @@ public class FrameCompleteHandlerOwnershipTests {
      * owns every show).
      */
     private void wire(String maestroMode) {
-        Environment env = mock(Environment.class);
+        env = mock(Environment.class);
         when(env.getProperty(eq("depend.satisfy_only_on_frame_success"), eq(Boolean.class),
                 eq(true))).thenReturn(true);
         // The constructor unboxes every numeric property it reads, so the defaults have to come
@@ -586,5 +589,82 @@ public class FrameCompleteHandlerOwnershipTests {
         assertEquals(1, MaestroCompletionQueue.drain().size());
         verify(dispatchSupport, never()).stopFrame(eq(frame), any(FrameState.class), anyInt(),
                 anyLong());
+    }
+
+    // ---- local dispatches are always Cuebot-owned -----------------------------------------
+
+    /**
+     * A local-dispatch proc whose frame is stopped and whose local assignment is still active, with
+     * the post-complete collaborators wired so the proc reaches the rebook decision.
+     */
+    private Dispatcher wireLocalProc() {
+        when(env.getProperty(eq("dispatcher.turn_off_booking"), eq(Boolean.class), eq(false)))
+                .thenReturn(false);
+        proc.isLocalDispatch = true;
+        Dispatcher localDispatcher = mock(Dispatcher.class);
+        BookingManager bookingManager = mock(BookingManager.class);
+        when(bookingManager.hasLocalHostAssignment(proc)).thenReturn(true);
+        handler.setLocalDispatcher(localDispatcher);
+        handler.setBookingManager(bookingManager);
+        when(dispatchSupport.isJobDispatchable(any(DispatchJob.class), eq(true))).thenReturn(true);
+        return localDispatcher;
+    }
+
+    /**
+     * The local-render regression: through the drain a local proc's report was filed by the batched
+     * stop, which clears the proc's frame but never rebooks it, so the proc sat idle holding its
+     * local assignment's cores and no later batch ever ran locally. A local proc's report must take
+     * the legacy path and book the next frame through the local dispatcher.
+     */
+    private void assertLocalProcReportBooksTheNextLocalFrame(Dispatcher localDispatcher,
+            DispatchFrame frame) {
+        MaestroCompletionQueue.drain();
+
+        handler.handleFrameCompleteReport(report);
+
+        assertEquals(0, MaestroCompletionQueue.drain().size());
+        verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.SUCCEEDED), anyInt(),
+                anyLong());
+        verify(dispatchQueue, times(1)).execute(any(DispatchNextFrame.class));
+        verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
+        verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
+        verify(localDispatcher, times(1)).dispatchProcToJob(eq(proc), any());
+        verify(dispatcher, never()).dispatchProcToJob(any(VirtualProc.class), any());
+    }
+
+    /** Managed mode, a Maestro show: a local proc still takes the legacy path. */
+    @Test
+    public void localProcOnManagedShowInManagedModeBooksTheNextLocalFrame() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        Dispatcher localDispatcher = wireLocalProc();
+        DispatchFrame frame = wireRunningFrame();
+
+        assertLocalProcReportBooksTheNextLocalFrame(localDispatcher, frame);
+    }
+
+    /** Facility mode: Maestro owns every show, but a local proc still takes the legacy path. */
+    @Test
+    public void localProcInFacilityModeBooksTheNextLocalFrame() {
+        wire("facility");
+        Dispatcher localDispatcher = wireLocalProc();
+        DispatchFrame frame = wireRunningFrame();
+
+        assertLocalProcReportBooksTheNextLocalFrame(localDispatcher, frame);
+    }
+
+    /** Facility mode, a farm proc: the report is still resolved and queued for the drain. */
+    @Test
+    public void farmProcInFacilityModeIsQueuedForTheDrain() {
+        wire("facility");
+        DispatchFrame frame = wireRunningFrame();
+        MaestroCompletionQueue.drain();
+
+        handler.handleFrameCompleteReport(report);
+
+        assertEquals(1, MaestroCompletionQueue.drain().size());
+        verify(dispatchSupport, never()).stopFrame(eq(frame), any(FrameState.class), anyInt(),
+                anyLong());
+        verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
     }
 }
