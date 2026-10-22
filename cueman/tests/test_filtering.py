@@ -84,12 +84,9 @@ class TestMemoryRangeParsing(unittest.TestCase):
         cueman_main._get_proc_filters(args)
 
         # 2 GB = 2097152 KB
-        # The function calls getProcs twice for gt pattern:
-        # once with less_than, then with greater_than
-        self.assertEqual(mock_getProcs.call_count, 2)
-        # Check the final call has memory_greater_than
-        final_call_kwargs = mock_getProcs.call_args_list[-1][1]
-        self.assertEqual(final_call_kwargs["memory_greater_than"], 2097152)
+        mock_getProcs.assert_called_once()
+        call_kwargs = mock_getProcs.call_args[1]
+        self.assertEqual(call_kwargs["memory_greater_than"], 2097152)
 
     @mock.patch("opencue.api.getProcs")
     def test_memory_greater_than_5_gb_lowercase(self, mock_getProcs):
@@ -100,10 +97,10 @@ class TestMemoryRangeParsing(unittest.TestCase):
         cueman_main._get_proc_filters(args)
 
         # 5 GB = 5242880 KB
-        # The function calls getProcs twice for gt pattern
-        self.assertEqual(mock_getProcs.call_count, 2)
-        final_call_kwargs = mock_getProcs.call_args_list[-1][1]
-        self.assertEqual(final_call_kwargs["memory_greater_than"], 5242880)
+        mock_getProcs.assert_called_once()
+        call_kwargs = mock_getProcs.call_args[1]
+        self.assertEqual(call_kwargs["memory_greater_than"], 5242880)
+
 
     @mock.patch("opencue.api.getProcs")
     def test_memory_less_than_5_gb(self, mock_getProcs):
@@ -286,10 +283,9 @@ class TestBoundaryConditions(unittest.TestCase):
         cueman_main._get_proc_filters(args)
 
         # 100 GB = 104857600 KB
-        # The function calls getProcs twice for gt pattern
-        self.assertEqual(mock_getProcs.call_count, 2)
-        final_call_kwargs = mock_getProcs.call_args_list[-1][1]
-        self.assertEqual(final_call_kwargs["memory_greater_than"], 104857600)
+        mock_getProcs.assert_called_once()
+        call_kwargs = mock_getProcs.call_args[1]
+        self.assertEqual(call_kwargs["memory_greater_than"], 104857600)
 
     @mock.patch("opencue.api.getProcs")
     def test_duration_zero_boundary(self, mock_getProcs):
@@ -326,8 +322,8 @@ class TestBoundaryConditions(unittest.TestCase):
         # 0.01 GB = 10485 KB (rounded down due to int conversion)
         mock_getProcs.assert_called_once()
         call_kwargs = mock_getProcs.call_args[1]
-        # The value should be memory_less_than since it doesn't match gt/lt/range pattern
-        self.assertIn("memory_less_than", call_kwargs)
+        # A bare number is a "greater than" filter, so it must not use memory_less_than
+        self.assertIn("memory_greater_than", call_kwargs)
 
     @mock.patch("opencue.api.getProcs")
     def test_duration_small_fractional_value(self, mock_getProcs):
@@ -443,11 +439,10 @@ class TestFilterCombination(unittest.TestCase):
 
         cueman_main._get_proc_filters(args)
 
-        # The function calls getProcs twice for gt pattern
-        self.assertEqual(mock_getProcs.call_count, 2)
-        final_call_kwargs = mock_getProcs.call_args_list[-1][1]
-        self.assertEqual(final_call_kwargs["memory_greater_than"], 3145728)
-        self.assertEqual(final_call_kwargs["duration"], "1800-5400")
+        mock_getProcs.assert_called_once()
+        call_kwargs = mock_getProcs.call_args[1]
+        self.assertEqual(call_kwargs["memory_greater_than"], 3145728)
+        self.assertEqual(call_kwargs["duration"], "1800-5400")
 
     @mock.patch("opencue.api.getProcs")
     def test_combined_lt_memory_and_duration_single(self, mock_getProcs):
