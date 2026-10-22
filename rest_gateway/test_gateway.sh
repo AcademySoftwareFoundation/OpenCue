@@ -214,7 +214,7 @@ cat > test_apikey_endpoints.sh << 'EOF'
 GATEWAY_URL="${GATEWAY_URL:-http://localhost:8448}"
 API_KEY="${API_KEY:-dev-client-key-1}"
 
-echo "Testing endpoint with API Key ($API_KEY): $1"
+echo "Testing endpoint with API Key: $1"
 echo "Payload: $2"
 echo ""
 
