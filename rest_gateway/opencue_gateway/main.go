@@ -21,7 +21,9 @@
 //
 // Architecture:
 //   - HTTP Server: Listens for incoming REST requests on port 8448 (default)
-//   - JWT Middleware: Authenticates all requests using HMAC SHA256 tokens
+//   - Authentication Middleware:
+//       * Path 1 (Web Server): Bearer JWT with HMAC SHA256 (Full access)
+//       * Path 2 (Direct Clients): X-Api-Key / ApiKey header (Submit & Monitor access only)
 //   - gRPC Gateway: Translates HTTP/JSON to gRPC and back
 //   - Connection Pool: Manages connections to Cuebot gRPC server
 //
@@ -31,6 +33,7 @@
 //   - JWT_SECRET: Secret key for JWT token validation
 //
 // Optional Environment Variables:
+//   - CLIENT_API_KEYS: Comma-separated list of API keys allowed for direct clients
 //   - SWAGGER_ENABLED: Serve the Swagger UI on /swagger/ (default "true").
 //     The UI is not authenticated, so set this to "false" wherever the gateway
 //     is reachable beyond a trusted network.
@@ -43,6 +46,7 @@
 //	  -e CUEBOT_ENDPOINT=cuebot:8443 \
 //	  -e REST_PORT=8448 \
 //	  -e JWT_SECRET=your-secret-key \
+//	  -e CLIENT_API_KEYS=key1,key2 \
 //	  -p 8448:8448 \
 //	  opencue-rest-gateway
 package main
@@ -66,11 +70,54 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	swaggerfiles "github.com/swaggo/files/v2"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/grpclog"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 
 	gw "opencue_gateway/gen/go" // Generated protobuf code
 )
+
+type authRole string
+
+const (
+	roleFullAccess authRole = "full"
+	roleRestricted authRole = "restricted"
+)
+
+type contextKey string
+
+const authRoleContextKey contextKey = "auth_role"
+
+// restrictedAllowedMethods defines the gRPC methods allowed for direct API key callers
+// (job submission, monitoring, and associated query lookups).
+var restrictedAllowedMethods = map[string]bool{
+	// Job submission
+	"/job.JobInterface/LaunchSpec":        true,
+	"/job.JobInterface/LaunchSpecAndWait": true,
+
+	// Job monitoring
+	"/job.JobInterface/GetJob":       true,
+	"/job.JobInterface/GetJobs":      true,
+	"/job.JobInterface/GetJobNames":  true,
+	"/job.JobInterface/FindJob":      true,
+	"/job.JobInterface/IsJobPending": true,
+
+	// Frame monitoring
+	"/frame.FrameInterface/GetFrames": true,
+	"/frame.FrameInterface/GetFrame":  true,
+
+	// Layer monitoring
+	"/layer.LayerInterface/GetLayers": true,
+	"/layer.LayerInterface/GetLayer":  true,
+
+	// Show & Group queries (needed to look up where to submit/monitor)
+	"/show.ShowInterface/GetShows":    true,
+	"/show.ShowInterface/FindShow":    true,
+	"/group.GroupInterface/GetGroup":  true,
+	"/group.GroupInterface/FindGroup": true,
+}
 
 // getEnv retrieves a required environment variable or exits if not found.
 //
@@ -128,39 +175,36 @@ func validateJWTToken(tokenString string, jwtSecret []byte) (*jwt.Token, error) 
 	})
 }
 
-// jwtMiddleware is an HTTP middleware that enforces JWT authentication on all requests.
-//
-// This middleware wraps HTTP handlers to require valid JWT authentication before
-// processing any request. It implements the following security flow:
-//
-//  1. Extracts the Authorization header from the request
-//  2. Validates the "Bearer" token format
-//  3. Cryptographically verifies the JWT signature
-//  4. Checks token expiration and validity
-//  5. Returns 401 Unauthorized if any check fails
-//  6. Passes the request to the next handler if authentication succeeds
-//
-// All REST Gateway API endpoints are protected by this middleware. The only
-// exception is the Swagger UI mounted under /swagger/, which is deliberately
-// served without authentication so the API can be browsed; see
-// registerSwaggerHandlers and the SWAGGER_ENABLED environment variable.
-//
-// Parameters:
-//   - next: The HTTP handler to call if authentication succeeds
-//   - jwtSecret: The secret key for JWT validation
-//
-// Returns:
-//   - http.Handler: The wrapped handler with JWT authentication
-//
-// Example Authorization Header:
-//
-//	Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
+// authMiddleware handles authentication for both paths:
+//  1. Path 1: "Authorization: Bearer <JWT>" (Full access from trusted web server)
+//  2. Path 2: "X-Api-Key: <key>" or "Authorization: ApiKey <key>" (Restricted access for direct clients)
+func authMiddleware(next http.Handler, jwtSecret []byte, validApiKeys map[string]bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract and validate Authorization header
+		// 1. Check for API Key (Path 2: direct client access)
+		apiKey := r.Header.Get("X-Api-Key")
+		if apiKey == "" {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "ApiKey ") {
+				apiKey = strings.TrimPrefix(authHeader, "ApiKey ")
+			}
+		}
+
+		if apiKey != "" {
+			if len(validApiKeys) > 0 && validApiKeys[apiKey] {
+				log.Println("Authenticated via API Key (restricted access)")
+				ctx := context.WithValue(r.Context(), authRoleContextKey, roleRestricted)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+			log.Printf("Invalid API Key attempted")
+			http.Error(w, "Invalid API key", http.StatusUnauthorized)
+			return
+		}
+
+		// 2. Fallback to JWT Bearer authentication (Path 1: trusted web server access)
 		authHeader := r.Header.Get("Authorization")
 		if authHeader == "" {
-			errorString := "Authorization header required"
+			errorString := "Authorization header or X-Api-Key required"
 			log.Printf("%s", errorString)
 			http.Error(w, errorString, http.StatusUnauthorized)
 			return
@@ -182,9 +226,27 @@ func jwtMiddleware(next http.Handler, jwtSecret []byte) http.Handler {
 			return
 		}
 
-		log.Println("Token validated successfully; passing request to next handler")
-		next.ServeHTTP(w, r)
+		log.Println("Authenticated via JWT (full access)")
+		ctx := context.WithValue(r.Context(), authRoleContextKey, roleFullAccess)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// permissionInterceptor enforces method-level restrictions on gRPC calls for restricted callers.
+func permissionInterceptor() grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		md, _ := metadata.FromOutgoingContext(ctx)
+		roles := md.Get("x-auth-role")
+
+		if len(roles) > 0 && roles[0] == string(roleRestricted) {
+			if !restrictedAllowedMethods[method] {
+				log.Printf("Forbidden call: restricted API key caller attempted %s", method)
+				return status.Errorf(codes.PermissionDenied, "permission denied: method %s is not permitted for client API keys", method)
+			}
+		}
+
+		return invoker(ctx, method, req, reply, cc, opts...)
+	}
 }
 
 // run initializes and starts the REST Gateway server.
@@ -211,18 +273,32 @@ func run() error {
 	port := getEnv("REST_PORT")
 	jwtSecret := []byte(getEnv("JWT_SECRET"))
 
+	// Parse comma-separated CLIENT_API_KEYS from environment
+	validApiKeys := make(map[string]bool)
+	if keysEnv := os.Getenv("CLIENT_API_KEYS"); keysEnv != "" {
+		for _, key := range strings.Split(keysEnv, ",") {
+			k := strings.TrimSpace(key)
+			if k != "" {
+				validApiKeys[k] = true
+			}
+		}
+	}
+
 	ctx := context.Background()
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	// Initialize gRPC-gateway multiplexer for HTTP-to-gRPC translation
-	mux := runtime.NewServeMux()
+	// Initialize gRPC-gateway multiplexer with metadata forwarder
+	mux := runtime.NewServeMux(
+		runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
+			if role, ok := req.Context().Value(authRoleContextKey).(authRole); ok {
+				return metadata.Pairs("x-auth-role", string(role))
+			}
+			return nil
+		}),
+	)
 
-	// Configure gRPC connection options (using insecure for internal network).
-	// Raise the max receive message size above gRPC's 4MB default so large list
-	// responses (e.g. GetJobs on a busy production facility — tens of MB) aren't
-	// rejected with "received message larger than max". Override via
-	// GRPC_MAX_RECV_MSG_MB (megabytes).
+	// Configure gRPC connection options
 	maxRecvMsgBytes := 256 * 1024 * 1024 // 256 MB default
 	if v := os.Getenv("GRPC_MAX_RECV_MSG_MB"); v != "" {
 		if mb, err := strconv.Atoi(v); err == nil && mb > 0 {
@@ -232,6 +308,7 @@ func run() error {
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(maxRecvMsgBytes)),
+		grpc.WithUnaryInterceptor(permissionInterceptor()),
 	}
 
 	// Register all gRPC interface handlers
@@ -252,8 +329,8 @@ func run() error {
 	// network should set SWAGGER_ENABLED=false.
 	registerSwaggerHandlers(httpMux)
 
-	// Apply JWT authentication middleware to all other routes
-	httpMux.Handle("/", jwtMiddleware(mux, jwtSecret))
+	// Apply authentication middleware to all other routes
+	httpMux.Handle("/", authMiddleware(mux, jwtSecret, validApiKeys))
 
 	log.Printf("Starting HTTP server on endpoint: %s, port %s", grpcServerEndpoint, port)
 
@@ -280,7 +357,7 @@ func registerGRPCHandlers(ctx context.Context, mux *runtime.ServeMux, grpcServer
 	// Array of all handler registration functions
 	// Each function registers REST endpoints for one OpenCue interface
 	handlers := []func(context.Context, *runtime.ServeMux, string, []grpc.DialOption) error{
-		// Core interfaces (original 10)
+		// Core interfaces
 		gw.RegisterShowInterfaceHandlerFromEndpoint,
 		gw.RegisterFrameInterfaceHandlerFromEndpoint,
 		gw.RegisterGroupInterfaceHandlerFromEndpoint,
@@ -353,11 +430,7 @@ type swaggerSpecItem struct {
 	Name string `json:"name"`
 }
 
-// swaggerUIAssets is the allow-list of files served from the embedded Swagger UI
-// distribution. The dist also ships index.html and swagger-initializer.js, which
-// point at https://petstore.swagger.io, plus ~7 MB of .map files; none of those
-// belong on an unauthenticated route, so only what swaggerUITemplate references
-// is exposed.
+// swaggerUIAssets is the allow-list of files served from the embedded Swagger UI distribution.
 var swaggerUIAssets = map[string]bool{
 	"swagger-ui.css":                  true,
 	"swagger-ui-bundle.js":            true,

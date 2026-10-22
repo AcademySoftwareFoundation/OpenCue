@@ -236,6 +236,7 @@ services:
     environment:
       - CUEBOT_ENDPOINT=cuebot:8443
       - JWT_SECRET=${JWT_SECRET:-opencue-dev-jwt-secret-change-in-production}
+      - CLIENT_API_KEYS=${CLIENT_API_KEYS:-opencue-dev-client-api-key-change-in-production}
       - REST_PORT=8448
       - LOG_LEVEL=info
     depends_on:
