@@ -107,8 +107,6 @@ var restrictedAllowedMethods = map[string]bool{
 	// Show & Group queries (needed to look up where to submit/monitor)
 	"/show.ShowInterface/GetShows":    true,
 	"/show.ShowInterface/FindShow":    true,
-	"/group.GroupInterface/GetGroup":  true,
-	"/group.GroupInterface/FindGroup": true,
 }
 
 // getEnv retrieves a required environment variable or exits if not found.
