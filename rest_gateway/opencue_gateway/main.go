@@ -282,6 +282,12 @@ func run() error {
 
 	// Initialize gRPC-gateway multiplexer with metadata forwarder
 	mux := runtime.NewServeMux(
+	    runtime.WithIncomingHeaderMatcher(func(key string) (string, bool) {
+            if strings.EqualFold(key, "Grpc-Metadata-X-Auth-Role") {
+                return "", false
+            }
+         return runtime.DefaultHeaderMatcher(key)
+        }),
 		runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
 			if role, ok := req.Context().Value(authRoleContextKey).(authRole); ok {
 				return metadata.Pairs("x-auth-role", string(role))
