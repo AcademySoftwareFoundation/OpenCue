@@ -108,7 +108,6 @@ curl -H "Authorization: ApiKey $CLIENT_API_KEY" \
 API keys are restricted to operations necessary for submitting and monitoring render jobs:
 - **Job Submission:** `LaunchSpec`, `LaunchSpecAndWait`
 - **Job Monitoring:** `GetJob`, `GetJobs`, `GetJobNames`, `FindJob`, `IsJobPending`
-- **Frames & Layers:** `GetFrames`, `GetFrame`, `GetLayers`, `GetLayer`
 - **Lookups:** `GetShows`, `FindShow`, `GetGroup`, `FindGroup`
 
 Calling any other administrative endpoint (e.g. rebooting hosts, deleting subscriptions, modifying allocations) with an API key returns **`403 Forbidden`**.
