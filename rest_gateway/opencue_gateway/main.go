@@ -104,14 +104,6 @@ var restrictedAllowedMethods = map[string]bool{
 	"/job.JobInterface/FindJob":      true,
 	"/job.JobInterface/IsJobPending": true,
 
-	// Frame monitoring
-	"/frame.FrameInterface/GetFrames": true,
-	"/frame.FrameInterface/GetFrame":  true,
-
-	// Layer monitoring
-	"/layer.LayerInterface/GetLayers": true,
-	"/layer.LayerInterface/GetLayer":  true,
-
 	// Show & Group queries (needed to look up where to submit/monitor)
 	"/show.ShowInterface/GetShows":    true,
 	"/show.ShowInterface/FindShow":    true,
