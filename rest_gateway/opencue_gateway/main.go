@@ -182,6 +182,7 @@ func authMiddleware(next http.Handler, jwtSecret []byte, validApiKeys map[string
 		if apiKey != "" {
 			if len(validApiKeys) > 0 && validApiKeys[apiKey] {
 				log.Println("Authenticated via API Key (restricted access)")
+				r.Header.Del("Authorization")
 				ctx := context.WithValue(r.Context(), authRoleContextKey, roleRestricted)
 				next.ServeHTTP(w, r.WithContext(ctx))
 				return
