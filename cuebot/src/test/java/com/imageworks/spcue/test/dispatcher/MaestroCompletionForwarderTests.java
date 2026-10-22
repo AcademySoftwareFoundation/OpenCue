@@ -263,6 +263,27 @@ public class MaestroCompletionForwarderTests {
                 eq(FrameState.SUCCEEDED), anyInt(), anyLong());
     }
 
+    /**
+     * A local-dispatch proc of a managed show is never forwarded: Maestro does not book local
+     * assignments, so the isolated deployment's drain would file the report without rebooking the
+     * proc and strand the local render after its first frame.
+     */
+    @Test
+    public void localProcOfManagedShowIsNeverForwarded() {
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        proc.isLocalDispatch = true;
+        RecordingForwarder fwd = forwarder(TARGET_A);
+        handler.setCompletionForwarder(fwd);
+
+        handler.handleFrameCompleteReport(report);
+
+        assertTrue(fwd.attempts.isEmpty());
+        verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
+        verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+        verify(prometheusMetrics, never()).incrementCompletionForward(anyString());
+    }
+
     /** With the flag unset the hook is inert: no forward, no proc read beyond today's. */
     @Test
     public void emptyFlagDisablesForwardingEntirely() {
