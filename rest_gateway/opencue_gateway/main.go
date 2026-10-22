@@ -285,7 +285,7 @@ func run() error {
             if strings.EqualFold(key, "Grpc-Metadata-X-Auth-Role") {
                 return "", false
             }
-         return runtime.DefaultHeaderMatcher(key)
+            return runtime.DefaultHeaderMatcher(key)
         }),
 		runtime.WithMetadata(func(ctx context.Context, req *http.Request) metadata.MD {
 			if role, ok := req.Context().Value(authRoleContextKey).(authRole); ok {
