@@ -185,16 +185,15 @@ echo "  POST /deed.DeedInterface/GetOwner"
 echo "  POST /deed.DeedInterface/GetHost"
 echo ""
 
-# Create a simple endpoint test script
+# Create a simple endpoint test script for JWT
 cat > test_endpoints.sh << 'EOF'
 #!/bin/bash
 
-# Simple script to test REST Gateway endpoints
-
+# Simple script to test REST Gateway endpoints with JWT
 GATEWAY_URL="${GATEWAY_URL:-http://localhost:8448}"
 JWT_TOKEN="${JWT_TOKEN:-your-jwt-token-here}"
 
-echo "Testing endpoint: $1"
+echo "Testing endpoint with JWT: $1"
 echo "Payload: $2"
 echo ""
 
@@ -207,17 +206,49 @@ EOF
 
 chmod +x test_endpoints.sh
 
+# Create an endpoint test script for API Key
+cat > test_apikey_endpoints.sh << 'EOF'
+#!/bin/bash
+
+# Script to test REST Gateway endpoints with an API key
+GATEWAY_URL="${GATEWAY_URL:-http://localhost:8448}"
+API_KEY="${API_KEY:-dev-client-key-1}"
+
+echo "Testing endpoint with API Key ($API_KEY): $1"
+echo "Payload: $2"
+echo ""
+
+curl -X POST "$GATEWAY_URL$1" \
+  -H "X-Api-Key: $API_KEY" \
+  -H "Content-Type: application/json" \
+  -d "$2" \
+  -w "\nHTTP Status: %{http_code}\n"
+EOF
+
+chmod +x test_apikey_endpoints.sh
+
 echo "========================================="
 echo "Build and Validation Complete!"
 echo "========================================="
 echo ""
-echo "To run the gateway:"
+echo "To run the gateway with JWT and API Key support:"
 echo "  cd $SCRIPT_DIR/opencue_gateway"
-echo "  ./opencue_gateway --grpc-server=<cuebot-host>:8443 --http-port=8448"
+echo "  export CUEBOT_ENDPOINT=<cuebot-host>:8443"
+echo "  export REST_PORT=8448"
+echo "  export JWT_SECRET=dev-secret-key"
+echo "  export CLIENT_API_KEYS=dev-client-key-1,dev-client-key-2"
+echo "  ./opencue_gateway"
 echo ""
-echo "To test an endpoint:"
+echo "To test endpoints:"
 echo "  export GATEWAY_URL=http://localhost:8448"
+echo ""
+echo "  # Path 1: JWT (full administrative access)"
 echo "  export JWT_TOKEN=<your-jwt-token>"
 echo "  ./test_endpoints.sh '/job.JobInterface/FindJob' '{\"name\": \"test-job\"}'"
+echo ""
+echo "  # Path 2: API Key (submit & monitor only)"
+echo "  export API_KEY=dev-client-key-1"
+echo "  ./test_apikey_endpoints.sh '/job.JobInterface/GetJobs' '{}'          # Allowed (200)"
+echo "  ./test_apikey_endpoints.sh '/host.HostInterface/Lock' '{\"host\":{}}' # Blocked (403)"
 echo ""
 echo -e "${GREEN}All ${#interfaces[@]} interfaces are ready to use!${NC}"
