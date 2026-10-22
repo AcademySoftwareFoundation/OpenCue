@@ -675,6 +675,17 @@ frames, the group count must stay at the number of specs, and the dead pin
 must show `no host`. Fail-first on the tree before this feature: the four real
 pins completed 0 frames each at 100% utilisation.
 
+**Local host assignments are not pins.** A render booked onto a workstation
+through a local host assignment (`host_local`: the job spec's `<localbook>` or
+"book local" from the GUI) is never Maestro's, in any mode: the assignment's
+procs are booked by the `LocalDispatcher`, whose queries do not filter on
+`b_scheduler_managed`. A local proc's completion therefore always takes the
+legacy path, which books the proc's next frame through the `LocalDispatcher`;
+it is never queued for the drain nor forwarded (§6.2), because the drain's
+batched stop only clears a local proc's frame and never rebooks it, leaving the
+proc idle and holding the assignment's cores. Host reports book local
+assignments in every mode (§4).
+
 ## 4. Concurrency model
 
 Maestro reasons over an in-memory snapshot while commits and external
@@ -693,7 +704,12 @@ events change the database in the background. This is safe by design.
    book the same show. That exclusion is in SQL and not behind `maestro.enabled`,
    so it also holds on the Cuebots that run with Maestro off while one Cuebot
    plans — the rollout topology where the rest only report and forward
-   completions.
+   completions. Local host assignments are the exception: Maestro never books
+   them, so a host report books a host with an active assignment through the
+   `LocalDispatcher` in every mode, and only `dispatcher.turn_off_booking`
+   stops it (§3.10). Local assignments are normally made on NIMBY-locked
+   workstations, which the snapshot excludes, and the atomic idle-core update
+   below guards the rest.
 
 So the only things that can change host state during a tick are:
 
@@ -817,7 +833,7 @@ already takes most of the load off it.
 
 | Property | Default | Meaning |
 |---|---|---|
-| `maestro.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (Maestro owns all shows, legacy BookingQueue globally suppressed), or `managed` (Maestro owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
+| `maestro.enabled` | `no` | Rollout switch: `no` (off, legacy owns every show), `facility` (Maestro owns all shows, legacy BookingQueue globally suppressed except for local host assignments, §3.10), or `managed` (Maestro owns only shows flagged `b_scheduler_managed=true`, set per show via the show API; legacy keeps the rest). Back-compat: `true`=facility, `false`=no. |
 | `maestro.read_pool_size` | = launch pool size | Threads for the parallel per-host plan reads (read-only, DB-bound). |
 | `maestro.launch_pool_size` | `8` | Threads for the RQD launches of each committed chunk. The queue in front of them is unbounded. |
 | `maestro.layer_candidates_per_group_max` | `2000` | Cap on candidate layers a group draws from the tick's candidate read. |
@@ -845,7 +861,7 @@ already takes most of the load off it.
 | `maestro.group_count_warn_threshold` | `100` | Host-spec group count at which a (5-minute throttled) WARN flags hosts fragmenting into near-per-host groups. |
 | `maestro.shutdown_tick_wait_seconds` | `30` | How long shutdown waits for a tick in flight, so its committed chunks reach the launch pool. |
 | `maestro.shutdown_launch_drain_seconds` | `30` | How long shutdown then waits for queued launches; a launch that misses it is left to the orphaned-proc sweep. |
-| `maestro.forward_completions_to` | *(empty)* | Completion-forward relay (rollout scaffolding, read only when `maestro.enabled=no`): comma-separated `host:port` report endpoints of the isolated Maestro deployment (leader and standby). When set, a legacy cuebot forwards a scheduler-managed show's `FrameCompleteReport`s there unmodified over the report gRPC; any failure processes the report locally through the legacy path. Empty disables the relay (see §6.2). |
+| `maestro.forward_completions_to` | *(empty)* | Completion-forward relay (rollout scaffolding, read only when `maestro.enabled=no`): comma-separated `host:port` report endpoints of the isolated Maestro deployment (leader and standby). When set, a legacy cuebot forwards a scheduler-managed show's `FrameCompleteReport`s there unmodified over the report gRPC (a local-dispatch proc's report is never forwarded, §3.10); any failure processes the report locally through the legacy path. Empty disables the relay (see §6.2). |
 | `maestro.forward_deadline_ms` | `1500` | gRPC deadline for one forward attempt; exactly one attempt per report, then the local fallback. |
 | `maestro.forward_breaker_failures` | `3` | Consecutive forward failures that open the breaker. |
 | `maestro.forward_breaker_cooldown_s` | `30` | While open, managed-show reports take the instant local fallback with no gRPC call; after the cooldown the next report is the probe. |
@@ -885,7 +901,9 @@ When the managed pair runs isolated (its own hosts, an address no RQD knows),
 the completion pipeline would stay dormant until the facility flip. Setting
 `maestro.forward_completions_to` on the legacy cuebots closes that gap: a
 managed show's `FrameCompleteReport` is relayed, unmodified, into the pair's
-own report servant, so the drain path validated in production is byte-for-byte
+own report servant (except a local-dispatch proc's, which this cuebot files
+through the legacy path so the proc's next local frame is booked, §3.10), so
+the drain path validated in production is byte-for-byte
 the facility-mode path and the leader cannot tell a forwarded report from a
 direct one (including the transport: the same plaintext, unauthenticated
 report gRPC the RQDs use, so the relay must stay on the trusted internal
