@@ -142,7 +142,10 @@ Go back to [Contents](#contents).
 # Requirements
 
 **Core technologies:**
-- **[Node.js](https://nodejs.org):** Essential for server-side logic.
+- **[Node.js](https://nodejs.org):** Essential for server-side logic. CueWeb targets
+  Node 24 LTS (v24.22.1 or newer), the version pinned in `.nvmrc` and in the Docker
+  image. Older lines such as 18, 20 and 21 are end-of-life and do not receive
+  security patches.
 - **[Next.js](https://nextjs.org):** Utilized for server-side rendering and static generation.
 - **[Next-Auth.js](https://next-auth.js.org):** Implements authentication mechanisms.
 - **[Shadcn UI](https://ui.shadcn.com/):** Used for UI components.
