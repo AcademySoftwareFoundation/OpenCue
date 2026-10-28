@@ -38,7 +38,8 @@ Before you begin, ensure you have:
 
 - **OpenCue stack running** (Cuebot, RQD, and PostgreSQL)
 - **Docker** installed on your system
-- **Node.js** (version 18 or later) for development mode
+- **Node.js** 24 LTS, v24.22.1 or newer, for development mode. Node 18, 20 and 21
+  are end-of-life and no longer receive security patches.
 - **npm** package manager
 - **Git** for cloning the repository
 
