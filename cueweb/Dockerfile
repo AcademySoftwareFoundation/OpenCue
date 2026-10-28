@@ -1,6 +1,8 @@
 # Node 24 LTS, pinned to the October 2026 security release. 24.22.1 fixes
-# CVE-2026-111497 ("Node2Shell"), the critical out-of-bounds write in the
-# bundled Brotli decoder, plus the DNS/TLS issues in the same advisory:
+# CVE-2026-111497 ("Node2Shell"), an out-of-bounds write in the bundled
+# Brotli decoder that permits remote code execution. The Node.js project
+# rates it high, the highest severity in that release, and it is the
+# reason for this pin, plus the DNS/TLS issues in the same advisory:
 # https://nodejs.org/en/blog/vulnerability/october-2026-security-releases
 # Node 21 was end-of-life and never received these patches.
 # Next.js 16 requires Node >= 20.9.0.

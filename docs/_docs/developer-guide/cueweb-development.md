@@ -28,13 +28,15 @@ Complete guide for developing, customizing, and deploying OpenCueWeb.
 Before starting development, ensure you have:
 
 - **Node.js** 24 LTS, v24.22.1 or newer. This matches `cueweb/.nvmrc` and the
-  `FROM` line in `cueweb/Dockerfile`. Node 18, 20 and 21 are end-of-life and never
-  received the October 2026 security releases, which fixed the critical
+  `FROM` line in `cueweb/Dockerfile`. Node 18, 20 and 21 are end-of-life and
+  never received the October 2026 security releases, which fixed the
   out-of-bounds write in the bundled Brotli decoder used by `node:zlib`
-  (CVE-2026-111497) plus the accompanying DNS and TLS issues. On the other
-  maintained lines use v22.23.4+ or v26.12.1+; the `engines` field in
-  `package.json` declares that range, so `npm install` warns on an unpatched
-  runtime. `nvm use` (or `fnm use`) in `cueweb/` picks up the pinned version.
+  (CVE-2026-111497) that permits remote code execution, rated high by the
+  Node.js project and the highest severity in that release, plus the
+  accompanying DNS and TLS issues. On the other maintained lines use
+  v22.23.4+ or v26.12.1+; the `engines` field in `package.json` declares that
+  range, so `npm install` warns on an unpatched runtime. `nvm use` (or
+  `fnm use`) in `cueweb/` picks up the pinned version.
 - **npm** or **yarn** package manager
 - **Git** for version control
 - **Docker** (for REST Gateway and testing)
