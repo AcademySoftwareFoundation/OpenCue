@@ -8,6 +8,7 @@ echo ""
 # Configuration
 GATEWAY_URL="http://localhost:8448"
 JWT_SECRET="test-secret-key"
+TEST_API_KEY="test-client-key-1"
 
 # Colors for output
 GREEN='\033[0;32m'
@@ -73,6 +74,7 @@ if ! curl -s -f "$GATEWAY_URL" >/dev/null 2>&1; then
         docker run -d --name opencue-rest-gateway-test -p 8448:8448 \
             -e CUEBOT_ENDPOINT=mock-cuebot:8443 \
             -e JWT_SECRET=test-secret-key \
+            -e CLIENT_API_KEYS="test-client-key-1,test-client-key-2" \
             opencue-rest-gateway:latest
         sleep 2
     fi
@@ -125,6 +127,66 @@ if [[ "$http_code" == "401" ]]; then
     echo -e "${GREEN} Invalid token rejected (401)${NC}"
 else
     echo -e "${RED} Expected 401, got $http_code${NC}"
+fi
+echo ""
+
+echo "========================================="
+echo "Testing API Key Authentication & RBAC"
+echo "========================================="
+echo ""
+
+echo -e "${YELLOW}Testing with invalid API key:${NC}"
+response=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/job.JobInterface/GetJobs" \
+    -H "X-Api-Key: invalid-key" \
+    -H "Content-Type: application/json" \
+    -d '{}' 2>/dev/null)
+http_code="${response: -3}"
+if [[ "$http_code" == "401" ]]; then
+    echo -e "${GREEN} Invalid API key rejected (401)${NC}"
+else
+    echo -e "${RED} Expected 401, got $http_code${NC}"
+fi
+echo ""
+
+echo -e "${YELLOW}Testing allowed endpoint with valid API key (GetJobs):${NC}"
+response=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/job.JobInterface/GetJobs" \
+    -H "X-Api-Key: $TEST_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{}' 2>/dev/null)
+http_code="${response: -3}"
+# Valid call passes auth & authorization; backend absence yields 502/503 (or 200 if connected)
+if [[ "$http_code" == "200" ]] || [[ "$http_code" == "502" ]] || [[ "$http_code" == "503" ]]; then
+    echo -e "${GREEN} Allowed API key method accepted ($http_code)${NC}"
+elif [[ "$http_code" == "401" ]] || [[ "$http_code" == "403" ]]; then
+    echo -e "${RED} Unexpected auth/permission error ($http_code)${NC}"
+else
+    echo -e "${YELLOW}? Response: $http_code${NC}"
+fi
+echo ""
+
+echo -e "${YELLOW}Testing allowed endpoint via Authorization: ApiKey header:${NC}"
+response=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/job.JobInterface/GetJobs" \
+    -H "Authorization: ApiKey $TEST_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{}' 2>/dev/null)
+http_code="${response: -3}"
+if [[ "$http_code" == "200" ]] || [[ "$http_code" == "502" ]] || [[ "$http_code" == "503" ]]; then
+    echo -e "${GREEN} Authorization: ApiKey accepted ($http_code)${NC}"
+else
+    echo -e "${RED} Expected 200/502/503, got $http_code${NC}"
+fi
+echo ""
+
+echo -e "${YELLOW}Testing forbidden administrative endpoint with API key (Lock host):${NC}"
+response=$(curl -s -w "%{http_code}" -X POST "$GATEWAY_URL/host.HostInterface/Lock" \
+    -H "X-Api-Key: $TEST_API_KEY" \
+    -H "Content-Type: application/json" \
+    -d '{"host": {"name": "test-host"}}' 2>/dev/null)
+http_code="${response: -3}"
+if [[ "$http_code" == "403" ]]; then
+    echo -e "${GREEN} Administrative method blocked for API key as expected (403)${NC}"
+else
+    echo -e "${RED} Expected 403 Forbidden, got $http_code${NC}"
 fi
 echo ""
 

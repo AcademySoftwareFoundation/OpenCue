@@ -29,6 +29,7 @@ The OpenCue REST Gateway provides HTTP/REST endpoints for OpenCue's gRPC API. It
 
 - How to deploy the REST Gateway
 - How to authenticate with JWT tokens
+- How to authenticate with API keys
 - How to make your first API calls
 - How to browse and test the API in Swagger UI
 - Basic job and show operations
@@ -80,6 +81,15 @@ echo "Your JWT_SECRET: $JWT_SECRET"
 echo "Save this - you'll need it for API authentication"
 ```
 
+### Set Client API Keys
+
+```bash
+# Generate a client API key
+export CLIENT_API_KEY=$(openssl rand -base64 32)
+echo "Your CLIENT_API_KEY: $CLIENT_API_KEY"
+echo "Save this - you'll need it for API authentication"
+```
+
 ### Build the REST Gateway Image
 
 ```bash
@@ -95,6 +105,7 @@ docker run -d --name opencue-rest-gateway \
   -p 8448:8448 \
   -e CUEBOT_ENDPOINT=cuebot:8443 \
   -e JWT_SECRET="$JWT_SECRET" \
+  -e CLIENT_API_KEYS="$CLIENT_API_KEY" \
   -e REST_PORT=8448 \
   -e LOG_LEVEL=info \
   opencue/rest-gateway:latest
@@ -171,6 +182,12 @@ curl -X POST http://localhost:8448/show.ShowInterface/GetShows \
   -H "Authorization: Bearer $JWT_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{}'
+
+# Using API key
+curl -X POST http://localhost:8448/show.ShowInterface/GetShows \
+  -H "X-Api-Key: $CLIENT_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{}'
 ```
 
 Expected response:
@@ -195,6 +212,12 @@ Expected response:
 ```bash
 curl -X POST http://localhost:8448/job.JobInterface/GetJobs \
   -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"r": {"show": {"name": "testing"}}}'
+
+# Using API key
+curl -X POST http://localhost:8448/job.JobInterface/GetJobs \
+  -H "X-Api-Key: $CLIENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"r": {"show": {"name": "testing"}}}'
 ```
@@ -249,8 +272,15 @@ The `curl` command is copy-pasteable, which makes the Swagger UI a quick way to 
 ### Find a Specific Show
 
 ```bash
+# Using JWT
 curl -X POST http://localhost:8448/show.ShowInterface/FindShow \
   -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "testing"}'
+
+# Using API key 
+curl -X POST http://localhost:8448/show.ShowInterface/FindShow \
+  -H "X-Api-Key: $CLIENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "testing"}'
 ```
@@ -258,8 +288,15 @@ curl -X POST http://localhost:8448/show.ShowInterface/FindShow \
 ### Find a Specific Job
 
 ```bash
+# Using JWT
 curl -X POST http://localhost:8448/job.JobInterface/FindJob \
   -H "Authorization: Bearer $JWT_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "testing-job-name"}'
+
+# Using API key
+curl -X POST http://localhost:8448/job.JobInterface/FindJob \
+  -H "X-Api-Key: $CLIENT_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"name": "testing-job-name"}'
 ```
@@ -319,20 +356,20 @@ export JWT_TOKEN="your-generated-token"
 
 ### Common Endpoints
 
-| Operation | Endpoint | Method |
-|-----------|----------|--------|
-| List shows | `show.ShowInterface/GetShows` | POST |
-| Find show | `show.ShowInterface/FindShow` | POST |
-| List jobs | `job.JobInterface/GetJobs` | POST |
-| Find job | `job.JobInterface/FindJob` | POST |
-| Pause job | `job.JobInterface/Pause` | POST |
-| Resume job | `job.JobInterface/Resume` | POST |
-| Kill job | `job.JobInterface/Kill` | POST |
-| Get frames | `job.JobInterface/GetFrames` | POST |
-| Retry frame | `frame.FrameInterface/Retry` | POST |
-| Kill frame | `frame.FrameInterface/Kill` | POST |
-| List hosts | `host.HostInterface/GetHosts` | POST |
-| Find host | `host.HostInterface/FindHost` | POST |
+| Operation | Endpoint | Method | Supports API key |
+|-----------|----------|--------|---|
+| List shows | `show.ShowInterface/GetShows` | POST | yes |
+| Find show | `show.ShowInterface/FindShow` | POST | yes |
+| List jobs | `job.JobInterface/GetJobs` | POST | yes |
+| Find job | `job.JobInterface/FindJob` | POST | yes |
+| Pause job | `job.JobInterface/Pause` | POST | no |
+| Resume job | `job.JobInterface/Resume` | POST | no |
+| Kill job | `job.JobInterface/Kill` | POST | no |
+| Get frames | `job.JobInterface/GetFrames` | POST | no |
+| Retry frame | `frame.FrameInterface/Retry` | POST | no |
+| Kill frame | `frame.FrameInterface/Kill` | POST | no |
+| List hosts | `host.HostInterface/GetHosts` | POST | no |
+| Find host | `host.HostInterface/FindHost` | POST | no |
 
 ### URL Pattern
 
@@ -363,6 +400,7 @@ The full list of definitions is discovered automatically; `GET /swagger/` reflec
 1. Verify JWT token is not expired
 2. Check `JWT_SECRET` matches between token and gateway
 3. Ensure `Authorization: Bearer <token>` header is correct
+4. (If using API key) Ensure `X-Api-Key: <key>` header is correct
 
 ```bash
 # Verify your secret matches

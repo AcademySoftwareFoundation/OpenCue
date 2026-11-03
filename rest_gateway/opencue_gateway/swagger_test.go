@@ -309,13 +309,14 @@ func TestSwaggerRoutesBypassAuth(t *testing.T) {
 	t.Setenv("SWAGGER_ENABLED", "true")
 
 	jwtSecret := []byte("test_secret")
+	validApiKeys := map[string]bool{"test-client-key": true}
 	api := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	mux := http.NewServeMux()
 	registerSwaggerHandlers(mux)
-	mux.Handle("/", jwtMiddleware(api, jwtSecret))
+	mux.Handle("/", authMiddleware(api, jwtSecret, validApiKeys))
 
 	ts := httptest.NewServer(mux)
 	defer ts.Close()
@@ -352,6 +353,17 @@ func TestSwaggerRoutesBypassAuth(t *testing.T) {
 		req, err := http.NewRequest(http.MethodGet, ts.URL+"/job.JobInterface/GetJob", nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer "+tokenString)
+
+		res, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		defer res.Body.Close()
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+	})
+
+	t.Run("Authenticated API Request with API Key Succeeds", func(t *testing.T) {
+		req, err := http.NewRequest(http.MethodGet, ts.URL+"/job.JobInterface/GetJob", nil)
+		require.NoError(t, err)
+		req.Header.Set("X-Api-Key", "test-client-key")
 
 		res, err := http.DefaultClient.Do(req)
 		require.NoError(t, err)
