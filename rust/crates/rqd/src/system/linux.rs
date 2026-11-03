@@ -1060,13 +1060,14 @@ impl SystemManager for LinuxSystem {
 
 #[cfg(test)]
 mod tests {
-    use crate::config::MachineConfig;
+    use crate::config::{MachineConfig, OverrideConfig};
     use std::fs;
     use std::{
         collections::HashMap,
         sync::{Mutex, RwLock},
     };
 
+    use bytesize::ByteSize;
     use dashmap::{DashMap, DashSet};
     use libc::{_SC_CLK_TCK, _SC_PAGESIZE};
     use opencue_proto::host::HardwareState;
@@ -1193,6 +1194,46 @@ mod tests {
 
         // boot time
         assert_eq!(1720194269, static_info.boot_time_secs);
+    }
+
+    #[test]
+    fn test_static_info_with_overrides() {
+        let project_dir = env!("CARGO_MANIFEST_DIR");
+
+        // Same host as test_static_info (2 sockets x 2 cores, centos), with every value overridden
+        let config = MachineConfig {
+            cpuinfo_path: format!("{}/resources/cpuinfo/cpuinfo_drack_4-2-2", project_dir),
+            distro_release_path: format!("{}/resources/distro-release/centos", project_dir),
+            proc_stat_path: format!("{}/resources/proc/stat", project_dir),
+            proc_loadavg_path: format!("{}/resources/proc/loadavg", project_dir),
+            core_multiplier: 1,
+            override_real_values: Some(OverrideConfig {
+                cores: Some(8),
+                procs: Some(3),
+                memory_size: Some(ByteSize::mib(512)),
+                workstation_mode: Some(true),
+                hostname: Some("some_host_name".to_string()),
+                os: Some("rocky9".to_string()),
+            }),
+            ..Default::default()
+        };
+
+        let processor_info_data =
+            LinuxSystem::read_cpuinfo(&config.cpuinfo_path).expect("Failed to read cpuinfo_path");
+        let linux_monitor = LinuxSystem::init(&config, processor_info_data)
+            .expect("Initializing LinuxMachineStat failed");
+        let static_info = &linux_monitor.static_info;
+
+        // procs overrides the socket count, cores the cores per socket
+        assert_eq!(3, static_info.num_sockets);
+        assert_eq!(8, static_info.cores_per_socket);
+        assert_eq!(ByteSize::mib(512).as_u64(), static_info.total_memory);
+        assert_eq!("some_host_name", static_info.hostname);
+        assert!(static_info.tags.contains(&"desktop".to_string()));
+        assert_eq!(
+            Some(&"rocky9".to_string()),
+            linux_monitor.attributes.get("SP_OS")
+        );
     }
 
     #[test]
