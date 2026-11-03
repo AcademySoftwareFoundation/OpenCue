@@ -27,6 +27,7 @@ import { MdOutlineCancel } from "react-icons/md";
 import type { Job } from "@/app/jobs/columns";
 import { UNKNOWN_USER } from "@/app/utils/constants";
 import { Group, GroupStats, Show, getActiveShows, getGroupJobs, getShowGroups } from "@/app/utils/get_utils";
+import { useCuebotFacility } from "@/app/utils/use_cuebot_facility";
 import { setAttributeSelection } from "@/app/utils/use_attribute_selection";
 import { buildTreeFromGroups, type TreeNode } from "@/components/group-tree/build-tree";
 import {
@@ -233,6 +234,8 @@ export default function MonitorCuePage() {
   // Fall back to UNKNOWN_USER (not "") so username-required actions like Kill
   // still work in sandbox/no-auth mode - the kill route rejects an empty user.
   const username = session?.user?.name ?? session?.user?.email?.split("@")[0] ?? UNKNOWN_USER;
+  const { facility } = useCuebotFacility();
+  const selectedShowsKey = `${SELECTED_SHOWS_KEY}.${facility}`;
 
   const [shows, setShows] = React.useState<Show[]>([]);
   const [selectedShows, setSelectedShows] = React.useState<string[]>([]);
@@ -264,27 +267,40 @@ export default function MonitorCuePage() {
 
   // Active shows for the "Shows" menu; restore the prior selection.
   React.useEffect(() => {
+    let cancelled = false;
+
     getActiveShows()
       .then((data) => {
+        if (cancelled) return;
+
         setShows(data);
-        const stored = window.localStorage.getItem(SELECTED_SHOWS_KEY);
+        const stored = window.localStorage.getItem(selectedShowsKey);
+
         if (stored) {
           try {
             const names: string[] = JSON.parse(stored);
             setSelectedShows(names.filter((n) => data.some((s) => s.name === n)));
           } catch {
-            /* ignore */
+            setSelectedShows([]);
           }
+        } else {
+          setSelectedShows([]);
         }
       })
-      .catch((err) => handleError(err, "Could not load shows"));
-  }, []);
+      .catch((err) => {
+        if (!cancelled) handleError(err, "Could not load shows");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedShowsKey]);
 
   const persistShows = React.useCallback((names: string[]) => {
     setSelectedShows(names);
     // Persistence is best-effort: a full quota must not break selection.
-    try { window.localStorage.setItem(SELECTED_SHOWS_KEY, JSON.stringify(names)); } catch { /* ignore */ }
-  }, []);
+    try { window.localStorage.setItem(selectedShowsKey, JSON.stringify(names)); } catch { /* ignore */ }
+  }, [selectedShowsKey]);
 
   // --- Column order / visibility / sort (parity with Monitor Jobs) ---------
   const [columnOrder, setColumnOrder] = React.useState<string[]>(ALL_COLUMN_KEYS);
