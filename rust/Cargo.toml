@@ -3,7 +3,8 @@ members = [
     "crates/opencue-proto",
     "crates/rqd",
     "crates/dummy-cuebot",
-    "crates/monitoring-indexer"
+    "crates/monitoring-indexer",
+    "crates/cueadmin"
 ]
 resolver = "2"
 

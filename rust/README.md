@@ -7,6 +7,7 @@ Project crates:
  * dummy-cuebot: A cli tool to interact with rqd's gRPC interface
  * opencue_proto: Wrapper around grpc's generated code for the project protobuf modules
  * monitoring-indexer: OpenCue monitoring event indexer (Kafka to Elasticsearch)
+ * cueadmin: rewrite of [OpenCue/cueadmin](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/cueadmin), see `crates/cueadmin/README.md`
 
 Sample configuration files are available in the `config/` directory:
  * `config/rqd.yaml` - RQD configuration
