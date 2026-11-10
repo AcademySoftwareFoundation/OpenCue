@@ -96,6 +96,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             "UPDATE frame "
             + "SET "
                 + "str_state=?, "
+                + "int_mem_retry = CASE WHEN ? THEN 0 ELSE int_mem_retry END, "
                 + "int_exit_status = ?, "
                 + "ts_stopped = current_timestamp, "
                 + "ts_updated = current_timestamp,  "
@@ -111,8 +112,9 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
 
     @Override
     public boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus) {
-        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED_NORSS, state.toString(), exitStatus,
-                frame.getFrameId(), FrameState.RUNNING.toString(), frame.getVersion()) == 1;
+        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED_NORSS, state.toString(),
+                state == FrameState.SUCCEEDED, exitStatus, frame.getFrameId(),
+                FrameState.RUNNING.toString(), frame.getVersion()) == 1;
     }
 
     // spotless:off
@@ -120,6 +122,7 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
             "UPDATE frame "
             + "SET "
                 + "str_state=?, "
+                + "int_mem_retry = CASE WHEN ? THEN 0 ELSE GREATEST(int_mem_retry, ?) END, "
                 + "int_exit_status = ?, "
                 + "ts_stopped = current_timestamp + interval '1' second, "
                 + "ts_updated = current_timestamp, "
@@ -136,10 +139,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
 
     @Override
     public boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus,
-            long maxRss) {
+            long maxRss, long memRetryKb) {
 
-        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED, state.toString(), exitStatus, maxRss,
-                frame.getFrameId(), FrameState.RUNNING.toString(), frame.getVersion()) == 1;
+        return getJdbcTemplate().update(UPDATE_FRAME_STOPPED, state.toString(),
+                state == FrameState.SUCCEEDED, memRetryKb, exitStatus, maxRss, frame.getFrameId(),
+                FrameState.RUNNING.toString(), frame.getVersion()) == 1;
     }
 
     // spotless:off
@@ -458,7 +462,8 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
                 continue;
             }
             index.add(i);
-            params.add(new Object[] {c.newFrameState.toString(), c.exitStatus,
+            params.add(new Object[] {c.newFrameState.toString(),
+                    c.newFrameState == FrameState.SUCCEEDED, c.memRetryKb, c.exitStatus,
                     c.report.getFrame().getMaxRss(), c.frame.getFrameId(),
                     FrameState.RUNNING.toString(), c.frame.getVersion()});
         }

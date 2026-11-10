@@ -170,6 +170,20 @@ public interface DispatchSupport {
     boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxrss);
 
     /**
+     * Updates a frame with completed stats and, in the same write, the memory floor of its next
+     * attempt after an out-of-memory kill, so no dispatch can see the frame waiting without it.
+     *
+     * @param frame
+     * @param state
+     * @param exitStatus
+     * @param maxrss
+     * @param memRetryKb the memory floor (KB) of the frame's next attempt, 0 for none
+     * @return true if the frame was stopped
+     */
+    boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxrss,
+            long memRetryKb);
+
+    /**
      * Updates the frame to the Running state and Reserve the resources in the specified proc for
      * the specified frame. If the proc does not exist, its inserted, otherwise its updated.
      *

@@ -16,6 +16,7 @@ package com.imageworks.spcue.dao;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -56,6 +57,18 @@ public interface MaestroDao {
 
     /** How many frames each layer runs on each host right now. Procs with no layer are ignored. */
     List<HostLayerFrames> getRunningFramesByHostLayer();
+
+    /**
+     * The given percentile (0..1) of the rss of each layer's succeeded frames, in KB, keyed by
+     * layer id. Frames that never reported rss are ignored; a layer with no such frame is absent.
+     */
+    Map<String, Long> getSucceededRssPercentile(Collection<String> layerIds, double percentile);
+
+    /**
+     * Publish the per-frame memory (KB) Maestro books each layer at, keyed by layer id
+     * (layer_mem.int_mem_booked). A layer deleted meanwhile updates nothing.
+     */
+    void updateBookedMemory(Map<String, Long> bookedKbByLayer);
 
     /**
      * Diagnostics: the highest-priority pending layers, each with every candidate-read predicate

@@ -19,6 +19,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -126,6 +127,7 @@ public class MaestroDaoJdbc extends JdbcDaoSupport implements MaestroDao {
             + "  COALESCE(lu.int_frame_success_count, 0) AS frame_success_count, "
             + "  COALESCE(lm.int_max_rss, 0) AS layer_max_rss, "
             + "  position('manual' in lower(l.str_tags)) > 0 AS b_manual, "
+            + "  l.b_optimize AS b_auto_memory, "
             // Limits bound to the layer, comma separated, NULL when none. The
             // per-limit budgets (usage, thresholds, holder hosts) are resolved
             // once per tick in Maestro.resolveLimitBudgets, not per candidate row.
@@ -235,6 +237,7 @@ public class MaestroDaoJdbc extends JdbcDaoSupport implements MaestroDao {
                     candidate.frameSuccessCount = rs.getInt("frame_success_count");
                     candidate.layerMaxRssKb = rs.getLong("layer_max_rss");
                     candidate.manual = rs.getBoolean("b_manual");
+                    candidate.autoMemory = rs.getBoolean("b_auto_memory");
                     candidate.folderId = rs.getString("folder_id");
                     candidate.folderMax = rs.getInt("folder_max"); // -1 = unlimited
                     candidate.folderRunning = rs.getInt("folder_running"); // core-points
@@ -432,6 +435,42 @@ public class MaestroDaoJdbc extends JdbcDaoSupport implements MaestroDao {
                 sql, (rs, rowNum) -> new RunningProcEstimate(rs.getString("pk_host"),
                         rs.getInt("cores"), rs.getInt("elapsed_sec"), rs.getInt("avg_sec")),
                 hostIds.toArray());
+    }
+
+    // Ids per IN list of the per-layer reads and writes below, well under the driver's
+    // bind-parameter limit.
+    private static final int LAYER_ID_CHUNK = 1000;
+
+    @Override
+    public Map<String, Long> getSucceededRssPercentile(Collection<String> layerIds,
+            double percentile) {
+        Map<String, Long> out = new HashMap<>();
+        List<String> ids = new ArrayList<>(layerIds);
+        for (int from = 0; from < ids.size(); from += LAYER_ID_CHUNK) {
+            List<String> chunk = ids.subList(from, Math.min(from + LAYER_ID_CHUNK, ids.size()));
+            String in = chunk.stream().map(id -> "?").collect(Collectors.joining(","));
+            Object[] args = new Object[chunk.size() + 1];
+            args[0] = percentile;
+            for (int i = 0; i < chunk.size(); i++)
+                args[i + 1] = chunk.get(i);
+            getJdbcTemplate().query("SELECT pk_layer, percentile_cont(?) WITHIN GROUP "
+                    + "(ORDER BY int_mem_max_used) AS rss_pct FROM frame WHERE pk_layer IN (" + in
+                    + ") AND str_state = 'SUCCEEDED' AND int_mem_max_used > 0 GROUP BY pk_layer",
+                    rs -> {
+                        out.put(rs.getString("pk_layer"), Math.round(rs.getDouble("rss_pct")));
+                    }, args);
+        }
+        return out;
+    }
+
+    @Override
+    public void updateBookedMemory(Map<String, Long> bookedKbByLayer) {
+        List<Object[]> batch = new ArrayList<>(bookedKbByLayer.size());
+        for (Map.Entry<String, Long> entry : bookedKbByLayer.entrySet()) {
+            batch.add(new Object[] {entry.getValue(), entry.getKey()});
+        }
+        getJdbcTemplate().batchUpdate("UPDATE layer_mem SET int_mem_booked = ? WHERE pk_layer = ?",
+                batch);
     }
 
     // ---- resource mirrors -------------------------------------------------

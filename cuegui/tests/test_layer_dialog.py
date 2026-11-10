@@ -28,6 +28,7 @@ import opencue_proto.show_pb2
 import opencue_proto.filter_pb2
 import opencue_proto.job_pb2
 import opencue_proto.limit_pb2
+import opencue.exception
 import opencue.wrappers.filter
 import opencue.wrappers.layer
 import opencue.wrappers.limit
@@ -43,6 +44,7 @@ from . import test_utils
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class LayerPropertiesDialogTests(unittest.TestCase):
 
+    @mock.patch('cuegui.LayerDialog.isSchedulerManaged', new=mock.Mock(return_value=False))
     @mock.patch('opencue.api.getLimits')
     @mock.patch('opencue.api.getLayer')
     @mock.patch('opencue.cuebot.Cuebot.getStub')
@@ -258,3 +260,99 @@ class LayerPropertiesDialogTests(unittest.TestCase):
             [mock.call('limit1Id'), mock.call('limit2Id')], any_order=True)
         layer2_mock.addLimit.assert_has_calls([mock.call('limit4Id')])
         layer2_mock.dropLimit.assert_has_calls([mock.call('limit2Id')])
+
+
+def _layer(layer_id, min_memory, booked_memory, auto_memory):
+    return opencue.wrappers.layer.Layer(
+        opencue_proto.job_pb2.Layer(
+            id=layer_id, name=layer_id, parent_id='jobId', min_memory=min_memory,
+            booked_memory=booked_memory, memory_optimizer_enabled=auto_memory))
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class BookedMemoryTextTests(unittest.TestCase):
+
+    def test__single_sized_layer(self):
+        self.assertEqual(
+            'Booked: 6.0G (auto)',
+            cuegui.LayerDialog.bookedMemoryText([_layer('a', 16777216, 6291456, True)]))
+
+    def test__pinned_layer_has_no_auto_mark(self):
+        self.assertEqual(
+            'Booked: 8.0G',
+            cuegui.LayerDialog.bookedMemoryText([_layer('a', 8388608, 8388608, False)]))
+
+    def test__unsized_layer(self):
+        self.assertEqual(
+            'Booked: not sized yet',
+            cuegui.LayerDialog.bookedMemoryText([_layer('a', 8388608, 0, True)]))
+
+    def test__several_layers_show_the_range(self):
+        self.assertEqual(
+            'Booked: 4.0G - 8.0G (auto)',
+            cuegui.LayerDialog.bookedMemoryText([
+                _layer('a', 8388608, 8388608, True),
+                _layer('b', 8388608, 0, True),
+                _layer('c', 8388608, 4194304, True)]))
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class IsSchedulerManagedTests(unittest.TestCase):
+
+    @mock.patch('opencue.api.findShow')
+    @mock.patch('opencue.api.getJob')
+    def test__any_managed_show(self, get_job_mock, find_show_mock):
+        get_job_mock.return_value.show.return_value = 'show'
+        find_show_mock.return_value.schedulerManaged.return_value = True
+        layers = [_layer('a', 1, 0, True), _layer('b', 1, 0, True)]
+        self.assertTrue(cuegui.LayerDialog.isSchedulerManaged(layers))
+        # Both layers share a job: its show is read once.
+        get_job_mock.assert_called_once_with('jobId')
+
+    @mock.patch('opencue.api.getJob')
+    def test__unreadable_show_is_legacy(self, get_job_mock):
+        get_job_mock.side_effect = opencue.exception.CueException('down')
+        self.assertFalse(cuegui.LayerDialog.isSchedulerManaged([_layer('a', 1, 0, True)]))
+
+
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class ManagedLayerPropertiesDialogTests(unittest.TestCase):
+
+    @mock.patch('cuegui.LayerDialog.isSchedulerManaged', new=mock.Mock(return_value=True))
+    @mock.patch('opencue.api.getLimits', new=mock.Mock(return_value=[]))
+    @mock.patch('opencue.api.getLayer')
+    def setUp(self, get_layer_mock):
+        app = test_utils.createApplication()
+        app.settings = qtpy.QtCore.QSettings()
+        cuegui.Style.init()
+        self.layers = {
+            'layer1Id': _layer('layer1Id', 16777216, 6291456, True),
+            'layer2Id': _layer('layer2Id', 8388608, 0, True),
+        }
+        get_layer_mock.side_effect = lambda layer_id: self.layers[layer_id]
+        self.parent_widget = qtpy.QtWidgets.QWidget()
+        self.dialog = cuegui.LayerDialog.LayerPropertiesDialog(
+            ['layer1Id', 'layer2Id'], parent=self.parent_widget)
+
+    def test__shows_auto_memory_and_booked(self):
+        mem_opt = self.dialog._LayerPropertiesDialog__mem_opt
+        self.assertEqual(cuegui.LayerDialog.AUTO_MEMORY_TOOLTIP, mem_opt.toolTip())
+        labels = [label.text() for label in self.dialog.findChildren(qtpy.QtWidgets.QLabel)]
+        self.assertIn('Auto memory:', labels)
+        self.assertNotIn('Memory Optimizer:', labels)
+        self.assertIn('Booked: 6.0G (auto)', labels)
+
+    def test__applying_auto_memory_leaves_memory_alone(self):
+        layer1_mock = mock.Mock()
+        layer2_mock = mock.Mock()
+        self.dialog._LayerPropertiesDialog__layers = [layer1_mock, layer2_mock]
+        mem_opt = self.dialog._LayerPropertiesDialog__mem_opt
+        mem_opt.parent().parent().enable(True)
+        mem_opt.setChecked(False)
+
+        self.dialog.apply()
+
+        layer1_mock.enableMemoryOptimizer.assert_called_with(False)
+        layer2_mock.enableMemoryOptimizer.assert_called_with(False)
+        layer1_mock.setMinMemory.assert_not_called()
+        layer2_mock.setMinMemory.assert_not_called()

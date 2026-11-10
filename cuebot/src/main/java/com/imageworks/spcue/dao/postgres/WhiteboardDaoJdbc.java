@@ -1226,6 +1226,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                     .addAllLimits(
                             Arrays.asList(SqlUtil.getString(rs, "str_limit_names").split(",")))
                     .setMemoryOptimizerEnabled(rs.getBoolean("b_optimize"))
+                    .setBookedMemory(rs.getLong("int_mem_booked"))
                     .setTimeout(rs.getInt("int_timeout"))
                     .setTimeoutLlu(rs.getInt("int_timeout_llu"))
                     // layer.ts_eligible is NOT NULL by schema (defaults to layer creation time), so
@@ -2045,6 +2046,7 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "layer_usage.int_clock_time_fail, "
                 + "layer_mem.int_max_rss, "
                 + "layer_mem.int_max_pss, "
+                + "layer_mem.int_mem_booked, "
                 + "layer_resource.int_cores, "
                 + "layer_resource.int_gpus, "
                 + "limit_names.str_limit_names, "

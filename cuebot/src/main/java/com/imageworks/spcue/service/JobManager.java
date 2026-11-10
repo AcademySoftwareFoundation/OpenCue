@@ -263,13 +263,13 @@ public interface JobManager {
     public void createJobLogDirectory(JobDetail newJob);
 
     /**
-     * Optimizes layer settings based on the specified maxRss and run time.
+     * Lowers the layer's minimum memory towards the largest rss its frames used, when its memory
+     * optimizer is on. Legacy shows only: Maestro sizes managed shows itself.
      *
      * @param layer
-     * @param maxRss
-     * @param runTime
+     * @param maxRss the rss of the frame that just succeeded, in KB
      */
-    void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime);
+    void optimizeLayer(LayerInterface layer, long maxRss);
 
     /**
      * Return true if the given job is booked greater than min cores.
@@ -280,7 +280,8 @@ public interface JobManager {
     boolean isOverMinCores(JobInterface job);
 
     /**
-     * Increase the layer memory requirement to given KB value.
+     * Increase the layer memory requirement to given KB value. Has no effect on scheduler-managed
+     * shows, whose memory Maestro sizes.
      *
      * @param layer
      * @param memKb

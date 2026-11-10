@@ -32,7 +32,6 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.ResourceUsage;
-import com.imageworks.spcue.dispatcher.OomMemoryTracker;
 import com.imageworks.spcue.dao.LayerDao;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
@@ -293,69 +292,81 @@ public class DispatchSupportTests extends TransactionalTest {
         assertTrue("the success frame's core time is in the sums", delta(b0, b1)[2] > 0);
     }
 
-    // ---- the plan sees a frame's memory bump -------------------------------
+    // ---- the plan sees a frame's OOM retry floor ----------------------------
 
-    @Test
-    @Transactional
-    @Rollback(true)
-    public void thePlanReservesAFramesMemoryBump() {
-        // The frame OOMed once and carries a per-frame bump above the layer's
-        // memory: the plan must fit and reserve it at the bumped size, or the
-        // commit's capacity gate sees a sum the plan never reserved.
-        DispatchFrame frame = frame("0001-pass_1");
-        long bump = frame.getMinMemory() * 2;
-        OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(), bump, 1000);
-        try {
-            LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
-            List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
-                    dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
-            FrameBooking booked = null;
-            for (FrameBooking b : plan)
-                if (b.frame.getFrameId().equals(frame.getFrameId()))
-                    booked = b;
-            assertTrue("the bumped frame is in the plan", booked != null);
-            assertTrue("the plan reserved the bump: " + booked.proc.memoryReserved + " < " + bump,
-                    booked.proc.memoryReserved >= bump);
-            // The invariant itself: the commit's capacity gate sees the sum the
-            // plan reserved, so it books every frame of the plan. A plan that
-            // fit the frames at the layer's size is dropped whole at the gate
-            // once one of them grows to the bump.
-            List<FrameBooking> won =
-                    dispatchSupport.startFramesAndProcsBatch(new ArrayList<>(plan));
-            assertEquals("the gate books every frame the plan reserved", plan.size(), won.size());
-        } finally {
-            OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
-        }
+    private void setMemRetry(DispatchFrame frame, long memKb) {
+        jdbcTemplate.update("UPDATE frame SET int_mem_retry = ? WHERE pk_frame = ?", memKb,
+                frame.getFrameId());
     }
 
     @Test
     @Transactional
     @Rollback(true)
-    public void aBumpedFrameThatCannotFitCostsOnlyItself() {
-        // A layer's frames are uniform except for a per-frame OOM bump. When
-        // only the bump no longer fits the host, the bumped frame is skipped
-        // and the rest of the slice the planner accounted is still delivered;
-        // the old break abandoned the whole tail.
-        DispatchFrame bumped = frame("0002-pass_1");
-        long bump = getHost().idleMemory * 2;
-        OomMemoryTracker.INSTANCE.onOom(bumped.getFrameId(), bumped.getLayerId(), bump, 1000);
-        try {
-            LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
-            List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
-                    dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
-            boolean sawBumped = false;
-            boolean sawLater = false;
-            for (FrameBooking b : plan) {
-                if (b.frame.getFrameId().equals(bumped.getFrameId()))
-                    sawBumped = true;
-                if (b.frame.getName().compareTo("0002-pass_1") > 0)
-                    sawLater = true;
-            }
-            assertFalse("the un-fittable bumped frame is not in the plan", sawBumped);
-            assertTrue("the slice continues past the bumped frame", sawLater);
-        } finally {
-            OomMemoryTracker.INSTANCE.onSuccess(bumped.getFrameId());
+    public void thePlanReservesAFramesRetryFloor() {
+        // The frame OOMed once and carries a retry floor above the layer's
+        // memory: the plan must fit and reserve it at that size, or the
+        // commit's capacity gate sees a sum the plan never reserved.
+        DispatchFrame frame = frame("0001-pass_1");
+        long floor = frame.getMinMemory() * 2;
+        setMemRetry(frame, floor);
+        LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
+        List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
+                dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
+        FrameBooking booked = null;
+        long others = -1;
+        for (FrameBooking b : plan) {
+            if (b.frame.getFrameId().equals(frame.getFrameId()))
+                booked = b;
+            else
+                others = b.proc.memoryReserved;
         }
+        assertTrue("the floored frame is in the plan", booked != null);
+        assertTrue("the plan reserved the floor: " + booked.proc.memoryReserved + " < " + floor,
+                booked.proc.memoryReserved >= floor);
+        assertTrue("only that frame books the floor", others >= 0 && others < floor);
+        // The invariant itself: the commit's capacity gate sees the sum the
+        // plan reserved, so it books every frame of the plan.
+        List<FrameBooking> won = dispatchSupport.startFramesAndProcsBatch(new ArrayList<>(plan));
+        assertEquals("the gate books every frame the plan reserved", plan.size(), won.size());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void aFlooredFrameThatCannotFitCostsOnlyItself() {
+        // A layer's frames are uniform except for a per-frame OOM floor. When
+        // only the floor no longer fits the host, the frame is skipped and the
+        // rest of the slice the planner accounted is still delivered.
+        DispatchFrame floored = frame("0002-pass_1");
+        setMemRetry(floored, getHost().idleMemory * 2);
+        LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
+        List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, 0,
+                dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 10));
+        boolean sawFloored = false;
+        boolean sawLater = false;
+        for (FrameBooking b : plan) {
+            if (b.frame.getFrameId().equals(floored.getFrameId()))
+                sawFloored = true;
+            if (b.frame.getName().compareTo("0002-pass_1") > 0)
+                sawLater = true;
+        }
+        assertFalse("the un-fittable floored frame is not in the plan", sawFloored);
+        assertTrue("the slice continues past the floored frame", sawLater);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void thePlanBooksTheLayerSizeDownFromTheAsk() {
+        // Maestro sized the layer below its ask (auto memory): every frame
+        // books that size, not the ask.
+        LayerInterface layer = layerDao.findLayerDetail(getJob(), "pass_1");
+        List<DispatchFrame> frames = dispatchSupport.findNextDispatchFrames(layer.getLayerId(), 3);
+        long sized = frames.get(0).getMinMemory() / 2;
+        List<FrameBooking> plan = dispatcher.planHost(getHost(), 0, sized, frames);
+        assertFalse(plan.isEmpty());
+        for (FrameBooking b : plan)
+            assertEquals(sized, b.frame.getMinMemory());
     }
 
     // ---- the batch stop ---------------------------------------------------

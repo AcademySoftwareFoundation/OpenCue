@@ -432,13 +432,6 @@ public class DispatchSupportService implements DispatchSupport {
         // (which would trip verify_host_resources and abort the whole batch).
         List<VirtualProc> demanded = new ArrayList<VirtualProc>(bookings.size());
         for (FrameBooking b : bookings) {
-            // Apply any per-frame OOM memory bump BEFORE the capacity gate, so the host
-            // reservation and the proc agree on the bumped amount (else the host would be
-            // under-reserved for RAM). Outlier frames climb here without touching the layer.
-            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(b.frame.getFrameId());
-            if (bump > b.proc.memoryReserved) {
-                b.proc.memoryReserved = bump;
-            }
             demanded.add(b.proc);
         }
         Set<String> affordableHosts = procDao.reserveHostResourcesBatch(demanded);
@@ -652,8 +645,15 @@ public class DispatchSupportService implements DispatchSupport {
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxRss) {
+        return stopFrame(frame, state, exitStatus, maxRss, 0);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean stopFrame(FrameInterface frame, FrameState state, int exitStatus, long maxRss,
+            long memRetryKb) {
         logger.trace("stopping frame: " + frame);
-        if (frameDao.updateFrameStopped(frame, state, exitStatus, maxRss)) {
+        if (frameDao.updateFrameStopped(frame, state, exitStatus, maxRss, memRetryKb)) {
             // Update max rss up the chain.
             layerDao.updateLayerMaxRSS(frame, maxRss, false);
             jobDao.updateMaxRSS(frame, maxRss);

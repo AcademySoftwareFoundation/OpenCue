@@ -15,6 +15,8 @@
 
 package com.imageworks.spcue.test.dispatcher;
 
+import java.util.List;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.invocation.InvocationOnMock;
@@ -34,8 +36,8 @@ import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
-import com.imageworks.spcue.dispatcher.OomMemoryTracker;
 import com.imageworks.spcue.dispatcher.MaestroCompletionQueue;
+import com.imageworks.spcue.dispatcher.QueuedFrameCompletion;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchNextFrame;
 import com.imageworks.spcue.dispatcher.commands.KeyRunnable;
@@ -47,6 +49,7 @@ import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.JobManagerSupport;
+import com.imageworks.spcue.util.CueUtil;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -181,7 +184,7 @@ public class FrameCompleteHandlerOwnershipTests {
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
-                anyInt(), anyLong());
+                anyInt(), anyLong(), anyLong());
         verify(dispatchSupport, never()).unbookProc(proc);
         verify(redirectManager, times(1)).redirect(proc);
         // The fence must divert before the frame is even read for stopping.
@@ -199,7 +202,7 @@ public class FrameCompleteHandlerOwnershipTests {
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
-                anyInt(), anyLong());
+                anyInt(), anyLong(), anyLong());
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(redirectManager, never()).redirect(any(VirtualProc.class));
     }
@@ -232,13 +235,13 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(true);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(true);
 
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.SUCCEEDED), anyInt(),
-                anyLong());
+                anyLong(), anyLong());
     }
 
     /**
@@ -271,8 +274,8 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
         // The version fence rejects the stop: another actor got to the frame first.
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(false);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(false);
         // A fresh read shows this proc owning the frame again: a newer run is alive on it.
         VirtualProc currentProc = new VirtualProc();
         currentProc.id = RESOURCE_ID;
@@ -316,8 +319,8 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(false);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(false);
         // A fresh read shows this proc owning the frame again: a newer run is alive on it.
         VirtualProc currentProc = new VirtualProc();
         currentProc.id = RESOURCE_ID;
@@ -378,8 +381,8 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(false);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(false);
         when(redirectManager.hasRedirect(proc)).thenReturn(false);
         // The concurrent stop cleared the proc's assignment; the fresh read confirms it idle.
         VirtualProc idleProc = new VirtualProc();
@@ -425,8 +428,8 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(false);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(false);
         // A fresh read shows the proc booked onto a different frame in the meantime.
         VirtualProc currentProc = new VirtualProc();
         currentProc.id = RESOURCE_ID;
@@ -504,16 +507,14 @@ public class FrameCompleteHandlerOwnershipTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(true);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(true);
         return frame;
     }
 
     /**
      * Managed mode, a show still on the legacy dispatcher: its OOM raises the layer, the raise
-     * legacy reads at the next launch, and leaves no per-frame bump behind. Before the fix the mode
-     * switch alone chose Maestro's per-frame policy, which the legacy launch never applies, so the
-     * frame OOMed three times before its layer was raised.
+     * legacy reads at the next launch, and leaves no per-frame floor behind.
      */
     @Test
     public void legacyShowOomInManagedModeRaisesTheLayer() {
@@ -526,29 +527,31 @@ public class FrameCompleteHandlerOwnershipTests {
 
         verify(jobManager, times(1)).increaseLayerMemoryRequirement(eq(frame), anyLong());
         verify(jobManager, times(1)).enableMemoryOptimizer(frame, false);
-        assertEquals(0L, OomMemoryTracker.INSTANCE.frameBumpKb(FRAME_ID));
+        verify(dispatchSupport, times(1)).stopFrame(eq(frame), any(FrameState.class), anyInt(),
+                anyLong(), eq(0L));
     }
 
     /**
      * A legacy cuebot (maestro.enabled=no) receiving the OOM of a Maestro-owned show, the mixed
-     * MIGRATE topology: the per-frame bump lives in the dispatching cuebot's tracker so it cannot
-     * apply here, and the DB layer raise is the one lever that reaches the Maestro dispatcher --
-     * but the optimizer stays ON, so Maestro can settle the layer back to its true size. Before the
-     * fix the mode switch alone chose the full legacy policy and disabled the optimizer on a show
-     * it does not dispatch.
+     * MIGRATE topology: the frame's retry floor (its reservation plus the 2 GB default increase) is
+     * written by the stop itself, so it reaches the Maestro leader from any cuebot before the frame
+     * can be booked again, and the layer is left alone: its memory and its auto memory flag belong
+     * to the user.
      */
     @Test
-    public void managedShowOomOnALegacyCuebotRaisesTheLayerButKeepsTheOptimizer() {
+    public void managedShowOomOnALegacyCuebotSetsTheFrameFloorOnly() {
         wire("no");
         when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
         DispatchFrame frame = wireRunningFrame();
+        proc.memoryReserved = CueUtil.GB8;
         report = report.toBuilder().setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
 
         handler.handleFrameCompleteReport(report);
 
-        verify(jobManager, times(1)).increaseLayerMemoryRequirement(eq(frame), anyLong());
+        verify(dispatchSupport, times(1)).stopFrame(eq(frame), any(FrameState.class), anyInt(),
+                anyLong(), eq(CueUtil.GB8 + CueUtil.GB2));
+        verify(jobManager, never()).increaseLayerMemoryRequirement(any(), anyLong());
         verify(jobManager, never()).enableMemoryOptimizer(any(), anyBoolean());
-        assertEquals(0L, OomMemoryTracker.INSTANCE.frameBumpKb(FRAME_ID));
     }
 
     /** Managed mode, a legacy show: the report is processed to the end on the legacy path. */
@@ -561,7 +564,7 @@ public class FrameCompleteHandlerOwnershipTests {
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.SUCCEEDED), anyInt(),
-                anyLong());
+                anyLong(), anyLong());
     }
 
     /** Managed mode, a legacy show: the report is resolved once, on the legacy path only. */
@@ -576,6 +579,26 @@ public class FrameCompleteHandlerOwnershipTests {
         verify(jobManager, times(1)).getDispatchJob(JOB_ID);
     }
 
+    /**
+     * Managed mode, the OOM of a Maestro show: the resolved completion carries the frame's retry
+     * floor, so the drain's batched stop writes it in the same UPDATE that makes the frame WAITING.
+     */
+    @Test
+    public void managedShowOomIsQueuedWithItsRetryFloor() {
+        wire("managed");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        wireRunningFrame();
+        proc.memoryReserved = CueUtil.GB8;
+        report = report.toBuilder().setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
+        MaestroCompletionQueue.drain();
+
+        handler.handleFrameCompleteReport(report);
+
+        List<QueuedFrameCompletion> queued = MaestroCompletionQueue.drain();
+        assertEquals(1, queued.size());
+        assertEquals(CueUtil.GB8 + CueUtil.GB2, queued.get(0).memRetryKb);
+    }
+
     /** Managed mode, a Maestro show: the report is resolved and queued for the tick's drain. */
     @Test
     public void managedShowReportInManagedModeIsQueuedForTheDrain() {
@@ -588,7 +611,7 @@ public class FrameCompleteHandlerOwnershipTests {
 
         assertEquals(1, MaestroCompletionQueue.drain().size());
         verify(dispatchSupport, never()).stopFrame(eq(frame), any(FrameState.class), anyInt(),
-                anyLong());
+                anyLong(), anyLong());
     }
 
     // ---- local dispatches are always Cuebot-owned -----------------------------------------

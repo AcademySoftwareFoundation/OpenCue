@@ -975,9 +975,13 @@ public class HostReportHandler {
             }
         }
 
-        /* Attempt to update the max RSS value for the layer **/
+        // Record the max RSS on every layer. Raise the ask only for legacy shows: on managed shows
+        // Maestro sizes memory and the ask stays the user's.
+        boolean allManaged = MaestroMode.facility(env);
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
-            layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
+            if (!allManaged) {
+                layerDao.increaseUnmanagedLayerMinMemory(set.getKey(), set.getValue());
+            }
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
         }
 

@@ -24,11 +24,49 @@ from qtpy import QtCore
 from qtpy import QtWidgets
 
 import opencue
+import opencue.exception
 
 import cuegui.Constants
 import cuegui.LimitSelectionWidget
 import cuegui.TagsWidget
 import cuegui.Utils
+
+
+AUTO_MEMORY_TOOLTIP = (
+    "<b>On (default):</b> the scheduler sizes each frame from what finished frames actually "
+    "used, up or down from Minimum Memory, so a few unusually large frames don't inflate "
+    "the rest.<br><b>Off:</b> every frame books exactly Minimum Memory.<br>"
+    "Either way, a frame killed for running out of memory retries with more.")
+
+
+def isSchedulerManaged(layers):
+    """Whether any of the layers belongs to a show the scheduler (Maestro) manages.
+
+    Falls back to False when the shows can't be read, so the dialog keeps its legacy labels."""
+    try:
+        shows = {layer.parent().show() for layer in
+                 {layer.data.parent_id: layer for layer in layers}.values()}
+        return any(opencue.api.findShow(show).schedulerManaged() for show in shows)
+    except opencue.exception.CueException:
+        return False
+
+
+def bookedMemoryText(layers):
+    """The read-only Booked label for the selected layers: the memory the scheduler books per
+    frame, as a range when several layers are selected, or "not sized yet"."""
+    booked = sorted(layer.data.booked_memory for layer in layers
+                    if layer.data.booked_memory > 0)
+    if not booked:
+        return "Booked: not sized yet"
+    if booked[0] == booked[-1]:
+        text = "Booked: %s" % cuegui.Utils.memoryToString(booked[0])
+    else:
+        text = "Booked: %s - %s" % (cuegui.Utils.memoryToString(booked[0]),
+                                    cuegui.Utils.memoryToString(booked[-1]))
+    if any(layer.data.memory_optimizer_enabled for layer in layers
+           if layer.data.booked_memory > 0):
+        text += " (auto)"
+    return text
 
 
 def warning(msg, parent=None):
@@ -113,6 +151,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.setWindowTitle("Layer Properties")
 
         multiSelect = len(self.__layers) > 1
+        self.__managed = isSchedulerManaged(self.__layers)
 
         self.mem_max_gb = float(self._cfg().get('max_memory', 80.0))
         self.mem_min_gb = 0.25
@@ -170,9 +209,13 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout_llu.setSuffix(" minutes")
         self.__timeout_llu.setSpecialValueText("No timeout")
 
-        # Memory Optimizer
+        # Memory Optimizer, which is auto memory on scheduler-managed shows
         self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
+        self.__booked = None
+        if self.__managed:
+            self.__mem_opt.setToolTip(AUTO_MEMORY_TOOLTIP)
+            self.__booked = QtWidgets.QLabel(bookedMemoryText(self.__layers), self)
 
         # Tags
         self.__tags = LayerTagsWidget(self.__layers, self)
@@ -234,12 +277,14 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         layout = QtWidgets.QVBoxLayout()
         layout.addWidget(EnableableItem(LayerPropertiesItem("Minimum Memory:",
                                                              self.__mem,
-                                                             False),
+                                                             False,
+                                                             help_widget=self.__booked),
                                                              multiSelect))
-        layout.addWidget(EnableableItem(LayerPropertiesItem("Memory Optimizer:",
-                                                            self.__mem_opt,
-                                                            True),
-                                                            multiSelect))
+        layout.addWidget(EnableableItem(LayerPropertiesItem(
+            "Auto memory:" if self.__managed else "Memory Optimizer:",
+            self.__mem_opt,
+            True),
+            multiSelect))
         layout.addWidget(EnableableItem(LayerPropertiesItem("Min Threads:",
                                                             self.__core,
                                                             False),

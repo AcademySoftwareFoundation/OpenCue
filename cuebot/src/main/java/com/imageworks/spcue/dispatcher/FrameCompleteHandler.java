@@ -195,11 +195,6 @@ public class FrameCompleteHandler {
                     + entry.getValue().toMinutes() + ", autoTag=True). Until then this entry "
                     + "keeps working unless a limit claims the status.");
         }
-        OomMemoryTracker.INSTANCE.configure(
-                env.getProperty("dispatcher.oom_frame_bump_expire_hours", Long.class,
-                        OomMemoryTracker.DEFAULT_EXPIRE_HOURS),
-                env.getProperty("dispatcher.oom_streak_expire_hours", Long.class,
-                        OomMemoryTracker.DEFAULT_EXPIRE_HOURS));
         // One worker for ordering; an UNBOUNDED queue so this executor's
         // overflow cannot exist as a code path. Maestro must never file
         // post-complete work itself (tick time would multiply by the
@@ -394,7 +389,7 @@ public class FrameCompleteHandler {
                 exitStatus = FrameExitStatus.SKIP_RETRY_VALUE;
             }
             return new QueuedFrameCompletion(report, proc, job, layer, frameDetail, frame,
-                    newFrameState, exitStatus);
+                    newFrameState, exitStatus, memRetryFloor(proc, frame, report, frameDetail));
         } catch (EmptyResultDataAccessException e) {
             // Duplicate or stale report: the proc (or frame) is already gone.
             // The single-threaded drain makes this the ONLY way a duplicate
@@ -538,8 +533,8 @@ public class FrameCompleteHandler {
      * then the event publish, the limit rule and the memory retry each in their own guard, so a
      * failing step costs that step alone and never the frame's depends or its layer's and job's
      * completion checks. A layer's representative is a succeeded frame when the layer saw one, so
-     * optimizeLayer reads a real render's cores, memory and run time; otherwise the first eaten
-     * frame, which only feeds the completion check.
+     * optimizeLayer reads a real render's memory; otherwise the first eaten frame, which only feeds
+     * the completion check.
      */
     private void fileFrame(QueuedFrameCompletion c, Map<String, QueuedFrameCompletion> byLayer,
             Map<String, QueuedFrameCompletion> byJob) {
@@ -558,9 +553,6 @@ public class FrameCompleteHandler {
         }
         if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
             byJob.putIfAbsent(c.frame.getJobId(), c);
-        }
-        if (succeeded) {
-            OomMemoryTracker.INSTANCE.onSuccess(c.frame.getFrameId());
         }
         String name = c.frame.getName();
         guard(() -> publishFrameCompleteEvent(c.report, c.frame, c.frameDetail, c.newFrameState,
@@ -614,8 +606,17 @@ public class FrameCompleteHandler {
                     "layer " + c.frame.getLayerId(), c.job.getName(), c.job.getJobId());
             publishLayerCompletedTelemetry(c.frame);
         } else if (c.newFrameState.equals(FrameState.SUCCEEDED)) {
-            jobManager.optimizeLayer(c.frame, c.report.getFrame().getNumCores(),
-                    c.report.getFrame().getMaxRss(), c.report.getRunTime());
+            optimizeLegacyLayer(c.frame, c.report);
+        }
+    }
+
+    /**
+     * Lowers a legacy show's layer memory towards what its frames use (the memory optimizer). On
+     * shows whose memory Maestro sizes, the ask belongs to the user and is left alone.
+     */
+    private void optimizeLegacyLayer(DispatchFrame frame, FrameCompleteReport report) {
+        if (!MaestroMode.sizesMemory(env, showDao, frame.getShowId())) {
+            jobManager.optimizeLayer(frame, report.getFrame().getMaxRss());
         }
     }
 
@@ -721,7 +722,8 @@ public class FrameCompleteHandler {
             }
 
             if (dispatchSupport.stopFrame(frame, newFrameState, exitStatus,
-                    report.getFrame().getMaxRss())) {
+                    report.getFrame().getMaxRss(),
+                    memRetryFloor(proc, frame, report, frameDetail))) {
                 // Maestro-owned show or test mode: inline (see header). Database modifications
                 // on a threadpool cannot be captured by the test thread.
                 boolean schedulerOwnsShow = MaestroMode.schedules(env, showDao, proc.getShowId());
@@ -1029,39 +1031,37 @@ public class FrameCompleteHandler {
     }
 
     /**
+     * The memory floor (KB) of a memory-killed frame's next attempt on a show whose memory Maestro
+     * sizes, or 0. Only this FRAME retries with more, so one hungry frame never inflates the rest
+     * of its layer. The floor is written by the stop itself, in the same UPDATE that makes the
+     * frame dispatchable again, so no tick can book the retry at its old size; stored on the frame,
+     * it also survives a Maestro leader change.
+     */
+    private long memRetryFloor(VirtualProc proc, DispatchFrame frame, FrameCompleteReport report,
+            FrameDetail frameDetail) {
+        if (!isMemoryFailure(report, frameDetail)
+                || !MaestroMode.sizesMemory(env, showDao, proc.getShowId())) {
+            return 0;
+        }
+        long floor = proc.memoryReserved + getMemoryIncrease(frame);
+        logger.info("Frame " + frame.getFrameId() + " OOM; next attempt books at least: " + floor);
+        return floor;
+    }
+
+    /**
      * Prepares a memory-killed frame for retry by raising its memory by the amount from the show's
      * service override, the service default, or 2GB.
      *
-     * The legacy dispatcher raises the whole LAYER and disables its optimizer (the original
-     * behavior, kept unchanged). The in-process Maestro instead bumps per FRAME so one hungry or
-     * spuriously-killed frame does not inflate every other frame and strand cores, escalating to
-     * the layer only after repeated OOMs in a row (see OomMemoryTracker). The per-frame bump only
-     * works on the cuebot that dispatches the show (the tracker is in-process), so a Maestro-owned
-     * frame whose report lands on a legacy cuebot in a mixed fleet still gets the DB-visible layer
-     * raise -- the one lever that reaches the Maestro dispatcher -- but keeps its optimizer ON:
-     * disabling it belongs to the legacy policy, and would stop Maestro from settling the layer
-     * back to its true size. A legacy show keeps the original treatment everywhere.
+     * On shows whose memory Maestro sizes there is nothing left to do: the stop already wrote the
+     * frame's floor (see {@link #memRetryFloor}). Legacy shows keep the original treatment: the
+     * whole LAYER is raised and its memory optimizer turned off.
      */
     private void retryFrameWithRaisedMemory(VirtualProc proc, DispatchFrame frame) {
-        long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
-        if (MaestroMode.schedules(env, showDao, proc.getShowId())) {
-            // Leaves the layer optimizer on, so an escalated layer later settles at its true size.
-            int oomThreshold =
-                    env.getProperty("dispatcher.oom_layer_escalate_threshold", Integer.class, 3);
-            if (OomMemoryTracker.INSTANCE.onOom(frame.getFrameId(), frame.getLayerId(), newReserved,
-                    oomThreshold)) {
-                jobManager.increaseLayerMemoryRequirement(frame, newReserved);
-                logger.info("Layer " + frame.getLayerId() + " OOMed " + oomThreshold
-                        + "x in a row; raised layer mem to: " + newReserved);
-            } else {
-                logger.info("Frame " + frame.getFrameId() + " OOM; per-frame mem bump to: "
-                        + newReserved);
-            }
+        if (MaestroMode.sizesMemory(env, showDao, proc.getShowId())) {
             return;
         }
-        if (!showDao.isSchedulerManaged(proc.getShowId())) {
-            jobManager.enableMemoryOptimizer(frame, false);
-        }
+        long newReserved = proc.memoryReserved + getMemoryIncrease(frame);
+        jobManager.enableMemoryOptimizer(frame, false);
         jobManager.increaseLayerMemoryRequirement(frame, newReserved);
         logger.info("Increased mem usage to: " + newReserved);
     }
@@ -1493,16 +1493,7 @@ public class FrameCompleteHandler {
         }
 
         if (newFrameState.equals(FrameState.SUCCEEDED) && !isLayerComplete) {
-            /*
-             * If the layer meets some specific criteria then try to update the minimum memory and
-             * tags so it can run on a wider variety of cores, namely older hardware.
-             */
-            jobManager.optimizeLayer(frame, report.getFrame().getNumCores(),
-                    report.getFrame().getMaxRss(), report.getRunTime());
-            // A success clears the per-frame OOM bump Maestro may have given
-            // this frame. The layer's OOM streak is deliberately kept (see
-            // OomMemoryTracker.onSuccess).
-            OomMemoryTracker.INSTANCE.onSuccess(frame.getFrameId());
+            optimizeLegacyLayer(frame, report);
         }
 
         /*

@@ -1038,7 +1038,7 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
 
         // The stale report must be dropped without touching the frame or its counters.
         verify(mocks.dispatchSupport, never()).stopFrame(any(DispatchFrame.class),
-                any(FrameState.class), anyInt(), anyLong());
+                any(FrameState.class), anyInt(), anyLong(), anyLong());
         verify(mocks.dispatchSupport, never()).updateUsageCounters(any(DispatchFrame.class),
                 anyInt());
         assertEquals(FrameState.EATEN, frameDao.findFrameDetail(job, "0000-layer_first").state);

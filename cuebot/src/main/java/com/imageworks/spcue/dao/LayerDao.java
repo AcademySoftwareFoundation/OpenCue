@@ -218,13 +218,14 @@ public interface LayerDao {
     void updateLayerMaxPSS(LayerInterface layer, long val, boolean force);
 
     /**
-     * Increases the value of the minimum memory when the supplied value is larger than the current
-     * value
+     * Increases the minimum memory to the supplied value when it is larger, unless the layer's show
+     * is scheduler-managed: Maestro sizes those layers itself and their minimum memory belongs to
+     * the user.
      *
      * @param layer
      * @param val
      */
-    void increaseLayerMinMemory(LayerInterface layer, long val);
+    void increaseUnmanagedLayerMinMemory(LayerInterface layer, long val);
 
     /**
      * Increases the value of the minimum gpu when the supplied value is larger than the current
@@ -380,15 +381,6 @@ public interface LayerDao {
      */
     void appendLayerTags(LayerInterface layer, String val);
 
-    /**
-     * Returns true if the layer can be optimized to use util based on the specified criteria.
-     *
-     * @param l
-     * @param succeeded
-     * @param avg
-     * @return
-     */
-    boolean isOptimizable(LayerInterface l, int succeeded, float avg);
 
     /**
      * Update layer usage with processor time usage. This happens when the proc has completed or

@@ -573,15 +573,58 @@ unbookable. PSTs used to fix it with `cue-layer-man`, a script that read each
 layer's largest frame rss and set its cores from a memory table; this is that
 loop inside the scheduler, with the same input.
 
-A layer's memory is the larger of its ask (`int_mem_min`) and the largest rss
-any of its frames has reported (`layer_mem.int_max_rss`). Every RQD host
-report raises both: the legacy ratchet lifts the ask to the largest rss seen,
-for managed shows too, so the figure is persistent, visible in CueGUI and
-survives a Cuebot restart. Before placement, a threadable layer is sized to
-`round(memory / memory-per-core)` cores, never below its ask, never past its
-max cores or the group's largest host (a grant no host holds fits nowhere).
-Non-threadable layers keep their cores. A layer tagged `manual` keeps its ask,
-as under `cue-layer-man`. The metric defaults to each host group's own
+On managed shows Maestro is the only component that sizes frame memory. The
+ask (`layer.int_mem_min`) is the user's: submission, filters and PSTs set it,
+and Cuebot never rewrites it (no host-report ratchet, no memory optimizer, no
+layer raise on an OOM). Cuebot only records facts: each frame's rss
+(`frame.int_mem_max_used`), the layer's peak (`layer_mem.int_max_rss`), and a
+frame's retry floor after an OOM (`frame.int_mem_retry`). Maestro turns them
+into a size each tick, in `sizeFromMemory`:
+
+| Auto memory (`layer.b_optimize`) | Layer state | Memory booked per frame |
+|---|---|---|
+| **On** (default) | fewer than `maestro.probe_frames` successes | `max(ask, layer_mem.int_max_rss)` |
+| **On** | `probe_frames` or more successes | percentile × (1 + headroom), up or down from the ask |
+| **Off** (pinned) | any | the ask, exactly |
+| any | the frame's last attempt was an OOM | `max(layer memory, frame.int_mem_retry)` |
+
+The percentile (`maestro.auto_mem_percentile`, default p90) is taken over the
+rss of the layer's succeeded frames that reported one, so one or two outlier
+frames among dozens drop out instead of sizing every other frame; the outlier
+gets its own memory through the retry floor once it OOMs. Headroom is
+`maestro.auto_mem_headroom` (default 10%). The leader caches each layer's
+percentile and re-reads it, in one query for all due layers, only after more
+of its frames succeeded and the cached figure is older than
+`maestro.auto_mem_refresh_seconds`. One tick re-reads at most
+`maestro.auto_mem_refresh_max_layers` layers (default 500), the ones with no
+figure first, then the stalest, so a fresh leader's empty cache fills over a
+few ticks instead of adding seconds to one. The cache keeps only the current
+candidates and goes with the lock on demotion; a layer without a figure
+(a fresh leader, a failed read, a layer past the cap) sizes by the early rule
+until it is read.
+An outlier among the first `probe_frames` successes still inflates the layer
+through the early rule until enough frames succeed; that's the price of early
+self-correction, and it fixes itself.
+
+A PST pins a layer by turning Auto memory off (the Memory Optimizer flag; the
+same column means "lower my memory" on legacy shows). Editing the memory never
+changes the flag. A pinned layer books exactly its ask in both directions; only
+a frame's retry floor can exceed it, for that frame alone. On an OOM, Cuebot
+sets the frame's floor to the memory it was killed at plus the service's
+increase. The floor is written by the same UPDATE that stops the frame, so no
+tick can see the frame WAITING without it; stored on the frame, it reaches the
+leader from any Cuebot and survives a leader change, and a success clears it.
+
+Maestro publishes the size it books to `layer_mem.int_mem_booked` (batched,
+only when the figure changes) so CueGUI shows what is reserved
+(`Layer.booked_memory`, "6.2G (auto)").
+
+Before placement, a threadable layer is sized to `round(memory /
+memory-per-core)` cores, never below its ask, never past its max cores or the
+group's largest host (a grant no host holds fits nowhere). This holds in every
+row above, so a pinned 8G layer books 2-3 cores, not a whole host.
+Non-threadable layers keep their cores. A layer tagged `manual` keeps its ask
+cores, as under `cue-layer-man`. The metric defaults to each host group's own
 memory-per-core (total memory over total cores), so an 18G layer sizes to 5
 cores on a 3.5G-per-core farm and follows the hardware; `maestro.mem_per_core`
 (KB per core) pins a studio-wide ratio instead. The size rides into
@@ -589,10 +632,9 @@ cores on a 3.5G-per-core farm and follows the hardware; `maestro.mem_per_core`
 
 So a layer that declares 18G books 5 cores from its first frame, the shape the
 legacy dispatcher's `getCoreSpan` gives it. A layer that declares 2G and uses
-18G books its first frames at the ask; the first host report raises its
-memory, and every later launch and every restart books at 5 cores. One frame
-is enough: the input is the maximum, as it was for `cue-layer-man` and for
-the legacy ratchet.
+18G books its first frames at the ask; the first host report raises its peak
+rss, and every later launch books at 5 cores, until enough frames succeed and
+the percentile takes over.
 
 The contract for artists and service defaults: setting cores to 1 on a
 threadable layer means "let the system decide". Such a layer, while no frame
@@ -601,8 +643,8 @@ has reported yet and its memory ask still sizes to 1 core, runs at most
 really use; the first report releases it at its real size. A memory ask above
 one core's share releases the probe too: the frames already hold that memory,
 so leaving the cores beside them idle would strand them. An explicit ask of 2
-or more cores was sized by a person and books at full speed from frame one,
-corrected only upward. A held layer that completes a probe's worth of frames
+or more cores was sized by a person and books at full speed from frame one.
+A pinned layer is never probed: it books its ask. A held layer that completes a probe's worth of frames
 without ever landing in a report runs too fast to sample and is released,
 never starved.
 
@@ -853,7 +895,11 @@ already takes most of the load off it.
 | `maestro.commit_split_max_tx` | `64` | Retry transactions one tick may spend containing failed commit chunks (`commitContained`). A split costs two; a bad booking in a chunk of H hosts costs about 2·log₂(H). When spent, a failing piece is dropped whole (the old whole-chunk behaviour), which bounds a tick in which everything fails. Healthy ticks spend nothing. |
 | `maestro.commit_chunk_frames` | `500` | Most frames one commit transaction books (`commitInChunks`); chunks are cut on host boundaries, so a host's bookings never span two transactions. |
 | `maestro.layer_host_cap_min_frames` | `8` | Floor, in frames, of the per-host layer cap (`maestro.layer_host_max_frac`), so small hosts still anchor a cache-warm batch. |
-| `maestro.probe_frames` | `8` | Frames an unproven layer (sized to 1 core, no rss reported yet) may run before its rss is known (§3.9). |
+| `maestro.probe_frames` | `8` | Frames an unproven layer (sized to 1 core, no rss reported yet) may run before its rss is known, and the successes a layer needs before auto memory sizes it from them (§3.9). |
+| `maestro.auto_mem_percentile` | `0.9` | Percentile of succeeded-frame rss an auto-memory layer is sized to (§3.9). |
+| `maestro.auto_mem_headroom` | `0.10` | Fraction added on top of that percentile (§3.9). |
+| `maestro.auto_mem_refresh_seconds` | `60` | Minimum age of a layer's cached percentile before it is re-read, and only after more of its frames succeeded (§3.9). |
+| `maestro.auto_mem_refresh_max_layers` | `500` | Most layers whose percentile one tick re-reads; no figure first, then the stalest (§3.9). |
 | `maestro.priority_exponent` | `1.5` | Exponent on job priority in the placement and candidate lotteries (weight = priority^exponent, §3.5). 1.0 is proportional to priority. |
 | `maestro.drain_chunk_completions` | `20` | Frame completions applied per drain transaction at the start of each tick. Small, so no booking waits long on a host row the drain holds. |
 | `maestro.leader_probe_strikes` | `2` | Consecutive failed liveness probes of the lock connection before the leader gives up the lock; a closed connection demotes at once (§7). |
@@ -884,16 +930,19 @@ legacy dispatcher.
 ### 6.1 Several cuebots in managed mode
 
 Run every cuebot in the same mode during a migration. The report of a
-managed show's frame lands on whichever cuebot its host reports to. A cuebot
-in mode `no` files it on the legacy path, including the legacy layer raise on
-an OOM, so the show sees two memory policies at once. Two ledgers are exact
-only when one cuebot files every managed report: the per-show cores and
-running frames gauges (this leader's bookings minus the drains it saw), and
-the per-frame OOM bump, which lives in the cuebot that handled the OOM and is
-read by the leader's plan. With several managed-mode cuebots the gauges drift
-above the truth until a show drains to zero, and a bump recorded on a standby
-is not applied. Both need a shared home (a read the tick already makes for
-the affinity map, and a frame column); they are tracked for the next series.
+managed show's frame lands on whichever cuebot its host reports to. Memory is
+safe on any of them: every cuebot, whatever its mode, leaves a managed show's
+layer memory alone and records an OOM as the frame's retry floor in the
+database, which the leader reads. That holds only once every cuebot runs this
+version: one still on the previous release keeps ratcheting managed layers'
+memory from host reports and keeps its OOM bumps in its own memory. Upgrade
+every cuebot together, and apply migration V52 before the first new cuebot
+starts. One ledger is exact only when one cuebot
+files every managed report: the per-show cores and running frames gauges (this
+leader's bookings minus the drains it saw). With several managed-mode cuebots
+the gauges drift above the truth until a show drains to zero. They need a
+shared home (a read the tick already makes for the affinity map); that is
+tracked for the next series.
 
 ### 6.2 Completion forwarding to an isolated deployment
 
