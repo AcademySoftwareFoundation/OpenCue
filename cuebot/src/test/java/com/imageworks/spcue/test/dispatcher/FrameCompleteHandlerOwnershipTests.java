@@ -32,6 +32,7 @@ import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.ShowDao;
+import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -481,7 +482,7 @@ public class FrameCompleteHandlerOwnershipTests {
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, never()).stopFrame(any(FrameInterface.class), any(FrameState.class),
-                anyInt(), anyLong());
+                anyInt(), anyLong(), anyLong());
     }
 
     // ---- ownership decides the Maestro policies, not the mode switch ----------------------
@@ -552,6 +553,30 @@ public class FrameCompleteHandlerOwnershipTests {
                 anyLong(), eq(CueUtil.GB8 + CueUtil.GB2));
         verify(jobManager, never()).increaseLayerMemoryRequirement(any(), anyLong());
         verify(jobManager, never()).enableMemoryOptimizer(any(), anyBoolean());
+    }
+
+    /**
+     * An OOM on a layer whose service no longer exists still stops the frame, with the floor raised
+     * by the default increase, instead of dropping the report.
+     */
+    @Test
+    public void managedShowOomWithAnUnknownServiceUsesTheDefaultIncrease() {
+        wire("no");
+        when(showDao.isSchedulerManaged(SHOW_ID)).thenReturn(true);
+        WhiteboardDao whiteboardDao = mock(WhiteboardDao.class);
+        handler.setWhiteboardDao(whiteboardDao);
+        when(whiteboardDao.getServiceOverride(any(), eq("gone")))
+                .thenThrow(new EmptyResultDataAccessException(1));
+        when(whiteboardDao.findService("gone")).thenThrow(new EmptyResultDataAccessException(1));
+        DispatchFrame frame = wireRunningFrame();
+        frame.services = "gone";
+        proc.memoryReserved = CueUtil.GB8;
+        report = report.toBuilder().setExitStatus(Dispatcher.EXIT_STATUS_MEMORY_FAILURE).build();
+
+        handler.handleFrameCompleteReport(report);
+
+        verify(dispatchSupport, times(1)).stopFrame(eq(frame), any(FrameState.class), anyInt(),
+                anyLong(), eq(CueUtil.GB8 + CueUtil.GB2));
     }
 
     /** Managed mode, a legacy show: the report is processed to the end on the legacy path. */
@@ -647,7 +672,7 @@ public class FrameCompleteHandlerOwnershipTests {
 
         assertEquals(0, MaestroCompletionQueue.drain().size());
         verify(dispatchSupport, times(1)).stopFrame(eq(frame), eq(FrameState.SUCCEEDED), anyInt(),
-                anyLong());
+                anyLong(), anyLong());
         verify(dispatchQueue, times(1)).execute(any(DispatchNextFrame.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class));
         verify(dispatchSupport, never()).unbookProc(any(VirtualProc.class), anyString());
@@ -687,7 +712,7 @@ public class FrameCompleteHandlerOwnershipTests {
 
         assertEquals(1, MaestroCompletionQueue.drain().size());
         verify(dispatchSupport, never()).stopFrame(eq(frame), any(FrameState.class), anyInt(),
-                anyLong());
+                anyLong(), anyLong());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
     }
 }

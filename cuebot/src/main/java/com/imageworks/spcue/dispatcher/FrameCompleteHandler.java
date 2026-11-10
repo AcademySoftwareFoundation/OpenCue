@@ -1082,10 +1082,16 @@ public class FrameCompleteHandler {
             logger.info("Frame has no associated services");
         } catch (EmptyResultDataAccessException e) {
             logger.info(frame.show + " has no service override for " + serviceName + ".");
-            Service service = whiteboardDao.findService(serviceName);
-            increase = service.getMinMemoryIncrease();
-            logger.info("Using service default for mem increase: " + Math.floor(increase / 1024)
-                    + "Mb.");
+            try {
+                Service service = whiteboardDao.findService(serviceName);
+                increase = service.getMinMemoryIncrease();
+                logger.info("Using service default for mem increase: " + Math.floor(increase / 1024)
+                        + "Mb.");
+            } catch (EmptyResultDataAccessException ee) {
+                // An unknown service must not drop the completion report this runs in.
+                logger.warn("Service " + serviceName + " not found, using the default memory"
+                        + " increase: " + Math.floor(increase / 1024) + "Mb.");
+            }
         }
         return increase;
     }

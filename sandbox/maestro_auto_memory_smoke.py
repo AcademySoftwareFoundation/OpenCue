@@ -136,8 +136,11 @@ def main():
         time.sleep(15)
 
     outlier = _frame(_layer(job_name), args.outlier_frame)
-    print("CHECK 3 (info): outlier frame %s, %d retries" % (
-        opencue.api.job_pb2.FrameState.Name(outlier.state()), outlier.retries()))
+    if outlier is None:
+        print("CHECK 3 (info): outlier frame %d not found" % args.outlier_frame)
+    else:
+        print("CHECK 3 (info): outlier frame %s, %d retries" % (
+            opencue.api.job_pb2.FrameState.Name(outlier.state()), outlier.retries()))
 
     if pin_ok is None or booked_ok is None:
         print("FAIL: timed out before every check ran (pin=%s booked=%s)" % (pin_ok, booked_ok))

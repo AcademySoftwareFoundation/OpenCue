@@ -280,7 +280,7 @@ public class MaestroCompletionForwarderTests {
         assertTrue(fwd.attempts.isEmpty());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
-                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong(), anyLong());
         verify(prometheusMetrics, never()).incrementCompletionForward(anyString());
     }
 
