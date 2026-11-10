@@ -77,6 +77,12 @@ public interface Dispatcher {
      */
     public static final int EXIT_STATUS_FAILED_KILL = 302;
 
+    /*
+     * A frame killed because its host was admin-locked by a bulk host lock. It goes back to WAITING
+     * without spending a retry. 303 and 304 are used by Python RQD.
+     */
+    public static final int EXIT_STATUS_HOST_LOCKED = 305;
+
     // Return value for cleared frame
     public static final int EXIT_STATUS_DOWN_HOST = 399;
 

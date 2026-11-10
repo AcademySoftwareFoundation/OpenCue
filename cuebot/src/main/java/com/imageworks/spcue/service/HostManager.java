@@ -30,8 +30,11 @@ import com.imageworks.spcue.Source;
 import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostLockHostsResponse;
+import com.imageworks.spcue.grpc.host.HostUnlockHostsResponse;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -87,6 +90,28 @@ public interface HostManager {
      * @param source
      */
     void syncHostLock(HostInterface host, LockState state, Source source);
+
+    /**
+     * Admin-locks every host matching the search, skipping hosts LOCKED by another source. With
+     * killRunning, every frame running on a locked host is killed and returned to WAITING without
+     * spending a retry.
+     *
+     * @param search the hosts to lock
+     * @param killRunning kill the frames running on the locked hosts
+     * @param source the lock source tag
+     * @return the locked, unreachable and skipped hosts, and the killed and deferred frames
+     */
+    HostLockHostsResponse lockHosts(HostSearchInterface search, boolean killRunning, String source);
+
+    /**
+     * Unlocks every host matching the search that is LOCKED by the given source tag. Other hosts
+     * are skipped.
+     *
+     * @param search the hosts to unlock
+     * @param source the lock source tag used to lock them
+     * @return the unlocked, unreachable and skipped hosts
+     */
+    HostUnlockHostsResponse unlockHosts(HostSearchInterface search, String source);
 
     /**
      * Updates the state of a host.

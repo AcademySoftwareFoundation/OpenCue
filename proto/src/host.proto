@@ -65,6 +65,10 @@ service HostInterface {
     // Locks the host.  Its possible we'll need to pass in a show name here in the future
     rpc Lock(HostLockRequest) returns (HostLockResponse);
 
+    // Admin-lock every host matching the criteria. With kill_running, every frame running on a
+    // locked host is killed and returned to WAITING without consuming a retry.
+    rpc LockHosts(HostLockHostsRequest) returns (HostLockHostsResponse);
+
     // Issues an immediate reboot.
     rpc Reboot(HostRebootRequest) returns (HostRebootResponse);
 
@@ -111,6 +115,9 @@ service HostInterface {
 
     // Unlocks the host for booking if the proc is in the Locked state. You cannot unlock a NimbyLocked proc.
     rpc Unlock(HostUnlockRequest) returns (HostUnlockResponse);
+
+    // Unlock hosts matching the criteria that are LOCKED by the same source.
+    rpc UnlockHosts(HostUnlockHostsRequest) returns (HostUnlockHostsResponse);
 }
 
 service OwnerInterface {
@@ -208,6 +215,16 @@ enum LockState {
     NIMBY_LOCKED = 2;
 }
 
+// Filters hosts on whether nimby is enabled on them.
+enum NimbyFilter {
+    // No filter (default).
+    NIMBY_ANY = 0;
+    // Only hosts with nimby enabled.
+    NIMBY_ONLY = 1;
+    // Only hosts with nimby disabled.
+    NIMBY_EXCLUDE = 2;
+}
+
 // Proc redirects can have two different types of destinations, jobs and groups.
 enum RedirectType {
     JOB_REDIRECT = 0;
@@ -297,6 +314,7 @@ message HostSearchCriteria {
     repeated string allocs = 5;
     HardwareStateSeq states = 6;
     LockStateSeq lock_states = 7;
+    NimbyFilter nimby = 8;
 }
 
 message HostSeq {
@@ -577,6 +595,26 @@ message HostLockRequest {
 
 message HostLockResponse {} // Empty
 
+// LockHosts
+message HostLockHostsRequest {
+    HostSearchCriteria criteria = 1;
+    bool kill_running = 2;
+    // Required lock source tag, e.g. "night-render". At most 64 characters.
+    string source = 3;
+}
+
+message HostLockHostsResponse {
+    // Host names now LOCKED.
+    repeated string locked = 1;
+    // Hosts locked in the database whose RQD could not be reached.
+    repeated string unreachable = 2;
+    int32 frames_killed = 3;
+    // Frame names whose kill could not be confirmed.
+    repeated string frames_deferred = 4;
+    // Hosts that matched but are already LOCKED by another source.
+    repeated string skipped = 5;
+}
+
 // Reboot
 message HostRebootRequest {
     Host host = 1;
@@ -671,6 +709,20 @@ message HostUnlockRequest {
 }
 
 message HostUnlockResponse {} // Empty
+
+// UnlockHosts
+message HostUnlockHostsRequest {
+    HostSearchCriteria criteria = 1;
+    // Required, must match the source used to lock.
+    string source = 2;
+}
+
+message HostUnlockHostsResponse {
+    repeated string unlocked = 1;
+    repeated string unreachable = 2;
+    // Hosts that matched but are locked by another source or not LOCKED.
+    repeated string skipped = 3;
+}
 
 
 // OWNER ----

@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue.service;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
@@ -578,6 +579,69 @@ public class JobManagerSupport {
         // set the job back to pending.
         jobManager.updateJobState(jobManager.getJob(frame.getJobId()), JobState.PENDING);
 
+    }
+
+    /**
+     * The frames a host-lock kill stopped, and the ones it had to leave RUNNING.
+     */
+    public static final class HostLockKillResult {
+        public int framesKilled;
+        public final List<String> framesDeferred = new ArrayList<>();
+    }
+
+    /**
+     * Kills every frame running on a host that is being admin-locked and returns the frames to
+     * WAITING without spending a retry ({@link Dispatcher#EXIT_STATUS_HOST_LOCKED}).
+     *
+     * Unlike {@link #retryFrame(FrameInterface, Source)} no redirect is added: the host is being
+     * cleared, so each proc is unbooked once its kill is confirmed. A kill that cannot be confirmed
+     * within {@code dispatcher.retry_frame_kill_budget_ms} (shared by every proc on the host)
+     * leaves the frame RUNNING; it is reclaimed when its completion report arrives.
+     *
+     * Not spending a retry is best effort: if the killed render's completion report reaches
+     * FrameCompleteHandler before the frame is stopped here, the frame is judged normally (it can
+     * spend a retry, or go DEAD with no retries left or past the max run time) and the stop here
+     * fails its version fence.
+     *
+     * @param host the host whose frames are killed
+     * @param source the source of the kill
+     * @return the number of frames stopped and the names of the deferred ones
+     */
+    public HostLockKillResult killForHostLock(HostInterface host, Source source) {
+        HostLockKillResult result = new HostLockKillResult();
+        long killDeadlineMs = System.currentTimeMillis() + retryKillBudgetMs();
+        for (VirtualProc proc : hostManager.findVirtualProcs(host)) {
+            if (proc.frameId == null) {
+                dispatchSupport.unbookProc(proc, "was unbooked for a host lock");
+                continue;
+            }
+            FrameDetail frame;
+            try {
+                frame = jobManager.getFrameDetail(proc.frameId);
+            } catch (EmptyResultDataAccessException e) {
+                logger.info("frame " + proc.frameId + " on " + proc.getName()
+                        + " disappeared before the host lock kill");
+                continue;
+            }
+            if (!killAndConfirmDead(proc, frame, source, killDeadlineMs)) {
+                logger.warn("Deferring host lock kill of frame " + frame.getName() + ": the render"
+                        + " could not be confirmed stopped on " + proc.getName());
+                result.framesDeferred.add(frame.getName());
+                continue;
+            }
+            if (dispatchSupport.stopFrame(frame, FrameState.WAITING,
+                    Dispatcher.EXIT_STATUS_HOST_LOCKED)) {
+                dispatchSupport.updateUsageCounters(frame, Dispatcher.EXIT_STATUS_HOST_LOCKED);
+                result.framesKilled++;
+                logger.info(
+                        "Stopped frame " + frame.getName() + " for host lock of " + host.getName());
+            }
+            dispatchSupport.unbookProc(proc, "was unbooked for a host lock");
+        }
+        if (prometheusMetrics != null && result.framesKilled > 0) {
+            prometheusMetrics.incrementHostLockKillFrames(result.framesKilled);
+        }
+        return result;
     }
 
     /**

@@ -341,6 +341,9 @@ def _setOptions(criteria, options):
         elif k == "lock_state" and isinstance(criteria, host_pb2.HostSearchCriteria):
             raiseIfNotList(k, v)
             criteria.lock_states.state.extend(v)
+        elif k == "nimby" and isinstance(criteria, host_pb2.HostSearchCriteria):
+            if v is not None:
+                criteria.nimby = host_pb2.NIMBY_ONLY if v else host_pb2.NIMBY_EXCLUDE
         elif k == "layer":
             raiseIfNotList(k, v)
             criteria.layers.extend(v)

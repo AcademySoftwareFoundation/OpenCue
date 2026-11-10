@@ -125,6 +125,34 @@ class OutputTests(unittest.TestCase):
             out.getvalue(),
         )
 
+    def testDisplayHostLockResult(self, getStubMock):
+        result = opencue.wrappers.host.HostLockResult(
+            locked=["ws-01", "ws-02"],
+            unreachable=["ws-03"],
+            skipped=["ws-04"],
+            framesKilled=3,
+            framesDeferred=["0001-render"],
+        )
+
+        with captured_output() as (out, err):
+            cueadmin.output.displayHostLockResult(result, locking=True)
+
+        self.assertEqual(
+            "Locked: 2, unreachable: 1, skipped: 1, frames killed: 3\n"
+            "Unreachable hosts: ws-03\n"
+            "Frames whose kill could not be confirmed (still running):\n"
+            "  0001-render\n",
+            out.getvalue(),
+        )
+
+    def testDisplayHostUnlockResult(self, getStubMock):
+        result = opencue.wrappers.host.HostLockResult(unlocked=["ws-01"], skipped=["ws-02"])
+
+        with captured_output() as (out, err):
+            cueadmin.output.displayHostLockResult(result, locking=False)
+
+        self.assertEqual("Unlocked: 1, unreachable: 0, skipped: 1\n", out.getvalue())
+
     def testDisplayShows(self, getStubMock):
         shows = [
             opencue.wrappers.show.Show(

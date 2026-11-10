@@ -45,7 +45,7 @@ from .wrappers.filter import Filter
 from .wrappers.filter import Matcher
 from .wrappers.frame import Frame
 from .wrappers.group import Group
-from .wrappers.host import Host, NestedHost
+from .wrappers.host import Host, HostLockResult, NestedHost
 from .wrappers.job import Job
 from .wrappers.layer import Layer
 from .wrappers.limit import Limit
@@ -540,11 +540,62 @@ def getHosts(**options):
        - regex: a host name search by regular expression - str
        - id: a search by unique id - str
        - alloc: search by allocation. - list
+       - nimby: True for nimby hosts only, False to exclude them - bool
 
     :rtype:  list
     :return: a list of Host objects
     """
     return search.HostSearch.byOptions(**options)
+
+
+@util.grpcExceptionParser
+def lockHosts(source, kill=False, **options):
+    """Admin-locks every host matching the search options.
+
+    Hosts already locked by another source are skipped. With kill, every frame running on a
+    locked host is killed and returned to waiting without spending a retry (best effort: a
+    frame whose completion report races the kill is judged as a normal failure).
+
+    For example::
+
+       # lock every nimby workstation and clear its frames
+       lockHosts("night-render", kill=True, nimby=True)
+
+    :type  source: str
+    :param source: lock source tag, at most 64 characters. unlockHosts only releases hosts
+                   locked with the same tag
+    :type  kill: bool
+    :param kill: kill the frames running on the locked hosts
+    :param options: host search options, as for getHosts. At least one is required; nimby=True
+                    counts as one
+    :rtype:  HostLockResult
+    :return: the locked, unreachable and skipped hosts, and the killed and deferred frames
+    """
+    criteria = search.HostSearch.criteriaFromOptions(**options)
+    response = Cuebot.getStub('host').LockHosts(
+        host_pb2.HostLockHostsRequest(criteria=criteria, kill_running=kill, source=source),
+        timeout=Cuebot.Timeout)
+    return HostLockResult.fromLockResponse(response)
+
+
+@util.grpcExceptionParser
+def unlockHosts(source, **options):
+    """Unlocks every host matching the search options that is locked by the given source.
+
+    Hosts locked by another source, or not locked at all, are skipped.
+
+    :type  source: str
+    :param source: the lock source tag used by lockHosts
+    :param options: host search options, as for getHosts. At least one is required; nimby=True
+                    counts as one
+    :rtype:  HostLockResult
+    :return: the unlocked, unreachable and skipped hosts
+    """
+    criteria = search.HostSearch.criteriaFromOptions(**options)
+    response = Cuebot.getStub('host').UnlockHosts(
+        host_pb2.HostUnlockHostsRequest(criteria=criteria, source=source),
+        timeout=Cuebot.Timeout)
+    return HostLockResult.fromUnlockResponse(response)
 
 
 @util.grpcExceptionParser

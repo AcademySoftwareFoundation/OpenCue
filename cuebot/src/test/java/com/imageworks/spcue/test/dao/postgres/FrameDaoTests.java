@@ -415,6 +415,24 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
+    public void testUpdateFrameStartedAfterHostLockKillKeepsRetries() {
+
+        DispatchHost host = createHost();
+        JobDetail job = launchJob();
+        FrameDetail frame = frameDao.findFrameDetail(job, "0001-pass_1_preprocess");
+        VirtualProc proc = buildProc(host, job, frame);
+
+        procDao.insertVirtualProc(proc);
+        procDao.verifyRunningProc(proc.getId(), frame.getId());
+
+        rewindFrameWithExitStatus(frame, Dispatcher.EXIT_STATUS_HOST_LOCKED);
+        frameDao.updateFrameStarted(proc, frameDao.getDispatchFrame(frame.getId()));
+        assertEquals(0, getRetries(frame));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testUpdateFrameStartedRetryExcludesLayerDelayStatuses() {
 
         DispatchHost host = createHost();

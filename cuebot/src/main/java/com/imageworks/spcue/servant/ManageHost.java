@@ -19,15 +19,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.stub.StreamObserver;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.dao.EmptyResultDataAccessException;
 
 import com.imageworks.spcue.CommentDetail;
 import com.imageworks.spcue.HostInterface;
+import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.criteria.HostSearchFactory;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.grpc.comment.Comment;
 import com.imageworks.spcue.grpc.comment.CommentSeq;
@@ -57,6 +62,8 @@ import com.imageworks.spcue.grpc.host.HostGetProcsResponse;
 import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsRequest;
 import com.imageworks.spcue.grpc.host.HostGetRenderPartitionsResponse;
 import com.imageworks.spcue.grpc.host.HostInterfaceGrpc;
+import com.imageworks.spcue.grpc.host.HostLockHostsRequest;
+import com.imageworks.spcue.grpc.host.HostLockHostsResponse;
 import com.imageworks.spcue.grpc.host.HostLockRequest;
 import com.imageworks.spcue.grpc.host.HostLockResponse;
 import com.imageworks.spcue.grpc.host.HostRebootRequest;
@@ -81,6 +88,9 @@ import com.imageworks.spcue.grpc.host.HostSetOsRequest;
 import com.imageworks.spcue.grpc.host.HostSetOsResponse;
 import com.imageworks.spcue.grpc.host.HostSetThreadModeRequest;
 import com.imageworks.spcue.grpc.host.HostSetThreadModeResponse;
+import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.grpc.host.HostUnlockHostsRequest;
+import com.imageworks.spcue.grpc.host.HostUnlockHostsResponse;
 import com.imageworks.spcue.grpc.host.HostUnlockRequest;
 import com.imageworks.spcue.grpc.host.HostUnlockResponse;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -93,6 +103,10 @@ import com.imageworks.spcue.service.JobManager;
 import com.imageworks.spcue.service.Whiteboard;
 
 public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
+    private static final Logger logger = LogManager.getLogger(ManageHost.class);
+
+    /** Longest bulk lock source tag accepted, so the stored lock source fits its column. */
+    static final int MAX_BULK_LOCK_SOURCE_LENGTH = 64;
 
     private HostManager hostManager;
     private HostDao hostDao;
@@ -102,6 +116,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
     private JobManager jobManager;
     private Whiteboard whiteboard;
     private HostSearchFactory hostSearchFactory;
+    private PrometheusMetricsCollector prometheusMetrics;
 
     @Override
     public void getHosts(HostGetHostsRequest request,
@@ -160,6 +175,74 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
         hostManager.setHostLock(host, LockState.OPEN, new Source("HostApi"));
         responseObserver.onNext(HostUnlockResponse.newBuilder().build());
         responseObserver.onCompleted();
+    }
+
+    @Override
+    public void lockHosts(HostLockHostsRequest request,
+            StreamObserver<HostLockHostsResponse> responseObserver) {
+        HostSearchInterface search;
+        try {
+            search = bulkLockSearch(request.getCriteria(), request.getSource());
+        } catch (StatusRuntimeException e) {
+            responseObserver.onError(e);
+            return;
+        }
+        HostLockHostsResponse response =
+                hostManager.lockHosts(search, request.getKillRunning(), request.getSource());
+        logger.info("LockHosts source=" + request.getSource() + " kill=" + request.getKillRunning()
+                + " locked=" + response.getLockedCount() + " skipped=" + response.getSkippedCount()
+                + " unreachable=" + response.getUnreachableCount() + " frames_killed="
+                + response.getFramesKilled() + " frames_deferred="
+                + response.getFramesDeferredCount());
+        if (prometheusMetrics != null) {
+            prometheusMetrics.incrementHostBulkLock("lock", request.getSource());
+        }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void unlockHosts(HostUnlockHostsRequest request,
+            StreamObserver<HostUnlockHostsResponse> responseObserver) {
+        HostSearchInterface search;
+        try {
+            search = bulkLockSearch(request.getCriteria(), request.getSource());
+        } catch (StatusRuntimeException e) {
+            responseObserver.onError(e);
+            return;
+        }
+        HostUnlockHostsResponse response = hostManager.unlockHosts(search, request.getSource());
+        logger.info("UnlockHosts source=" + request.getSource() + " unlocked="
+                + response.getUnlockedCount() + " skipped=" + response.getSkippedCount()
+                + " unreachable=" + response.getUnreachableCount());
+        if (prometheusMetrics != null) {
+            prometheusMetrics.incrementHostBulkLock("unlock", request.getSource());
+        }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    /**
+     * Returns the host search for a bulk lock request. Throws INVALID_ARGUMENT when the request has
+     * no host filter or an empty or over-long source.
+     */
+    private HostSearchInterface bulkLockSearch(HostSearchCriteria criteria, String source) {
+        if (source.isEmpty()) {
+            throw invalidArgument("a lock source is required");
+        }
+        if (source.length() > MAX_BULK_LOCK_SOURCE_LENGTH) {
+            throw invalidArgument("the lock source must be at most " + MAX_BULK_LOCK_SOURCE_LENGTH
+                    + " characters");
+        }
+        HostSearchInterface search = hostSearchFactory.create(criteria);
+        if (search.getWhereClause().isEmpty()) {
+            throw invalidArgument("the host criteria must contain at least one filter");
+        }
+        return search;
+    }
+
+    private static StatusRuntimeException invalidArgument(String description) {
+        return Status.INVALID_ARGUMENT.withDescription(description).asRuntimeException();
     }
 
     @Override
@@ -424,6 +507,14 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
 
     public void setHostSearchFactory(HostSearchFactory hostSearchFactory) {
         this.hostSearchFactory = hostSearchFactory;
+    }
+
+    public PrometheusMetricsCollector getPrometheusMetrics() {
+        return prometheusMetrics;
+    }
+
+    public void setPrometheusMetrics(PrometheusMetricsCollector prometheusMetrics) {
+        this.prometheusMetrics = prometheusMetrics;
     }
 
     private HostInterface getHostInterface(Host host) {
