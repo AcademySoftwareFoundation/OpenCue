@@ -433,6 +433,99 @@ class HostTests(unittest.TestCase):
 
         hostSearchMock.byName.assert_not_called()
 
+    @mock.patch("cueadmin.output.displayHostLockResult")
+    @mock.patch("opencue.api.lockHosts")
+    def testBulkLockNimbyHosts(
+        self, lockHostsMock, displayMock, getStubMock, hostSearchMock
+    ):
+        args = self.parser.parse_args(
+            ["-lock", "-nimby", "-kill-frames", "-source", "night-render", "-force"]
+        )
+
+        cueadmin.common.handleArgs(args)
+
+        lockHostsMock.assert_called_with("night-render", kill=True, nimby=True)
+        displayMock.assert_called_with(lockHostsMock.return_value, locking=True)
+        hostSearchMock.byName.assert_not_called()
+        hostSearchMock.byOptions.assert_not_called()
+
+    @mock.patch("cueadmin.output.displayHostLockResult")
+    @mock.patch("opencue.api.lockHosts")
+    def testBulkLockDefaultsSourceAndKeepsHostFilters(
+        self, lockHostsMock, displayMock, getStubMock, hostSearchMock
+    ):
+        args = self.parser.parse_args(
+            ["-lock", "-nimby", "-hostmatch", "ws", "-host", TEST_HOST, "-force"]
+        )
+
+        cueadmin.common.handleArgs(args)
+
+        lockHostsMock.assert_called_with(
+            cueadmin.common.DEFAULT_LOCK_SOURCE,
+            kill=False,
+            nimby=True,
+            host=[TEST_HOST],
+            match=["ws"],
+        )
+
+    @mock.patch("cueadmin.output.displayHostLockResult")
+    @mock.patch("opencue.api.unlockHosts")
+    def testBulkUnlockNimbyHosts(
+        self, unlockHostsMock, displayMock, getStubMock, hostSearchMock
+    ):
+        args = self.parser.parse_args(
+            ["-unlock", "-nimby", "-source", "night-render", "-force"]
+        )
+
+        cueadmin.common.handleArgs(args)
+
+        unlockHostsMock.assert_called_with("night-render", nimby=True)
+        displayMock.assert_called_with(unlockHostsMock.return_value, locking=False)
+
+    @mock.patch("cueadmin.util.promptYesNo", return_value=False)
+    @mock.patch("opencue.api.lockHosts")
+    def testBulkLockNotConfirmed(
+        self, lockHostsMock, promptMock, getStubMock, hostSearchMock
+    ):
+        args = self.parser.parse_args(["-lock", "-nimby"])
+
+        cueadmin.common.handleArgs(args)
+
+        lockHostsMock.assert_not_called()
+
+    @mock.patch("opencue.api.lockHosts")
+    def testKillFramesRequiresNimbyLock(
+        self, lockHostsMock, getStubMock, hostSearchMock
+    ):
+        for argv in (
+            ["-lock", "-kill-frames", "-host", TEST_HOST, "-force"],
+            ["-unlock", "-nimby", "-kill-frames", "-force"],
+            ["-kill-frames", "-nimby", "-force"],
+        ):
+            with self.assertRaises(ValueError):
+                cueadmin.common.handleArgs(self.parser.parse_args(argv))
+        lockHostsMock.assert_not_called()
+
+    def testSourceRequiresNimbyLock(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(
+            ["-lock", "-source", "night-render", "-host", TEST_HOST, "-force"]
+        )
+
+        with self.assertRaises(ValueError):
+            cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byName.assert_not_called()
+
+    def testNimbyCountsAsHostSelection(self, getStubMock, hostSearchMock):
+        args = self.parser.parse_args(["-repair", "-nimby", "-force"])
+        hostMock = mock.Mock()
+        hostSearchMock.byOptions.return_value = [hostMock]
+
+        cueadmin.common.handleArgs(args)
+
+        hostSearchMock.byOptions.assert_called_with(nimby=True)
+        hostMock.setHardwareState.assert_called_with(opencue.api.host_pb2.REPAIR)
+
     @mock.patch("opencue.api.findAllocation")
     def testMoveHost(self, findAllocMock, getStubMock, hostSearchMock):
         allocName = "%s.%s" % (TEST_FACILITY, TEST_ALLOC)

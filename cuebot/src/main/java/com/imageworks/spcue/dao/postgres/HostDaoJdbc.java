@@ -44,6 +44,7 @@ import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.StrandedCoreStats;
 import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.ResourceReservationFailureException;
 import com.imageworks.spcue.grpc.host.HardwareState;
@@ -458,6 +459,30 @@ public class HostDaoJdbc extends JdbcDaoSupport implements HostDao {
         getJdbcTemplate().update(
                 "UPDATE host SET str_lock_state=?, str_lock_source=? WHERE pk_host=?",
                 state.toString(), source.toString(), host.getHostId());
+    }
+
+    @Override
+    public boolean lockHostIfNotLockedByOther(HostInterface host, Source source) {
+        return getJdbcTemplate().update(
+                "UPDATE host SET str_lock_state=?, str_lock_source=? WHERE pk_host=? "
+                        + "AND (str_lock_state <> ? OR str_lock_source = ?)",
+                LockState.LOCKED.toString(), source.toString(), host.getHostId(),
+                LockState.LOCKED.toString(), source.toString()) == 1;
+    }
+
+    @Override
+    public boolean unlockHostIfLockedBy(HostInterface host, Source source) {
+        return getJdbcTemplate().update(
+                "UPDATE host SET str_lock_state=?, str_lock_source=? WHERE pk_host=? "
+                        + "AND str_lock_state = ? AND str_lock_source = ?",
+                LockState.OPEN.toString(), source.toString(), host.getHostId(),
+                LockState.LOCKED.toString(), source.toString()) == 1;
+    }
+
+    @Override
+    public List<HostEntity> findHosts(HostSearchInterface r) {
+        return getJdbcTemplate().query(r.getFilteredQuery(GET_HOST_DETAIL), HOST_DETAIL_MAPPER,
+                r.getValuesArray());
     }
 
     @Override

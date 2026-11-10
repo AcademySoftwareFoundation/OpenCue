@@ -107,6 +107,7 @@
         <property name="jobManager" ref="jobManager" />
         <property name="whiteboard" ref="whiteboard" />
         <property name="hostSearchFactory" ref="hostSearchFactory" />
+        <property name="prometheusMetrics" ref="prometheusMetricsCollector" />
     </bean>
 
     <bean scope="prototype" id="manageJob" class="com.imageworks.spcue.servant.ManageJob">

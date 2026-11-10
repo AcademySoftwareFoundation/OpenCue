@@ -129,6 +129,36 @@ def displayHosts(hosts, lock_state=None, sort_idle=False):
         )
 
 
+def displayHostLockResult(result, locking=True):
+    """Displays the outcome of a bulk host lock or unlock.
+    @type result: opencue.wrappers.host.HostLockResult
+    @param result: The result returned by opencue.api.lockHosts/unlockHosts
+    @type locking: bool
+    @param locking: Whether the result is from a lock (True) or an unlock (False)
+    """
+    if locking:
+        print(
+            "Locked: %d, unreachable: %d, skipped: %d, frames killed: %d"
+            % (
+                len(result.locked),
+                len(result.unreachable),
+                len(result.skipped),
+                result.framesKilled,
+            )
+        )
+    else:
+        print(
+            "Unlocked: %d, unreachable: %d, skipped: %d"
+            % (len(result.unlocked), len(result.unreachable), len(result.skipped))
+        )
+    if result.unreachable:
+        print("Unreachable hosts: %s" % ", ".join(result.unreachable))
+    if result.framesDeferred:
+        print("Frames whose kill could not be confirmed (still running):")
+        for frame in result.framesDeferred:
+            print("  %s" % frame)
+
+
 def displayShows(shows):
     """Displays information about a list of shows
     @type shows: list<Show>
