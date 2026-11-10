@@ -485,6 +485,24 @@ class MachineTests(pyfakefs.fake_filesystem_unittest.TestCase):
         with self.assertRaises(rqd.rqexceptions.CoreReservationFailureException):
             tasksets4 = self.machine.reserveHT(300)
 
+    def test_releaseHT_dualSocketWindows_freesEveryCore(self):
+        """Releasing frames on a dual socket Windows host frees the cores of both sockets."""
+        processor = mock.MagicMock(NumberOfCores=4, NumberOfLogicalProcessors=8)
+        wmiMock = mock.MagicMock()
+        wmiMock.WMI.return_value.Win32_Processor.return_value = [processor, processor]
+        with mock.patch.dict('sys.modules', {'wmi': wmiMock}):
+            # pylint: disable=protected-access
+            self.machine._Machine__updateProcsMappingsFromWindows()
+        self.machine.setupTaskset()
+
+        tasksets = [self.machine.reserveHT(400), self.machine.reserveHT(400)]
+        for taskset in tasksets:
+            self.machine.releaseHT(taskset)
+
+        # pylint: disable=no-member
+        self.assertEqual({}, dict(self.coreDetail.reserved_cores))
+        self.assertTrue(self.machine.canReserveHT(800))
+
 
     def test_tags(self):
         tags = ["test1", "test2", "test3"]
