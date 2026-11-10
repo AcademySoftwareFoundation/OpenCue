@@ -724,6 +724,8 @@ def bulkHostOptions(args):
         options["host"] = args.host
     if args.hostmatch:
         options["match"] = args.hostmatch
+    if args.alloc:
+        options["alloc"] = args.alloc
     return options
 
 
@@ -1184,6 +1186,8 @@ def handleArgs(args):
         raise ValueError("-kill-frames requires -lock -nimby")
     if args.source and not bulk_lock:
         raise ValueError("-source requires -lock or -unlock with -nimby")
+    if bulk_lock and args.state:
+        raise ValueError("-state is not supported with -lock/-unlock -nimby")
     hosts = None
     if not bulk_lock and (args.host or args.hostmatch or args.nimby):
         hosts = resolveHostNames(args.host, args.hostmatch, nimby=args.nimby)
