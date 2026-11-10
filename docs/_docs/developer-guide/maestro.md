@@ -850,8 +850,10 @@ times each phase of the leader's tick: `drain` (queued completions applied),
 `snapshot` (hosts and procs read), `place` (the candidate read, the pins and
 scoring), `read` (plan reads and the folder/limit trims), `commit` (the chunked
 bookings) and `usage` (the live show-usage and farm-health reads). `place` is
-also split into `candidates` (its SQL, the tick's one candidate read), `pins`
-(the in-memory pin resolution over that read) and `score` (the rest: the group
+also split into `candidates` (its SQL, the tick's one candidate read),
+`auto_memory` (the auto memory sizing over that read: the rss percentile reads
+of section 3.9 and the booked-memory publish), `pins` (the in-memory pin
+resolution over that read) and `score` (the rest: the group
 cuts, in-memory placement, the per-candidate epilogue, the waitlist tally and
 the reservation grants), which add up to `place`. A growing
 tail names the phase that grew; the sandbox Maestro dashboard plots the p95 of

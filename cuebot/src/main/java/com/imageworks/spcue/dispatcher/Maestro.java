@@ -397,8 +397,10 @@ public class Maestro {
     int lastCommitSplits = 0;
     int lastCommitDropped = 0;
     // Wall time of this tick's candidate read (loadTickCandidates), the SQL half of the place
-    // phase, and of the pin resolution over it (resolveTickPins).
+    // phase, of the auto memory sizing over it (applyAutoMemory), and of the pin resolution
+    // (resolveTickPins).
     private long tickCandidatesMs = 0;
+    private long tickAutoMemoryMs = 0;
     private long tickPinsMs = 0;
 
     // This tick's candidate read, cut per group by readLayerCandidatesForGroup; null between
@@ -778,6 +780,7 @@ public class Maestro {
     private void resetTickOutputs() {
         tickPlanned = 0;
         tickCandidatesMs = 0;
+        tickAutoMemoryMs = 0;
         tickPinsMs = 0;
         tickGranted = 0;
         tickBackfilled = 0;
@@ -1195,12 +1198,15 @@ public class Maestro {
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
         stats.phaseMs.put("place", tPlan - tSnapshot);
-        // The place phase split: the candidate read (SQL), the pin resolution over it, and
-        // everything else (the group cuts, scoring, the epilogue, the waitlist tally and the
-        // grants, all in memory).
+        // The place phase split: the candidate read (SQL), the auto memory sizing over it (its
+        // rss percentile reads and booked publish), the pin resolution, and everything else
+        // (the group cuts, scoring, the epilogue, the waitlist tally and the grants, all in
+        // memory).
+        long scoreMs = tPlan - tSnapshot - tickCandidatesMs - tickAutoMemoryMs - tickPinsMs;
         stats.phaseMs.put("candidates", tickCandidatesMs);
+        stats.phaseMs.put("auto_memory", tickAutoMemoryMs);
         stats.phaseMs.put("pins", tickPinsMs);
-        stats.phaseMs.put("score", tPlan - tSnapshot - tickCandidatesMs - tickPinsMs);
+        stats.phaseMs.put("score", scoreMs);
         List<FrameBooking> planned = planBookings();
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
@@ -1242,12 +1248,11 @@ public class Maestro {
         if (tTick > 1000) {
             String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
                     + "ms, place=" + (tPlan - tSnapshot) + "ms (candidates=" + tickCandidatesMs
-                    + "ms, pins=" + tickPinsMs + "ms, score="
-                    + (tPlan - tSnapshot - tickCandidatesMs - tickPinsMs) + "ms), read="
-                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
-                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow + " splits=" + lastCommitSplits
-                    + " dropped=" + lastCommitDropped;
+                    + "ms, autoMemory=" + tickAutoMemoryMs + "ms, pins=" + tickPinsMs + "ms, score="
+                    + scoreMs + "ms), read=" + (tRead - tPlan) + "ms, batchCommit="
+                    + (tCommit - tRead) + "ms, usage=" + (tFlush - tCommit) + "ms | placements="
+                    + lastPlacements + " planned=" + planned.size() + " committed=" + dispatchedNow
+                    + " splits=" + lastCommitSplits + " dropped=" + lastCommitDropped;
             logger.info("Maestro tick breakdown: " + breakdown);
             // Production runs at WARN, so a slow tick carries its own breakdown there.
             if (tTick > slowTickWarnMs)
@@ -2462,9 +2467,11 @@ public class Maestro {
         } catch (RuntimeException exception) {
             tickCandidates = new TickCandidates(exception);
         }
+        long t1 = System.currentTimeMillis();
+        tickCandidatesMs = t1 - t0;
         if (tickCandidates.failure == null)
             applyAutoMemory(tickCandidates.rows);
-        tickCandidatesMs = System.currentTimeMillis() - t0;
+        tickAutoMemoryMs = System.currentTimeMillis() - t1;
     }
 
     /**
