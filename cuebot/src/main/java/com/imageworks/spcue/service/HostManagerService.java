@@ -206,8 +206,7 @@ public class HostManagerService implements HostManager {
             return outcomes;
         }
 
-        int threads =
-                env == null ? 16 : env.getProperty("host.bulk_lock.threads", Integer.class, 16);
+        int threads = env == null ? 8 : env.getProperty("host.bulk_lock.threads", Integer.class, 8);
         ExecutorService executor =
                 Executors.newFixedThreadPool(Math.max(1, Math.min(threads, hosts.size())));
         try {

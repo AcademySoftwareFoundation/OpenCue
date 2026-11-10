@@ -195,7 +195,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
                 + response.getFramesKilled() + " frames_deferred="
                 + response.getFramesDeferredCount());
         if (prometheusMetrics != null) {
-            prometheusMetrics.incrementHostBulkLock("lock", request.getSource());
+            prometheusMetrics.incrementHostBulkLock("lock");
         }
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -216,7 +216,7 @@ public class ManageHost extends HostInterfaceGrpc.HostInterfaceImplBase {
                 + response.getUnlockedCount() + " skipped=" + response.getSkippedCount()
                 + " unreachable=" + response.getUnreachableCount());
         if (prometheusMetrics != null) {
-            prometheusMetrics.incrementHostBulkLock("unlock", request.getSource());
+            prometheusMetrics.incrementHostBulkLock("unlock");
         }
         responseObserver.onNext(response);
         responseObserver.onCompleted();

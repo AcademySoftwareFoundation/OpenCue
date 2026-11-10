@@ -469,6 +469,38 @@ class HostTests(unittest.TestCase):
         )
 
     @mock.patch("cueadmin.output.displayHostLockResult")
+    @mock.patch("opencue.api.lockHosts")
+    def testBulkLockForwardsAlloc(
+        self, lockHostsMock, displayMock, getStubMock, hostSearchMock
+    ):
+        args = self.parser.parse_args(
+            ["-lock", "-nimby", "-alloc", "lax.desktop", "-kill-frames", "-force"]
+        )
+
+        cueadmin.common.handleArgs(args)
+
+        lockHostsMock.assert_called_with(
+            cueadmin.common.DEFAULT_LOCK_SOURCE,
+            kill=True,
+            nimby=True,
+            alloc=["lax.desktop"],
+        )
+
+    @mock.patch("opencue.api.lockHosts")
+    @mock.patch("opencue.api.unlockHosts")
+    def testBulkLockRejectsState(
+        self, unlockHostsMock, lockHostsMock, getStubMock, hostSearchMock
+    ):
+        for argv in (
+            ["-lock", "-nimby", "-state", "UP", "-force"],
+            ["-unlock", "-nimby", "-state", "UP", "-force"],
+        ):
+            with self.assertRaises(ValueError):
+                cueadmin.common.handleArgs(self.parser.parse_args(argv))
+        lockHostsMock.assert_not_called()
+        unlockHostsMock.assert_not_called()
+
+    @mock.patch("cueadmin.output.displayHostLockResult")
     @mock.patch("opencue.api.unlockHosts")
     def testBulkUnlockNimbyHosts(
         self, unlockHostsMock, displayMock, getStubMock, hostSearchMock

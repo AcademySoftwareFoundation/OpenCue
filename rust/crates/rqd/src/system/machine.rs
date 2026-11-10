@@ -182,6 +182,16 @@ impl CoreLockReasons {
         cores.lock_all_cores();
     }
 
+    /// Unlocks up to `count` cores, unless a full lock is in place: a partial unlock must not
+    /// free cores under it. Returns the number of cores unlocked.
+    fn unlock_partial(&self, count: u32, cores: &mut CoreStateManager) -> u32 {
+        if self.is_empty() {
+            cores.unlock_cores(count)
+        } else {
+            0
+        }
+    }
+
     /// Clears `reasons` and unlocks all cores when no reason is left. Returns whether the cores
     /// were unlocked.
     fn unlock(&mut self, reasons: &[CoreLockReason], cores: &mut CoreStateManager) -> bool {
@@ -213,6 +223,21 @@ mod core_lock_reason_tests {
 
     fn locked(cores: &CoreStateManager) -> u32 {
         cores.get_core_info_report(1).locked_cores as u32
+    }
+
+    #[test]
+    fn partial_unlock_is_ignored_while_a_full_lock_is_in_place() {
+        let mut cores = core_manager();
+        let mut reasons = CoreLockReasons::default();
+
+        reasons.lock(CoreLockReason::Admin, &mut cores);
+        assert_eq!(reasons.unlock_partial(1, &mut cores), 0);
+        assert_eq!(locked(&cores), 2);
+
+        assert!(reasons.unlock(&[CoreLockReason::Admin], &mut cores));
+        cores.lock_cores(2);
+        assert_eq!(reasons.unlock_partial(1, &mut cores), 1);
+        assert_eq!(locked(&cores), 1);
     }
 
     #[test]
@@ -1921,7 +1946,10 @@ impl Machine for MachineMonitor {
 
     async fn unlock_cores(&self, count: u32) -> u32 {
         let mut core_manager = self.core_manager.write().await;
-        core_manager.unlock_cores(count)
+        self.core_lock_reasons
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .unlock_partial(count, &mut core_manager)
     }
 
     async fn unlock_all_cores(&self) {

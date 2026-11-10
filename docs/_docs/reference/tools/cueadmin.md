@@ -368,7 +368,7 @@ host selection on its own, so `-host`/`-hostmatch` are optional with it. With `-
 
 | Flag | Meaning |
 |---|---|
-| `-nimby` | Restrict to nimby hosts. Combine with `-host`/`-hostmatch` to narrow it further |
+| `-nimby` | Restrict to nimby hosts. Combine with `-host`/`-hostmatch`/`-alloc` to narrow it further (`-state` is not supported here) |
 | `-kill-frames` | With `-lock -nimby`: kill the frames running on the locked hosts. They go back to waiting without spending a retry (best effort, see below) |
 | `-source NAME` | Lock source tag, defaults to `cueadmin`. `-unlock` only releases hosts locked with the same tag |
 
@@ -377,6 +377,7 @@ cueadmin -lock -nimby -source night-render                # Lock all workstation
 cueadmin -lock -nimby -kill-frames -source night-render -force   # Lock them and clear their frames
 cueadmin -unlock -nimby -source night-render -force       # Unlock what night-render locked
 cueadmin -lock -nimby -hostmatch lighting -source lgt     # Only workstations matching "lighting"
+cueadmin -lock -nimby -alloc lax.desktop -source night-render  # Only workstations in one allocation
 ```
 
 A bulk lock skips hosts already locked by another source (for example a maintenance lock), and a

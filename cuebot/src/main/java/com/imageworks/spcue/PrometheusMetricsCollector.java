@@ -171,7 +171,7 @@ public class PrometheusMetricsCollector {
 
     private static final Counter hostBulkLockCounter = Counter.build()
             .name("cue_host_bulk_lock_total").help("Bulk host lock and unlock requests")
-            .labelNames("env", "cuebot_host", "action", "source").register();
+            .labelNames("env", "cuebot_host", "action").register();
 
     private static final Counter hostLockKillFramesCounter =
             Counter.build().name("cue_host_lock_kill_frames_total")
@@ -560,11 +560,9 @@ public class PrometheusMetricsCollector {
      * Increment cue_host_bulk_lock_total metric
      *
      * @param action "lock" or "unlock"
-     * @param source the lock source tag
      */
-    public void incrementHostBulkLock(String action, String source) {
-        hostBulkLockCounter.labels(this.deployment_environment, this.cuebot_host, action, source)
-                .inc();
+    public void incrementHostBulkLock(String action) {
+        hostBulkLockCounter.labels(this.deployment_environment, this.cuebot_host, action).inc();
     }
 
     /**
