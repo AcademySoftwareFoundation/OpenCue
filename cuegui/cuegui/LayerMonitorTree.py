@@ -55,7 +55,7 @@ def _showsAutoMemory(layer):
 
 
 def layerMemoryKb(layer):
-    """The memory each frame of the layer reserves: what the scheduler booked when auto memory
+    """The memory each frame of the layer reserves: what Maestro booked when auto memory
     sized the layer, otherwise the layer's minimum memory."""
     if _showsAutoMemory(layer):
         return layer.data.booked_memory
@@ -102,12 +102,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                        data=layerMemoryText,
                        sort=layerMemoryKb,
                        tip="The amount of memory that each frame in this layer\n"
-                           "will reserve for its use. If the frame begins to use\n"
-                           "more memory than this, the cuebot will increase this\n"
-                           "number.\n"
-                           "On scheduler-managed shows, (auto) marks the memory the\n"
-                           "scheduler books from what finished frames used; the\n"
-                           "layer's Minimum Memory is in Layer Properties.")
+                           "will reserve for its use.\n"
+                           "On Maestro, (auto) marks memory sized from what\n"
+                           "finished frames used; the layer's Minimum Memory is\n"
+                           "in Layer Properties. Otherwise, if a frame begins to\n"
+                           "use more memory than this, the cuebot increases it.")
         self.addColumn("Gpus", 45, id=8,
                        data=lambda layer: "%d" % layer.data.min_gpus,
                        sort=lambda layer: layer.data.min_gpus,

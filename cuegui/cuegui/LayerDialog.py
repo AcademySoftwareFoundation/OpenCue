@@ -33,14 +33,14 @@ import cuegui.Utils
 
 
 AUTO_MEMORY_TOOLTIP = (
-    "<b>On (default):</b> the scheduler sizes each frame from what finished frames actually "
+    "<b>On (default):</b> Maestro sizes each frame from what finished frames actually "
     "used, up or down from Minimum Memory, so a few unusually large frames don't inflate "
     "the rest.<br><b>Off:</b> every frame books exactly Minimum Memory.<br>"
     "Either way, a frame killed for running out of memory retries with more.")
 
 
 def isSchedulerManaged(layers):
-    """Whether any of the layers belongs to a show the scheduler (Maestro) manages.
+    """Whether any of the layers is scheduled by Maestro.
 
     Falls back to False when the shows can't be read, so the dialog keeps its legacy labels."""
     try:
@@ -52,7 +52,7 @@ def isSchedulerManaged(layers):
 
 
 def bookedMemoryText(layers):
-    """The read-only Booked label for the selected layers: the memory the scheduler books per
+    """The read-only Booked label for the selected layers: the memory Maestro books per
     frame, as a range when several layers are selected, or "not sized yet"."""
     booked = sorted(layer.data.booked_memory for layer in layers
                     if layer.data.booked_memory > 0)
@@ -209,7 +209,7 @@ class LayerPropertiesDialog(QtWidgets.QDialog):
         self.__timeout_llu.setSuffix(" minutes")
         self.__timeout_llu.setSpecialValueText("No timeout")
 
-        # Memory Optimizer, which is auto memory on scheduler-managed shows
+        # Memory Optimizer, which is auto memory on Maestro
         self.__mem_opt = QtWidgets.QCheckBox()
         self.__mem_opt.setChecked(self.getMemoryOptSetting())
         self.__booked = None

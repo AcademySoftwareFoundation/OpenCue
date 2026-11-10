@@ -318,6 +318,8 @@ class IsSchedulerManagedTests(unittest.TestCase):
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class ManagedLayerPropertiesDialogTests(unittest.TestCase):
 
+    # A class-level patch doesn't reach setUp, which builds layers through getStub.
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
     @mock.patch('cuegui.LayerDialog.isSchedulerManaged', new=mock.Mock(return_value=True))
     @mock.patch('opencue.api.getLimits', new=mock.Mock(return_value=[]))
     @mock.patch('opencue.api.getLayer')
