@@ -169,6 +169,15 @@ public class PrometheusMetricsCollector {
             .help("Frame retries deferred because the running render could not be confirmed dead")
             .labelNames("env", "cuebot_host").register();
 
+    private static final Counter hostBulkLockCounter = Counter.build()
+            .name("cue_host_bulk_lock_total").help("Bulk host lock and unlock requests")
+            .labelNames("env", "cuebot_host", "action").register();
+
+    private static final Counter hostLockKillFramesCounter =
+            Counter.build().name("cue_host_lock_kill_frames_total")
+                    .help("Frames killed and returned to WAITING by a bulk host lock")
+                    .labelNames("env", "cuebot_host").register();
+
     private static final Counter frameLaunchOutcomeUnknownCounter =
             Counter.build().name("cue_frame_launch_outcome_unknown_total")
                     .help("Frame launch RPCs that failed without proving the frame did not start, "
@@ -545,6 +554,24 @@ public class PrometheusMetricsCollector {
      */
     public void incrementFrameRetryDeferred() {
         frameRetryDeferredCounter.labels(this.deployment_environment, this.cuebot_host).inc();
+    }
+
+    /**
+     * Increment cue_host_bulk_lock_total metric
+     *
+     * @param action "lock" or "unlock"
+     */
+    public void incrementHostBulkLock(String action) {
+        hostBulkLockCounter.labels(this.deployment_environment, this.cuebot_host, action).inc();
+    }
+
+    /**
+     * Increment cue_host_lock_kill_frames_total metric
+     *
+     * @param frames number of frames killed
+     */
+    public void incrementHostLockKillFrames(int frames) {
+        hostLockKillFramesCounter.labels(this.deployment_environment, this.cuebot_host).inc(frames);
     }
 
     /**

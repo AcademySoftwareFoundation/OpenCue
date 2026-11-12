@@ -29,12 +29,15 @@ import org.springframework.transaction.annotation.Transactional;
 import com.imageworks.spcue.AllocationEntity;
 import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.FacilityInterface;
+import com.imageworks.spcue.HostEntity;
 import com.imageworks.spcue.config.TestAppConfig;
+import com.imageworks.spcue.dao.HostDao;
 import com.imageworks.spcue.dao.WhiteboardDao;
 import com.imageworks.spcue.dao.criteria.HostSearchFactory;
 import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.grpc.host.Host;
 import com.imageworks.spcue.grpc.host.HostSearchCriteria;
+import com.imageworks.spcue.grpc.host.NimbyFilter;
 import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.service.AdminManager;
 import com.imageworks.spcue.service.HostManager;
@@ -58,6 +61,9 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     @Resource
     WhiteboardDao whiteboardDao;
 
+    @Resource
+    HostDao hostDao;
+
     private AllocationEntity createAlloc(FacilityInterface facility, String allocName) {
         AllocationEntity alloc = new AllocationEntity();
         alloc.name = allocName;
@@ -67,10 +73,21 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
     }
 
     private DispatchHost createHost(AllocationEntity alloc, String hostName) {
-        DispatchHost host = hostManager.createHost(
-                RenderHost.newBuilder().setName(hostName).setTotalMem(50000000).build());
+        return createHost(alloc, hostName, false);
+    }
+
+    private DispatchHost createHost(AllocationEntity alloc, String hostName, boolean nimby) {
+        DispatchHost host = hostManager.createHost(RenderHost.newBuilder().setName(hostName)
+                .setTotalMem(50000000).setNimbyEnabled(nimby).build());
         hostManager.setAllocation(host, alloc);
         return host;
+    }
+
+    private List<String> findHostNames(String allocName, NimbyFilter nimby) {
+        HostSearchCriteria criteria =
+                HostSearchCriteria.newBuilder().addAllocs(allocName).setNimby(nimby).build();
+        return hostDao.findHosts(hostSearchFactory.create(criteria)).stream()
+                .map(HostEntity::getName).collect(Collectors.toList());
     }
 
     @Test
@@ -101,5 +118,39 @@ public class HostSearchTests extends AbstractTransactionalJUnit4SpringContextTes
 
         assertThat(hosts.stream().map(Host::getId).collect(Collectors.toList()))
                 .containsOnly(expectedHost.getHostId());
+    }
+
+    @Test
+    public void testNimbyFilterWhereClause() {
+        assertEquals("",
+                hostSearchFactory.create(HostSearchInterface.criteriaFactory()).getWhereClause());
+
+        HostSearchInterface nimbyOnly = hostSearchFactory
+                .create(HostSearchCriteria.newBuilder().setNimby(NimbyFilter.NIMBY_ONLY).build());
+        assertEquals("host.b_nimby = ?", nimbyOnly.getWhereClause());
+        assertThat(nimbyOnly.getValues()).containsExactly(true);
+
+        HostSearchInterface nimbyExclude = hostSearchFactory.create(
+                HostSearchCriteria.newBuilder().setNimby(NimbyFilter.NIMBY_EXCLUDE).build());
+        assertEquals("host.b_nimby = ?", nimbyExclude.getWhereClause());
+        assertThat(nimbyExclude.getValues()).containsExactly(false);
+    }
+
+    @Test
+    @Transactional
+    @Rollback
+    public void testFilterByNimby() {
+        FacilityInterface facility = adminManager.createFacility("test-facility");
+        AllocationEntity alloc = createAlloc(facility, "test-alloc-01");
+        createHost(alloc, "test-workstation-01", true);
+        createHost(alloc, "test-render-01", false);
+        String allocName = alloc.getName();
+
+        assertThat(findHostNames(allocName, NimbyFilter.NIMBY_ONLY))
+                .containsOnly("test-workstation-01");
+        assertThat(findHostNames(allocName, NimbyFilter.NIMBY_EXCLUDE))
+                .containsOnly("test-render-01");
+        assertThat(findHostNames(allocName, NimbyFilter.NIMBY_ANY))
+                .containsOnly("test-workstation-01", "test-render-01");
     }
 }

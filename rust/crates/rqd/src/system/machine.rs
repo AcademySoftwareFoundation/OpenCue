@@ -114,6 +114,9 @@ pub struct MachineMonitor {
     /// short window between the restart decision and the exit, where it could die before its
     /// snapshot is written and leak an unmanaged render.
     restarting: AtomicBool,
+    /// Why all cores are locked. Only read or written while holding the [`Self::core_manager`]
+    /// write lock, so a reason change and the matching core update are atomic.
+    core_lock_reasons: StdMutex<CoreLockReasons>,
     #[cfg(feature = "nimby")]
     nimby: Arc<Option<Nimby>>,
     #[cfg(feature = "nimby")]
@@ -137,6 +140,148 @@ fn resolve_idle_action(is_idle: bool, armed: Option<IdleAction>) -> Option<IdleA
         armed
     } else {
         None
+    }
+}
+
+/// A reason for keeping all cores locked.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum CoreLockReason {
+    /// Operator lock (LockAll RPC).
+    Admin,
+    /// The user is active on the host.
+    Nimby,
+    /// A reboot or restart is waiting for the machine to become idle.
+    IdleAction,
+}
+
+/// The set of reasons currently keeping all cores locked. Cores are unlocked only once no reason
+/// is left, so for example a nimby unlock doesn't lift an admin lock.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+struct CoreLockReasons {
+    admin: bool,
+    nimby: bool,
+    idle_action: bool,
+}
+
+impl CoreLockReasons {
+    fn flag(&mut self, reason: CoreLockReason) -> &mut bool {
+        match reason {
+            CoreLockReason::Admin => &mut self.admin,
+            CoreLockReason::Nimby => &mut self.nimby,
+            CoreLockReason::IdleAction => &mut self.idle_action,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        !(self.admin || self.nimby || self.idle_action)
+    }
+
+    /// Records `reason` and locks all cores.
+    fn lock(&mut self, reason: CoreLockReason, cores: &mut CoreStateManager) {
+        *self.flag(reason) = true;
+        cores.lock_all_cores();
+    }
+
+    /// Unlocks up to `count` cores, unless a full lock is in place: a partial unlock must not
+    /// free cores under it. Returns the number of cores unlocked.
+    fn unlock_partial(&self, count: u32, cores: &mut CoreStateManager) -> u32 {
+        if self.is_empty() {
+            cores.unlock_cores(count)
+        } else {
+            0
+        }
+    }
+
+    /// Clears `reasons` and unlocks all cores when no reason is left. Returns whether the cores
+    /// were unlocked.
+    fn unlock(&mut self, reasons: &[CoreLockReason], cores: &mut CoreStateManager) -> bool {
+        for reason in reasons {
+            *self.flag(*reason) = false;
+        }
+        if self.is_empty() {
+            cores.unlock_all_cores();
+            true
+        } else {
+            false
+        }
+    }
+}
+
+#[cfg(test)]
+mod core_lock_reason_tests {
+    use std::collections::HashMap;
+
+    use super::{CoreLockReason, CoreLockReasons};
+    use crate::system::reservation::{CoreStateManager, ProcessorStructure};
+
+    fn core_manager() -> CoreStateManager {
+        let threads = HashMap::from([("0_0".to_string(), vec![0]), ("0_1".to_string(), vec![1])]);
+        let cores = HashMap::from([(0, vec![0, 1])]);
+        let lookup = HashMap::from([(0, (0, 0)), (1, (0, 1))]);
+        CoreStateManager::new(ProcessorStructure::init(threads, cores, lookup))
+    }
+
+    fn locked(cores: &CoreStateManager) -> u32 {
+        cores.get_core_info_report(1).locked_cores as u32
+    }
+
+    #[test]
+    fn partial_unlock_is_ignored_while_a_full_lock_is_in_place() {
+        let mut cores = core_manager();
+        let mut reasons = CoreLockReasons::default();
+
+        reasons.lock(CoreLockReason::Admin, &mut cores);
+        assert_eq!(reasons.unlock_partial(1, &mut cores), 0);
+        assert_eq!(locked(&cores), 2);
+
+        assert!(reasons.unlock(&[CoreLockReason::Admin], &mut cores));
+        cores.lock_cores(2);
+        assert_eq!(reasons.unlock_partial(1, &mut cores), 1);
+        assert_eq!(locked(&cores), 1);
+    }
+
+    #[test]
+    fn nimby_unlock_keeps_admin_lock() {
+        let mut cores = core_manager();
+        let mut reasons = CoreLockReasons::default();
+
+        reasons.lock(CoreLockReason::Admin, &mut cores);
+        reasons.lock(CoreLockReason::Nimby, &mut cores);
+        assert!(!reasons.unlock(&[CoreLockReason::Nimby], &mut cores));
+
+        assert_eq!(locked(&cores), 2);
+    }
+
+    #[test]
+    fn admin_unlock_waits_for_nimby_unlock() {
+        let mut cores = core_manager();
+        let mut reasons = CoreLockReasons::default();
+
+        reasons.lock(CoreLockReason::Nimby, &mut cores);
+        reasons.lock(CoreLockReason::Admin, &mut cores);
+        assert!(!reasons.unlock(&[CoreLockReason::Admin], &mut cores));
+        assert_eq!(locked(&cores), 2);
+
+        assert!(reasons.unlock(&[CoreLockReason::Nimby], &mut cores));
+        assert_eq!(locked(&cores), 0);
+    }
+
+    #[test]
+    fn nimby_unlock_keeps_pending_idle_action_lock() {
+        let mut cores = core_manager();
+        let mut reasons = CoreLockReasons::default();
+
+        reasons.lock(CoreLockReason::IdleAction, &mut cores);
+        reasons.lock(CoreLockReason::Nimby, &mut cores);
+        assert!(!reasons.unlock(&[CoreLockReason::Nimby], &mut cores));
+        assert_eq!(locked(&cores), 2);
+
+        // An operator unlock clears both the admin lock and the cancelled idle action.
+        assert!(reasons.unlock(
+            &[CoreLockReason::Admin, CoreLockReason::IdleAction],
+            &mut cores
+        ));
+        assert_eq!(locked(&cores), 0);
     }
 }
 
@@ -302,6 +447,7 @@ impl MachineMonitor {
             interrupt: Mutex::new(None),
             idle_action: Mutex::new(None),
             restarting: AtomicBool::new(false),
+            core_lock_reasons: StdMutex::new(CoreLockReasons::default()),
             #[cfg(feature = "nimby")]
             nimby,
             #[cfg(feature = "nimby")]
@@ -357,7 +503,7 @@ impl MachineMonitor {
         #[cfg(feature = "nimby")]
         if nimby_locked {
             info!("Host starting in nimby-locked state, locking all cores");
-            self.lock_all_cores().await;
+            self.lock_cores_for(CoreLockReason::Nimby).await;
         }
 
         let mut interval = time::interval(self.maching_config.monitor_interval);
@@ -417,7 +563,7 @@ impl MachineMonitor {
                 drop(nimby_state);
 
                 info!("Host became nimby locked");
-                self.lock_all_cores().await;
+                self.lock_cores_for(CoreLockReason::Nimby).await;
                 let count = manager::instance()
                     .await?
                     .kill_all_running_frames("Host has been Nimby-Locked")
@@ -443,7 +589,9 @@ impl MachineMonitor {
                 drop(nimby_state);
 
                 info!("Host became nimby unlocked");
-                self.unlock_all_cores().await;
+                if !self.unlock_cores_for(&[CoreLockReason::Nimby]).await {
+                    info!("Cores stay locked: another lock is still in place");
+                }
                 Ok(new_state)
             }
             // Continues locked (includes the case where no activity has been
@@ -481,6 +629,25 @@ impl MachineMonitor {
                 }
             });
         }
+    }
+
+    /// Locks all cores for `reason`.
+    async fn lock_cores_for(&self, reason: CoreLockReason) {
+        let mut core_manager = self.core_manager.write().await;
+        self.core_lock_reasons
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .lock(reason, &mut core_manager);
+    }
+
+    /// Clears `reasons` and unlocks all cores if no other reason is left. Returns whether the
+    /// cores were unlocked.
+    async fn unlock_cores_for(&self, reasons: &[CoreLockReason]) -> bool {
+        let mut core_manager = self.core_manager.write().await;
+        self.core_lock_reasons
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .unlock(reasons, &mut core_manager)
     }
 
     pub async fn interrupt(&self) {
@@ -1627,10 +1794,13 @@ pub trait Machine {
 
     async fn lock_cores(&self, count: u32) -> u32;
 
+    /// Admin lock of all cores (LockAll RPC).
     async fn lock_all_cores(&self);
 
     async fn unlock_cores(&self, count: u32) -> u32;
 
+    /// Lifts the admin lock and the lock of a cancelled idle action (UnlockAll RPC). Cores stay
+    /// locked while the host is nimby locked.
     async fn unlock_all_cores(&self);
 
     async fn reboot_if_idle(&self) -> Result<()>;
@@ -1771,23 +1941,29 @@ impl Machine for MachineMonitor {
     }
 
     async fn lock_all_cores(&self) {
-        let mut core_manager = self.core_manager.write().await;
-        core_manager.lock_all_cores();
+        self.lock_cores_for(CoreLockReason::Admin).await;
     }
 
     async fn unlock_cores(&self, count: u32) -> u32 {
         let mut core_manager = self.core_manager.write().await;
-        core_manager.unlock_cores(count)
+        self.core_lock_reasons
+            .lock()
+            .unwrap_or_else(|err| err.into_inner())
+            .unlock_partial(count, &mut core_manager)
     }
 
     async fn unlock_all_cores(&self) {
-        let mut core_manager = self.core_manager.write().await;
-        core_manager.unlock_all_cores();
+        let unlocked = self
+            .unlock_cores_for(&[CoreLockReason::Admin, CoreLockReason::IdleAction])
+            .await;
+        if !unlocked {
+            info!("Cores stay locked: the host is nimby locked");
+        }
     }
 
     async fn reboot_if_idle(&self) -> Result<()> {
         // Prevent new frames from booking
-        self.lock_all_cores().await;
+        self.lock_cores_for(CoreLockReason::IdleAction).await;
 
         if self.is_idle() {
             // Reboot now
@@ -1805,7 +1981,7 @@ impl Machine for MachineMonitor {
         self.validate_restart_preconditions(false)?;
 
         // Prevent new frames from booking
-        self.lock_all_cores().await;
+        self.lock_cores_for(CoreLockReason::IdleAction).await;
 
         if self.is_idle() {
             self.trigger_restart().await;

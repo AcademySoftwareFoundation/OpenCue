@@ -360,6 +360,47 @@ cueadmin -host render01 render02 -lock      # Lock specific hosts
 cueadmin -hostmatch test -unlock            # Unlock all test hosts
 ```
 
+#### Bulk Lock/Unlock Nimby Hosts
+
+`-nimby` restricts the selection to hosts with nimby enabled (workstations) and counts as a
+host selection on its own, so `-host`/`-hostmatch` are optional with it. With `-nimby`,
+`-lock` and `-unlock` run as one bulk request on Cuebot instead of one call per host:
+
+| Flag | Meaning |
+|---|---|
+| `-nimby` | Restrict to nimby hosts. Combine with `-host`/`-hostmatch`/`-alloc` to narrow it further (`-state` is not supported here) |
+| `-kill-frames` | With `-lock -nimby`: kill the frames running on the locked hosts. They go back to waiting without spending a retry (best effort, see below) |
+| `-source NAME` | Lock source tag, defaults to `cueadmin`. `-unlock` only releases hosts locked with the same tag |
+
+```bash
+cueadmin -lock -nimby -source night-render                # Lock all workstations
+cueadmin -lock -nimby -kill-frames -source night-render -force   # Lock them and clear their frames
+cueadmin -unlock -nimby -source night-render -force       # Unlock what night-render locked
+cueadmin -lock -nimby -hostmatch lighting -source lgt     # Only workstations matching "lighting"
+cueadmin -lock -nimby -alloc lax.desktop -source night-render  # Only workstations in one allocation
+```
+
+A bulk lock skips hosts already locked by another source (for example a maintenance lock), and a
+bulk unlock only releases hosts locked by the same source, so a scheduled run never lifts someone
+else's lock. Both ask for confirmation unless `-force` is passed, and print a summary:
+
+```
+Locked: 42, unreachable: 1, skipped: 3, frames killed: 17
+Unreachable hosts: ws-118
+Frames whose kill could not be confirmed (still running):
+  0042-comp
+```
+
+An unreachable host is locked in Cuebot, so nothing new is booked on it. A frame whose kill can't
+be confirmed stays running until its host reports it finished.
+
+Not spending a retry is best effort: if the killed frame's completion report reaches Cuebot
+before the frame is put back to waiting, the frame is judged like any other failure. It can spend
+a retry, or go dead if it has none left or ran longer than 12 hours. `-lh -nimby` lists only nimby hosts.
+
+See [Night rendering on workstations](/docs/other-guides/night-rendering-on-workstations) for a
+scheduled setup.
+
 #### Move Hosts
 
 Change host allocation:

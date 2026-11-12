@@ -25,6 +25,7 @@ import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.LocalHostAssignment;
 import com.imageworks.spcue.Source;
 import com.imageworks.spcue.StrandedCoreStats;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -172,6 +173,34 @@ public interface HostDao {
      * @param source Source
      */
     void updateHostLock(HostInterface host, LockState state, Source source);
+
+    /**
+     * Sets the host to LOCKED with the given source, unless it is already LOCKED by a different
+     * source. The check and the update are a single statement.
+     *
+     * @param host HostInterface
+     * @param source Source
+     * @return true if the host is now LOCKED by the source, false if another source holds the lock
+     */
+    boolean lockHostIfNotLockedByOther(HostInterface host, Source source);
+
+    /**
+     * Opens the host only if it is LOCKED by the given source. The check and the update are a
+     * single statement.
+     *
+     * @param host HostInterface
+     * @param source Source
+     * @return true if the host was unlocked
+     */
+    boolean unlockHostIfLockedBy(HostInterface host, Source source);
+
+    /**
+     * Returns the hosts matching the search.
+     *
+     * @param r HostSearchInterface
+     * @return List of HostEntity
+     */
+    List<HostEntity> findHosts(HostSearchInterface r);
 
     /**
      * Sets the reboot when idle boolean to true or false. If true the cue will issue the reboot

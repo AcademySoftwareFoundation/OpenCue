@@ -300,6 +300,66 @@ public class HostDaoTests extends AbstractTransactionalJUnit4SpringContextTests 
         assertEquals(hostDao.isHostLocked(host), true);
     }
 
+    private String getLockSource(HostInterface host) {
+        return jdbcTemplate.queryForObject("SELECT str_lock_source FROM host WHERE pk_host=?",
+                String.class, host.getHostId());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testLockHostIfNotLockedByOther() {
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
+                hostManager.getDefaultAllocationDetail(), false);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
+        Source nightRender = new Source("HostApi:night-render");
+        Source maintenance = new Source("maintenance");
+
+        // An open host is locked.
+        assertTrue(hostDao.lockHostIfNotLockedByOther(host, nightRender));
+        assertEquals(LockState.LOCKED, hostDao.findHostDetail(TEST_HOST).lockState);
+        assertEquals(nightRender.toString(), getLockSource(host));
+
+        // Locking again with the same source is idempotent.
+        assertTrue(hostDao.lockHostIfNotLockedByOther(host, nightRender));
+
+        // A lock held by another source is left alone.
+        hostDao.updateHostLock(host, LockState.LOCKED, maintenance);
+        assertFalse(hostDao.lockHostIfNotLockedByOther(host, nightRender));
+        assertEquals(maintenance.toString(), getLockSource(host));
+
+        // A nimby-locked host is locked.
+        hostDao.updateHostLock(host, LockState.NIMBY_LOCKED, maintenance);
+        assertTrue(hostDao.lockHostIfNotLockedByOther(host, nightRender));
+        assertEquals(LockState.LOCKED, hostDao.findHostDetail(TEST_HOST).lockState);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUnlockHostIfLockedBy() {
+        hostDao.insertRenderHost(buildRenderHost(TEST_HOST),
+                hostManager.getDefaultAllocationDetail(), false);
+        HostEntity host = hostDao.findHostDetail(TEST_HOST);
+        Source nightRender = new Source("HostApi:night-render");
+        Source maintenance = new Source("maintenance");
+
+        // Another source's lock is not lifted.
+        hostDao.updateHostLock(host, LockState.LOCKED, maintenance);
+        assertFalse(hostDao.unlockHostIfLockedBy(host, nightRender));
+        assertEquals(LockState.LOCKED, hostDao.findHostDetail(TEST_HOST).lockState);
+
+        // Neither is a nimby lock, even with a matching source.
+        hostDao.updateHostLock(host, LockState.NIMBY_LOCKED, nightRender);
+        assertFalse(hostDao.unlockHostIfLockedBy(host, nightRender));
+        assertEquals(LockState.NIMBY_LOCKED, hostDao.findHostDetail(TEST_HOST).lockState);
+
+        // The same source's lock is lifted.
+        hostDao.updateHostLock(host, LockState.LOCKED, nightRender);
+        assertTrue(hostDao.unlockHostIfLockedBy(host, nightRender));
+        assertEquals(LockState.OPEN, hostDao.findHostDetail(TEST_HOST).lockState);
+    }
+
     @Test
     @Transactional
     @Rollback(true)
