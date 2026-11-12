@@ -1,0 +1,28 @@
+[package]
+name = "cueadmin"
+authors = { workspace = true }
+edition = { workspace = true }
+version = { workspace = true }
+license = "Apache-2.0"
+description = "OpenCue administration command line tool"
+
+[[bin]]
+path = "src/main.rs"
+name = "cueadmin"
+
+[dependencies]
+# Internal Dependencies
+opencue-proto = { path = "../opencue-proto" }
+
+# External Dependencies
+chrono = "0.4.38"
+clap = { version = "4.5", features = ["derive", "env"] }
+miette = { workspace = true }
+rand = "0.8.5"
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+whoami = { workspace = true }
+yaml-rust2 = "0.8"
+

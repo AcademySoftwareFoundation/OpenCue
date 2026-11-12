@@ -18,10 +18,10 @@ use rqd::RunFrame;
 use uuid::Uuid;
 
 mod comment;
-mod criterion;
-mod cue;
+pub mod criterion;
+pub mod cue;
 mod department;
-mod depend;
+pub mod depend;
 pub mod facility;
 #[allow(clippy::all, clippy::pedantic, clippy::nursery)]
 mod filter;
@@ -33,9 +33,9 @@ mod limit;
 mod render_partition;
 pub mod report;
 pub mod rqd;
-mod service;
+pub mod service;
 pub mod show;
-mod subscription;
+pub mod subscription;
 mod task;
 
 pub trait WithUuid {
