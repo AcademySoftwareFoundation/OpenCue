@@ -19,6 +19,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -123,15 +124,24 @@ public class Maestro {
     // Floor of the per-host same-layer cap, in frames (maestro.layer_host_cap_min_frames).
     private volatile int layerHostCapMinFrames = 8;
 
-    // Memory-driven sizing (see maestro.md 3.9). A threadable layer books
-    // round(memory / memory-per-core) cores, where memory is the larger of its ask and the
-    // largest rss any of its frames has reported (layer_mem.int_max_rss, raised by every
-    // host report). cores=1 means "let the system decide": a layer that still sizes to 1
-    // core with no rss seen yet probes at probeFrames running frames, then every later
-    // launch books at its real shape. The ratio is maestro.mem_per_core (KB); 0, the
-    // default, derives it from each group's own hosts.
+    // Memory-driven sizing (see maestro.md 3.9). Maestro is the only sizer of a managed
+    // layer's memory; the ask (int_mem_min) is the user's and Cuebot never rewrites it.
+    // A layer with auto memory on (layer.b_optimize) books, once probeFrames of its frames
+    // succeeded, the auto_mem_percentile of their rss plus auto_mem_headroom, up or down
+    // from the ask; before that, the larger of its ask and the largest rss seen
+    // (layer_mem.int_max_rss). A pinned layer (auto memory off) books exactly its ask. A
+    // frame killed for memory retries at no less than its own floor (frame.int_mem_retry).
+    // A threadable layer books round(memory / memory-per-core) cores. cores=1 means "let
+    // the system decide": a layer that still sizes to 1 core with no rss seen yet probes at
+    // probeFrames running frames, then every later launch books at its real shape. The
+    // ratio is maestro.mem_per_core (KB); 0, the default, derives it from each group's own
+    // hosts.
     // Static, like the score weights, because the pure helpers that read them are static.
     static volatile int probeFrames = 8; // maestro.probe_frames
+    static volatile double autoMemHeadroom = 0.10; // maestro.auto_mem_headroom
+    private volatile double autoMemPercentile = 0.9; // maestro.auto_mem_percentile
+    private volatile long autoMemRefreshMs = 60_000; // maestro.auto_mem_refresh_seconds
+    private volatile int autoMemRefreshMaxLayers = 500; // maestro.auto_mem_refresh_max_layers
     static volatile int commitChunkFrames = 500; // maestro.commit_chunk_frames
     static volatile double priorityExponent = 1.5; // maestro.priority_exponent
     // Shutdown bounds (maestro.shutdown_launch_drain_seconds, maestro.shutdown_tick_wait_seconds).
@@ -285,6 +295,12 @@ public class Maestro {
     // Layers sized this tick: layerId -> {core points, memory KB}, read by planBookings so
     // the commit books the same shape the Maestro scored.
     private final Map<String, long[]> layerResize = new HashMap<>();
+    // Leader memory for auto memory sizing, kept across ticks for the current candidates only
+    // and cleared on demotion: layerId -> the succeeded-frame rss percentile, and layerId ->
+    // the booked memory last published to layer_mem.int_mem_booked.
+    private final Map<String, RssStat> rssStats = new HashMap<>();
+    private final Map<String, Long> publishedBookedKb = new HashMap<>();
+    private long lastAutoMemWarnMs = 0;
 
     // Layer-placements planned this tick, for the tick-breakdown log line.
     private int lastPlacements;
@@ -381,8 +397,10 @@ public class Maestro {
     int lastCommitSplits = 0;
     int lastCommitDropped = 0;
     // Wall time of this tick's candidate read (loadTickCandidates), the SQL half of the place
-    // phase, and of the pin resolution over it (resolveTickPins).
+    // phase, of the auto memory sizing over it (applyAutoMemory), and of the pin resolution
+    // (resolveTickPins).
     private long tickCandidatesMs = 0;
+    private long tickAutoMemoryMs = 0;
     private long tickPinsMs = 0;
 
     // This tick's candidate read, cut per group by readLayerCandidatesForGroup; null between
@@ -468,6 +486,12 @@ public class Maestro {
         statIntervalMs =
                 1000L * env.getProperty("maestro.stat_interval_seconds", Integer.class, 300);
         probeFrames = env.getProperty("maestro.probe_frames", Integer.class, 8);
+        autoMemPercentile = env.getProperty("maestro.auto_mem_percentile", Double.class, 0.9);
+        autoMemHeadroom = env.getProperty("maestro.auto_mem_headroom", Double.class, 0.10);
+        autoMemRefreshMs =
+                1000L * env.getProperty("maestro.auto_mem_refresh_seconds", Integer.class, 60);
+        autoMemRefreshMaxLayers = Math.max(1,
+                env.getProperty("maestro.auto_mem_refresh_max_layers", Integer.class, 500));
         commitChunkFrames = env.getProperty("maestro.commit_chunk_frames", Integer.class, 500);
         priorityExponent = env.getProperty("maestro.priority_exponent", Double.class, 1.5);
         drainChunkCompletions =
@@ -756,6 +780,7 @@ public class Maestro {
     private void resetTickOutputs() {
         tickPlanned = 0;
         tickCandidatesMs = 0;
+        tickAutoMemoryMs = 0;
         tickPinsMs = 0;
         tickGranted = 0;
         tickBackfilled = 0;
@@ -1173,12 +1198,15 @@ public class Maestro {
         // 4. PLAN bookings in parallel, then trim to the exact folder + limit budgets.
         long tPlan = System.currentTimeMillis();
         stats.phaseMs.put("place", tPlan - tSnapshot);
-        // The place phase split: the candidate read (SQL), the pin resolution over it, and
-        // everything else (the group cuts, scoring, the epilogue, the waitlist tally and the
-        // grants, all in memory).
+        // The place phase split: the candidate read (SQL), the auto memory sizing over it (its
+        // rss percentile reads and booked publish), the pin resolution, and everything else
+        // (the group cuts, scoring, the epilogue, the waitlist tally and the grants, all in
+        // memory).
+        long scoreMs = tPlan - tSnapshot - tickCandidatesMs - tickAutoMemoryMs - tickPinsMs;
         stats.phaseMs.put("candidates", tickCandidatesMs);
+        stats.phaseMs.put("auto_memory", tickAutoMemoryMs);
         stats.phaseMs.put("pins", tickPinsMs);
-        stats.phaseMs.put("score", tPlan - tSnapshot - tickCandidatesMs - tickPinsMs);
+        stats.phaseMs.put("score", scoreMs);
         List<FrameBooking> planned = planBookings();
         if (planned == null)
             return dispatched; // interrupted mid-plan; abort before committing
@@ -1220,12 +1248,11 @@ public class Maestro {
         if (tTick > 1000) {
             String breakdown = "drain=" + lastDrainMs + "ms, snapshot=" + (tSnapshot - tStart)
                     + "ms, place=" + (tPlan - tSnapshot) + "ms (candidates=" + tickCandidatesMs
-                    + "ms, pins=" + tickPinsMs + "ms, score="
-                    + (tPlan - tSnapshot - tickCandidatesMs - tickPinsMs) + "ms), read="
-                    + (tRead - tPlan) + "ms, batchCommit=" + (tCommit - tRead) + "ms, usage="
-                    + (tFlush - tCommit) + "ms | placements=" + lastPlacements + " planned="
-                    + planned.size() + " committed=" + dispatchedNow + " splits=" + lastCommitSplits
-                    + " dropped=" + lastCommitDropped;
+                    + "ms, autoMemory=" + tickAutoMemoryMs + "ms, pins=" + tickPinsMs + "ms, score="
+                    + scoreMs + "ms), read=" + (tRead - tPlan) + "ms, batchCommit="
+                    + (tCommit - tRead) + "ms, usage=" + (tFlush - tCommit) + "ms | placements="
+                    + lastPlacements + " planned=" + planned.size() + " committed=" + dispatchedNow
+                    + " splits=" + lastCommitSplits + " dropped=" + lastCommitDropped;
             logger.info("Maestro tick breakdown: " + breakdown);
             // Production runs at WARN, so a slow tick carries its own breakdown there.
             if (tTick > slowTickWarnMs)
@@ -1639,15 +1666,15 @@ public class Maestro {
      * Size each candidate's cores and memory to what its frames actually need, before placement, so
      * scoring, fit, caps and booking all use one shape.
      *
-     * Memory is the larger of the layer's ask and the largest rss any of its frames has reported.
-     * Threadable layers book {@code round(memory / memPerCoreKb)} cores, never below the ask and
-     * never above the layer's max or {@code maxHostCores}. A layer tagged {@code manual} keeps its
-     * ask, as under cue-layer-man.
+     * Memory follows {@link #bookedMemKb}. Threadable layers book {@code round(memory /
+     * memPerCoreKb)} cores, never below the ask and never above the layer's max or
+     * {@code maxHostCores}. A layer tagged {@code manual} keeps its ask cores, as under
+     * cue-layer-man.
      *
-     * A layer that still sizes to 1 core with no rss seen yet is unproven ({@code rssProven =
-     * false}): at most {@link #probeFrames} of its frames run until its rss is known. A layer that
-     * already finished that many frames without reporting rss ends too fast to sample and is
-     * treated as proven.
+     * A layer with auto memory on that still sizes to 1 core with no rss seen yet is unproven
+     * ({@code rssProven = false}): at most {@link #probeFrames} of its frames run until its rss is
+     * known. A layer that already finished that many frames without reporting rss ends too fast to
+     * sample and is treated as proven. A pinned layer is never probed: it books its ask.
      */
     static void sizeFromMemory(List<LayerCandidate> candidates, long memPerCoreKb, int maxHostCores,
             Map<String, long[]> resizeOut) {
@@ -1657,16 +1684,132 @@ public class Maestro {
                 continue;
             }
             boolean coresFollowMemory = layer.threadable && memPerCoreKb > 0 && !layer.manual;
-            long memKb = Math.max(layer.layerMemMin, layer.layerMaxRssKb);
+            long memKb = bookedMemKb(layer);
             int cores = coresFollowMemory ? coresForMemory(layer, memKb, memPerCoreKb, maxHostCores)
                     : layer.layerCoresMin;
-            layer.rssProven = layer.layerMaxRssKb > 0 || !coresFollowMemory
+            layer.rssProven = !layer.autoMemory || layer.layerMaxRssKb > 0 || !coresFollowMemory
                     || cores != CORE_POINTS_PER_CORE || layer.frameSuccessCount >= probeFrames;
             if (cores != layer.layerCoresMin || memKb != layer.layerMemMin) {
                 resizeOut.put(layer.layerId, new long[] {cores, memKb});
                 layer.layerCoresMin = cores;
                 layer.layerMemMin = memKb;
             }
+        }
+    }
+
+    /**
+     * The per-frame memory (KB) Maestro books a layer at, before any frame's own OOM floor:
+     * <ul>
+     * <li>auto memory off (pinned): the ask, exactly;</li>
+     * <li>auto memory on, with {@link #probeFrames} successes and their rss percentile known: the
+     * percentile plus {@link #autoMemHeadroom}, up or down from the ask;</li>
+     * <li>otherwise: the larger of the ask and the largest rss any frame reported.</li>
+     * </ul>
+     * A layer with no core ask ({@code layerCoresMin <= 0}) is not sized and books its ask.
+     */
+    static long bookedMemKb(LayerCandidate layer) {
+        if (!layer.autoMemory || layer.layerCoresMin <= 0)
+            return layer.layerMemMin;
+        if (layer.frameSuccessCount >= probeFrames && layer.succeededRssPctKb > 0)
+            return Math.round(layer.succeededRssPctKb * (1.0 + autoMemHeadroom));
+        return Math.max(layer.layerMemMin, layer.layerMaxRssKb);
+    }
+
+    /**
+     * The layers whose succeeded-frame rss percentile must be read this tick: auto memory on, at
+     * least {@link #probeFrames} successes, and either no cached figure or a success count that
+     * changed since a figure older than {@code refreshMs}. At most {@code maxLayers} are returned,
+     * the ones with no figure first, then the stalest, so a cold cache (after a leader change)
+     * fills over a few ticks instead of reading every layer in one; the rest keep their stale
+     * figure, or the early rule, until a later tick.
+     */
+    static Set<String> rssStatsToRefresh(Collection<LayerCandidate> layers,
+            Map<String, RssStat> cache, long nowMs, long refreshMs, int maxLayers) {
+        List<String> due = new ArrayList<>();
+        for (LayerCandidate layer : layers) {
+            if (!layer.autoMemory || layer.frameSuccessCount < probeFrames)
+                continue;
+            RssStat stat = cache.get(layer.layerId);
+            if (stat == null || (stat.successCount != layer.frameSuccessCount
+                    && nowMs - stat.computedAtMs >= refreshMs))
+                due.add(layer.layerId);
+        }
+        if (due.size() > maxLayers) {
+            due.sort(Comparator.comparingLong(id -> {
+                RssStat stat = cache.get(id);
+                return stat == null ? Long.MIN_VALUE : stat.computedAtMs;
+            }));
+            due = due.subList(0, maxLayers);
+        }
+        return new HashSet<>(due);
+    }
+
+    /**
+     * The booked memory to publish for each layer, keeping only the layers whose figure differs
+     * from the one last published.
+     */
+    static Map<String, Long> bookedMemChanges(Collection<LayerCandidate> layers,
+            Map<String, Long> published) {
+        Map<String, Long> out = new HashMap<>();
+        for (LayerCandidate layer : layers) {
+            long booked = bookedMemKb(layer);
+            Long last = published.get(layer.layerId);
+            if (last == null || last != booked)
+                out.put(layer.layerId, booked);
+        }
+        return out;
+    }
+
+    /**
+     * Auto memory for this tick's candidates, leader only: refresh the cached rss percentiles that
+     * are due (one query, capped at {@code maestro.auto_mem_refresh_max_layers} layers), stamp them
+     * on the candidates, and publish the booked memory of the layers whose figure changed (one
+     * batch). The caches keep only the current candidates. A failed read leaves the stale figures
+     * in place, and a layer without one sizes by the early rule; a failed publish is retried next
+     * tick. Neither ever fails the tick.
+     */
+    /* package for tests */ void applyAutoMemory(List<CandidateRow> rows) {
+        Map<String, LayerCandidate> layers = new HashMap<>();
+        for (CandidateRow row : rows)
+            layers.put(row.row.layerId, row.row);
+        rssStats.keySet().retainAll(layers.keySet());
+        publishedBookedKb.keySet().retainAll(layers.keySet());
+
+        long nowMs = System.currentTimeMillis();
+        Set<String> due = rssStatsToRefresh(layers.values(), rssStats, nowMs, autoMemRefreshMs,
+                autoMemRefreshMaxLayers);
+        if (!due.isEmpty()) {
+            try {
+                Map<String, Long> pct =
+                        maestroDao.getSucceededRssPercentile(due, autoMemPercentile);
+                for (String layerId : due) {
+                    rssStats.put(layerId, new RssStat(layers.get(layerId).frameSuccessCount,
+                            pct.getOrDefault(layerId, 0L), nowMs));
+                }
+            } catch (RuntimeException exception) {
+                warnAutoMemory("the rss percentile read failed", exception, nowMs);
+            }
+        }
+        for (CandidateRow row : rows) {
+            RssStat stat = rssStats.get(row.row.layerId);
+            row.row.succeededRssPctKb = stat != null ? stat.pctKb : 0;
+        }
+
+        Map<String, Long> changes = bookedMemChanges(layers.values(), publishedBookedKb);
+        if (!changes.isEmpty()) {
+            try {
+                maestroDao.updateBookedMemory(changes);
+                publishedBookedKb.putAll(changes);
+            } catch (RuntimeException exception) {
+                warnAutoMemory("publishing the booked memory failed", exception, nowMs);
+            }
+        }
+    }
+
+    private void warnAutoMemory(String what, RuntimeException exception, long nowMs) {
+        if (nowMs - lastAutoMemWarnMs >= GROUP_WARN_INTERVAL_MS) {
+            lastAutoMemWarnMs = nowMs;
+            logger.warn("Maestro: auto memory: " + what + ": " + exception.getMessage());
         }
     }
 
@@ -1946,6 +2089,8 @@ public class Maestro {
         lastSeenMs.clear();
         warmthByHostLayer.clear();
         bookingsByHost.clear();
+        rssStats.clear();
+        publishedBookedKb.clear();
     }
 
     /**
@@ -2322,7 +2467,11 @@ public class Maestro {
         } catch (RuntimeException exception) {
             tickCandidates = new TickCandidates(exception);
         }
-        tickCandidatesMs = System.currentTimeMillis() - t0;
+        long t1 = System.currentTimeMillis();
+        tickCandidatesMs = t1 - t0;
+        if (tickCandidates.failure == null)
+            applyAutoMemory(tickCandidates.rows);
+        tickAutoMemoryMs = System.currentTimeMillis() - t1;
     }
 
     /**
@@ -3928,6 +4077,11 @@ public class Maestro {
         double drawWeight; // stamped by stampDrawWeights(), consumed by drawSlot()
         public long layerMaxRssKb; // largest rss any frame reported (layer_mem), 0 before the first
         public boolean manual; // tagged "manual": sized by hand, never by Maestro
+        // Auto memory (layer.b_optimize): Maestro sizes the layer's memory; off pins it to the ask.
+        public boolean autoMemory = true;
+        // The auto_mem_percentile of the rss of the layer's succeeded frames, in KB, from the
+        // leader's cache (applyAutoMemory); 0 when unknown.
+        public long succeededRssPctKb;
         boolean rssProven; // false arms the probe gate (see sizeFromMemory)
         boolean placedThisTick; // consumed by dispatchGroupWithScoring()
         // Mutable in-tick accounting.
@@ -3989,6 +4143,8 @@ public class Maestro {
             candidate.priority = priority;
             candidate.layerMaxRssKb = layerMaxRssKb;
             candidate.manual = manual;
+            candidate.autoMemory = autoMemory;
+            candidate.succeededRssPctKb = succeededRssPctKb;
             candidate.jobCoresInUse = jobCoresInUse;
             candidate.jobMaxCores = jobMaxCores;
             candidate.waitingFrameCount = waitingFrameCount;
@@ -3999,6 +4155,19 @@ public class Maestro {
             candidate.folderMax = folderMax;
             candidate.folderRunning = folderRunning;
             return candidate;
+        }
+    }
+
+    /** One layer's cached succeeded-frame rss percentile and the success count it was read at. */
+    static final class RssStat {
+        final int successCount;
+        final long pctKb;
+        final long computedAtMs;
+
+        RssStat(int successCount, long pctKb, long computedAtMs) {
+            this.successCount = successCount;
+            this.pctKb = pctKb;
+            this.computedAtMs = computedAtMs;
         }
     }
 

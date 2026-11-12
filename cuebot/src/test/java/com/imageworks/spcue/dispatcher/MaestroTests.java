@@ -20,6 +20,7 @@ import java.sql.PreparedStatement;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -42,6 +43,7 @@ import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.MaestroDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.postgres.MaestroDaoJdbc;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -58,6 +60,7 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -655,6 +658,199 @@ public class MaestroTests {
         resize(c, 0);
         assertEquals(100, c.layerCoresMin);
         assertTrue(c.rssProven);
+    }
+
+    // ---- auto memory: bookedMemKb, the rss percentile cache, the publish ----
+
+    private static final long G = CueUtil.GB;
+
+    /** An auto-memory layer with {@code successes} succeeded frames at {@code pctKb} percentile. */
+    private static Maestro.LayerCandidate autoLayer(String layerId, long askKb, long maxRssKb,
+            int successes, long pctKb) {
+        Maestro.LayerCandidate c = grantLayer(layerId, true, 100, 0, askKb);
+        c.layerMaxRssKb = maxRssKb;
+        c.frameSuccessCount = successes;
+        c.succeededRssPctKb = pctKb;
+        return c;
+    }
+
+    @Test
+    public void anOutlierFrameDoesNotSizeTheLayer() {
+        // 20 frames at 8G and one at 500G: the percentile is 8G, the peak is 500G.
+        Maestro.LayerCandidate c = autoLayer("comp", 8 * G, 500 * G, 21, 8 * G);
+        assertEquals(Math.round(8 * G * 1.1), Maestro.bookedMemKb(c));
+    }
+
+    @Test
+    public void autoMemorySizesBelowTheAsk() {
+        Maestro.LayerCandidate c = autoLayer("fat", 32 * G, 7 * G, 8, 6 * G);
+        Map<String, long[]> out = new HashMap<>();
+        Maestro.sizeFromMemory(Arrays.asList(c), MPC, Integer.MAX_VALUE, out);
+        long booked = Math.round(6 * G * 1.1);
+        assertEquals(booked, c.layerMemMin);
+        assertEquals(booked, out.get("fat")[1]);
+        assertEquals(200, c.layerCoresMin); // 6.6G at 4G per core
+    }
+
+    @Test
+    public void aPinnedLayerBooksExactlyItsAsk() {
+        Maestro.LayerCandidate c = autoLayer("pinned", 8 * G, 500 * G, 50, 400 * G);
+        c.autoMemory = false;
+        Maestro.sizeFromMemory(Arrays.asList(c), MPC, Integer.MAX_VALUE, new HashMap<>());
+        assertEquals(8 * G, c.layerMemMin);
+        assertEquals(200, c.layerCoresMin); // cores still follow the memory
+        assertTrue(c.rssProven);
+    }
+
+    @Test
+    public void aPinnedOneCoreLayerIsNotProbed() {
+        Maestro.LayerCandidate c = autoLayer("pinned", 2 * G, 0, 0, 0);
+        c.autoMemory = false;
+        resize(c, 0);
+        assertEquals(100, c.layerCoresMin);
+        assertTrue(c.rssProven);
+    }
+
+    @Test
+    public void tooFewSuccessesKeepTheEarlyRule() {
+        // Below probe_frames the percentile is ignored: the larger of ask and peak.
+        Maestro.LayerCandidate c = autoLayer("young", 4 * G, 18 * G, 3, 2 * G);
+        assertEquals(18 * G, Maestro.bookedMemKb(c));
+        Maestro.LayerCandidate cold = autoLayer("cold", 2 * G, 0, 3, 0);
+        resize(cold, 0);
+        assertFalse("the probe gate stays armed", cold.rssProven);
+    }
+
+    @Test
+    public void anUnknownPercentileKeepsTheEarlyRule() {
+        Maestro.LayerCandidate c = autoLayer("noRss", 4 * G, 18 * G, 50, 0);
+        assertEquals(18 * G, Maestro.bookedMemKb(c));
+    }
+
+    @Test
+    public void percentilesRefreshOnlyWhenDue() {
+        long now = 1_000_000;
+        long refresh = 60_000;
+        Map<String, Maestro.RssStat> cache = new HashMap<>();
+        cache.put("same", new Maestro.RssStat(10, G, now - 2 * refresh));
+        cache.put("young", new Maestro.RssStat(10, G, now - refresh / 2));
+        cache.put("old", new Maestro.RssStat(10, G, now - refresh));
+        List<Maestro.LayerCandidate> layers = Arrays.asList(autoLayer("missing", G, 0, 8, 0),
+                autoLayer("same", G, 0, 10, 0), autoLayer("young", G, 0, 11, 0),
+                autoLayer("old", G, 0, 11, 0), autoLayer("few", G, 0, 7, 0));
+        Maestro.LayerCandidate pinned = autoLayer("pinned", G, 0, 50, 0);
+        pinned.autoMemory = false;
+        List<Maestro.LayerCandidate> all = new ArrayList<>(layers);
+        all.add(pinned);
+        assertEquals(new HashSet<>(Arrays.asList("missing", "old")),
+                Maestro.rssStatsToRefresh(all, cache, now, refresh, 500));
+    }
+
+    @Test
+    public void percentileRefreshesAreCappedMissingFirstThenStalest() {
+        long now = 1_000_000;
+        long refresh = 60_000;
+        Map<String, Maestro.RssStat> cache = new HashMap<>();
+        cache.put("stale", new Maestro.RssStat(10, G, now - 5 * refresh));
+        cache.put("staler", new Maestro.RssStat(10, G, now - 9 * refresh));
+        cache.put("due", new Maestro.RssStat(10, G, now - refresh));
+        List<Maestro.LayerCandidate> layers = Arrays.asList(autoLayer("due", G, 0, 11, 0),
+                autoLayer("stale", G, 0, 11, 0), autoLayer("missingA", G, 0, 8, 0),
+                autoLayer("staler", G, 0, 11, 0), autoLayer("missingB", G, 0, 8, 0));
+        assertEquals(new HashSet<>(Arrays.asList("missingA", "missingB")),
+                Maestro.rssStatsToRefresh(layers, cache, now, refresh, 2));
+        assertEquals(new HashSet<>(Arrays.asList("missingA", "missingB", "staler", "stale")),
+                Maestro.rssStatsToRefresh(layers, cache, now, refresh, 4));
+        assertEquals(5, Maestro.rssStatsToRefresh(layers, cache, now, refresh, 5).size());
+    }
+
+    @Test
+    public void aColdCacheFillsOverSeveralTicks() throws Exception {
+        Maestro s = new Maestro();
+        set(s, "autoMemRefreshMaxLayers", 2);
+        MaestroDao dao = mock(MaestroDao.class);
+        s.setMaestroDao(dao);
+        when(dao.getSucceededRssPercentile(any(), anyDouble())).thenAnswer(i -> {
+            Map<String, Long> pct = new HashMap<>();
+            for (Object id : (Collection<?>) i.getArgument(0))
+                pct.put((String) id, 8 * G);
+            return pct;
+        });
+
+        List<Maestro.CandidateRow> rows = rowsOf(autoLayer("a", G, 0, 20, 0),
+                autoLayer("b", G, 0, 20, 0), autoLayer("c", G, 0, 20, 0));
+        s.applyAutoMemory(rows);
+        long stamped = rows.stream().filter(r -> r.row.succeededRssPctKb > 0).count();
+        assertEquals("the first tick reads only the cap", 2, stamped);
+        s.applyAutoMemory(rows);
+        for (Maestro.CandidateRow r : rows)
+            assertEquals(8 * G, r.row.succeededRssPctKb);
+        verify(dao, times(2)).getSucceededRssPercentile(any(), anyDouble());
+    }
+
+    @Test
+    public void onlyChangedBookedMemoryIsPublished() {
+        Map<String, Long> published = new HashMap<>();
+        published.put("same", 8 * G);
+        published.put("moved", 8 * G);
+        Map<String, Long> changes = Maestro.bookedMemChanges(
+                Arrays.asList(autoLayer("same", 8 * G, 0, 0, 0),
+                        autoLayer("moved", 8 * G, 10 * G, 0, 0), autoLayer("new", 4 * G, 0, 0, 0)),
+                published);
+        Map<String, Long> expected = new HashMap<>();
+        expected.put("moved", 10 * G);
+        expected.put("new", 4 * G);
+        assertEquals(expected, changes);
+    }
+
+    private static List<Maestro.CandidateRow> rowsOf(Maestro.LayerCandidate... layers) {
+        List<Maestro.CandidateRow> rows = new ArrayList<>();
+        for (Maestro.LayerCandidate layer : layers)
+            rows.add(new Maestro.CandidateRow(layer, "facility", "", ""));
+        return rows;
+    }
+
+    @Test
+    public void theLeaderCachesPercentilesAndPublishesOnChangeOnly() {
+        Maestro s = new Maestro();
+        MaestroDao dao = mock(MaestroDao.class);
+        s.setMaestroDao(dao);
+        Map<String, Long> pct = new HashMap<>();
+        pct.put("comp", 8 * G);
+        when(dao.getSucceededRssPercentile(any(), eq(0.9))).thenReturn(pct);
+
+        Maestro.LayerCandidate tick1 = autoLayer("comp", 16 * G, 500 * G, 20, 0);
+        s.applyAutoMemory(rowsOf(tick1));
+        assertEquals(8 * G, tick1.succeededRssPctKb);
+        Map<String, Long> booked = new HashMap<>();
+        booked.put("comp", Math.round(8 * G * 1.1));
+        verify(dao, times(1)).updateBookedMemory(booked);
+
+        // Same success count, same size: no read, no write; the figure is stamped from cache.
+        Maestro.LayerCandidate tick2 = autoLayer("comp", 16 * G, 500 * G, 20, 0);
+        s.applyAutoMemory(rowsOf(tick2));
+        assertEquals(8 * G, tick2.succeededRssPctKb);
+        verify(dao, times(1)).getSucceededRssPercentile(any(), anyDouble());
+        verify(dao, times(1)).updateBookedMemory(any());
+
+        // Demotion forgets both: the next leader reads and publishes again.
+        s.forgetLeaderMemory();
+        s.applyAutoMemory(rowsOf(autoLayer("comp", 16 * G, 500 * G, 20, 0)));
+        verify(dao, times(2)).getSucceededRssPercentile(any(), anyDouble());
+        verify(dao, times(2)).updateBookedMemory(any());
+    }
+
+    @Test
+    public void aFailedPercentileReadFallsBackToTheEarlyRule() {
+        Maestro s = new Maestro();
+        MaestroDao dao = mock(MaestroDao.class);
+        s.setMaestroDao(dao);
+        when(dao.getSucceededRssPercentile(any(), anyDouble()))
+                .thenThrow(new org.springframework.dao.QueryTimeoutException("slow"));
+        Maestro.LayerCandidate c = autoLayer("comp", 16 * G, 500 * G, 20, 0);
+        s.applyAutoMemory(rowsOf(c));
+        assertEquals(0, c.succeededRssPctKb);
+        assertEquals(500 * G, Maestro.bookedMemKb(c));
     }
 
     // ---- subscription identity --------------------------------------------

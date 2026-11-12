@@ -32,6 +32,7 @@ import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
+import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dispatcher.DispatchQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -76,6 +77,7 @@ public class FrameCompleteHandlerScoopTests {
     private PrometheusMetricsCollector prometheusMetrics;
     private DispatchSupport dispatchSupport;
     private JobManager jobManager;
+    private ShowDao showDao;
     // The worker reuses one scoop list, so a mock sees it empty later: sizes are taken at the call.
     private final BlockingQueue<Integer> batchSizes = new LinkedBlockingQueue<Integer>();
 
@@ -116,6 +118,8 @@ public class FrameCompleteHandlerScoopTests {
         handler.setDispatcher(mock(Dispatcher.class));
         handler.setDispatchQueue(mock(DispatchQueue.class));
         handler.setRedirectManager(mock(RedirectManager.class));
+        showDao = mock(ShowDao.class);
+        handler.setShowDao(showDao);
     }
 
     private static QueuedFrameCompletion completion(String frameId) {
@@ -140,6 +144,7 @@ public class FrameCompleteHandlerScoopTests {
         frame.layerId = "layer";
         frame.jobId = "job";
         frame.show = show;
+        frame.showId = show;
         FrameDetail detail = new FrameDetail();
         detail.id = frameId;
         detail.state = FrameState.RUNNING;
@@ -198,7 +203,19 @@ public class FrameCompleteHandlerScoopTests {
         handler.queuePostOps(completion("eaten", FrameState.EATEN, 0, "show"));
         handler.queuePostOps(completion("done", FrameState.SUCCEEDED, 42, "show"));
         release.countDown();
-        verify(jobManager, timeout(5000)).optimizeLayer(any(), eq(8), eq(1000L), eq(42));
+        // The parked frame files first; the layer's representative is the success, not the eaten.
+        verify(jobManager, timeout(5000)).optimizeLayer(
+                argThat(l -> "done".equals(((DispatchFrame) l).getFrameId())), eq(1000L));
+    }
+
+    @Test
+    public void aManagedShowsSuccessLeavesTheLayerMemoryAlone() throws InterruptedException {
+        wire(false);
+        when(showDao.isSchedulerManaged("managed")).thenReturn(true);
+        handler.queuePostOps(completion("done", FrameState.SUCCEEDED, 42, "managed"));
+        // The job check is the scoop's last phase, after the layer's.
+        verify(jobManager, timeout(5000)).isJobComplete(any());
+        verify(jobManager, never()).optimizeLayer(any(), anyLong());
     }
 
     @Test

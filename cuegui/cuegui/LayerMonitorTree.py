@@ -50,6 +50,24 @@ def displayRange(layer):
     return layer.data.range
 
 
+def _showsAutoMemory(layer):
+    return layer.data.memory_optimizer_enabled and layer.data.booked_memory > 0
+
+
+def layerMemoryKb(layer):
+    """The memory each frame of the layer reserves: what Maestro booked when auto memory
+    sized the layer, otherwise the layer's minimum memory."""
+    if _showsAutoMemory(layer):
+        return layer.data.booked_memory
+    return layer.data.min_memory
+
+
+def layerMemoryText(layer):
+    """The Memory column text, e.g. "6.2G (auto)" when auto memory sized the layer."""
+    text = cuegui.Utils.memoryToString(layerMemoryKb(layer))
+    return text + " (auto)" if _showsAutoMemory(layer) else text
+
+
 class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
     """Tree widget for displaying a list of layers."""
 
@@ -81,12 +99,14 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
                            "Zero or negative value indicate that the layer will use\n"
                            "all available cores on the machine, minus this value.")
         self.addColumn("Memory", 60, id=7,
-                       data=lambda layer: cuegui.Utils.memoryToString(layer.data.min_memory),
-                       sort=lambda layer: layer.data.min_memory,
+                       data=layerMemoryText,
+                       sort=layerMemoryKb,
                        tip="The amount of memory that each frame in this layer\n"
-                           "will reserve for its use. If the frame begins to use\n"
-                           "more memory than this, the cuebot will increase this\n"
-                           "number.")
+                           "will reserve for its use.\n"
+                           "On Maestro, (auto) marks memory sized from what\n"
+                           "finished frames used; the layer's Minimum Memory is\n"
+                           "in Layer Properties. Otherwise, if a frame begins to\n"
+                           "use more memory than this, the cuebot increases it.")
         self.addColumn("Gpus", 45, id=8,
                        data=lambda layer: "%d" % layer.data.min_gpus,
                        sort=lambda layer: layer.data.min_gpus,

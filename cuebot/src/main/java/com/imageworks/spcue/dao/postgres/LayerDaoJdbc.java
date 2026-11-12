@@ -392,11 +392,19 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
         return result;
     }
 
+    // spotless:off
+    private static final String INCREASE_UNMANAGED_MIN_MEMORY =
+            "UPDATE layer SET int_mem_min = ? "
+            + "WHERE pk_layer = ? "
+            + "AND int_mem_min < ? "
+            + "AND NOT EXISTS ("
+                + "SELECT 1 FROM job JOIN show ON show.pk_show = job.pk_show "
+                + "WHERE job.pk_job = layer.pk_job AND show.b_scheduler_managed)";
+    // spotless:on
+
     @Override
-    public void increaseLayerMinMemory(LayerInterface layer, long val) {
-        getJdbcTemplate().update(
-                "UPDATE layer SET int_mem_min=? WHERE pk_layer=? AND int_mem_min < ?", val,
-                layer.getLayerId(), val);
+    public void increaseUnmanagedLayerMinMemory(LayerInterface layer, long val) {
+        getJdbcTemplate().update(INCREASE_UNMANAGED_MIN_MEMORY, val, layer.getLayerId(), val);
     }
 
     @Override
@@ -758,36 +766,6 @@ public class LayerDaoJdbc extends JdbcDaoSupport implements LayerDao {
     public void enableMemoryOptimizer(LayerInterface layer, boolean value) {
         getJdbcTemplate().update("UPDATE layer SET b_optimize=? WHERE pk_layer=?", value,
                 layer.getLayerId());
-    }
-
-    // spotless:off
-    private static final String IS_OPTIMIZABLE =
-            "SELECT "
-                + "COUNT(1) "
-            + "FROM "
-                + "layer, "
-                + "layer_stat, "
-                + "layer_usage "
-            + "WHERE "
-                + "layer.pk_layer = layer_stat.pk_layer "
-                + "AND layer.pk_layer = layer_usage.pk_layer "
-                + "AND layer.pk_layer = ? "
-                + "AND layer.int_cores_min = 100 "
-                + "AND layer.int_gpus_min = 0 "
-                + "AND str_tags LIKE '%general%' "
-                + "AND str_tags NOT LIKE '%util%' "
-                + "AND layer_stat.int_succeeded_count >= ? "
-                + "AND (layer_usage.int_core_time_success / layer_stat.int_succeeded_count) <= ?";
-    // spotless:on
-
-    @Override
-    public boolean isOptimizable(LayerInterface l, int succeeded, float avg) {
-        if (succeeded < 1) {
-            throw new IllegalArgumentException(
-                    "Succeeded frames option " + "must be greater than zero");
-        }
-        return getJdbcTemplate().queryForObject(IS_OPTIMIZABLE, Integer.class, l.getLayerId(),
-                succeeded, avg) > 0;
     }
 
     // spotless:off

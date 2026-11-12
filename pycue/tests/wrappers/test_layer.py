@@ -152,6 +152,31 @@ class LayerTests(unittest.TestCase):
             job_pb2.LayerEnableMemoryOptimizerRequest(layer=layer.data, value=False),
             timeout=mock.ANY)
 
+    def testIsAutoMemory(self, getStubMock):
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, memory_optimizer_enabled=True))
+        self.assertTrue(layer.isAutoMemory())
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, memory_optimizer_enabled=False))
+        self.assertFalse(layer.isAutoMemory())
+
+    def testSetAutoMemory(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.EnableMemoryOptimizer.return_value = job_pb2.LayerEnableMemoryOptimizerResponse()
+        getStubMock.return_value = stubMock
+
+        layer = opencue.wrappers.layer.Layer(job_pb2.Layer(name=TEST_LAYER_NAME))
+        layer.setAutoMemory(False)
+
+        stubMock.EnableMemoryOptimizer.assert_called_with(
+            job_pb2.LayerEnableMemoryOptimizerRequest(layer=layer.data, value=False),
+            timeout=mock.ANY)
+
+    def testBookedMemory(self, getStubMock):
+        layer = opencue.wrappers.layer.Layer(
+            job_pb2.Layer(name=TEST_LAYER_NAME, booked_memory=6500000))
+        self.assertEqual(6500000, layer.bookedMemory())
+
     def testGetFrames(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.GetFrames.return_value = job_pb2.LayerGetFramesResponse(

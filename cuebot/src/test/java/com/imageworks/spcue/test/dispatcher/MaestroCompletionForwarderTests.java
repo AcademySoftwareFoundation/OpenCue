@@ -228,8 +228,8 @@ public class MaestroCompletionForwarderTests {
         when(jobManager.getLayerDetail(LAYER_ID)).thenReturn(layer);
         when(jobManager.getFrameDetail(FRAME_ID)).thenReturn(frameDetail);
         when(jobManager.getDispatchFrame(FRAME_ID)).thenReturn(frame);
-        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong()))
-                .thenReturn(true);
+        when(dispatchSupport.stopFrame(eq(frame), any(FrameState.class), anyInt(), anyLong(),
+                anyLong())).thenReturn(true);
     }
 
     /** A managed show's report with the flag set is forwarded and not processed locally. */
@@ -243,7 +243,7 @@ public class MaestroCompletionForwarderTests {
 
         assertEquals(List.of(TARGET_A), fwd.attempts);
         verify(dispatchSupport, never()).stopFrame(any(DispatchFrame.class), any(FrameState.class),
-                anyInt(), anyLong());
+                anyInt(), anyLong(), anyLong());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
         verify(prometheusMetrics, times(1)).incrementCompletionForward("forwarded");
     }
@@ -260,7 +260,7 @@ public class MaestroCompletionForwarderTests {
         assertTrue(fwd.attempts.isEmpty());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
-                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong(), anyLong());
     }
 
     /**
@@ -280,7 +280,7 @@ public class MaestroCompletionForwarderTests {
         assertTrue(fwd.attempts.isEmpty());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
-                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong(), anyLong());
         verify(prometheusMetrics, never()).incrementCompletionForward(anyString());
     }
 
@@ -296,7 +296,7 @@ public class MaestroCompletionForwarderTests {
         assertTrue(fwd.attempts.isEmpty());
         verify(hostManager, times(1)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
-                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong(), anyLong());
     }
 
     /**
@@ -316,7 +316,7 @@ public class MaestroCompletionForwarderTests {
         assertEquals(List.of(TARGET_A), fwd.attempts);
         verify(hostManager, times(2)).getVirtualProc(RESOURCE_ID);
         verify(dispatchSupport, times(1)).stopFrame(any(DispatchFrame.class),
-                eq(FrameState.SUCCEEDED), anyInt(), anyLong());
+                eq(FrameState.SUCCEEDED), anyInt(), anyLong(), anyLong());
         verify(prometheusMetrics, times(1)).incrementCompletionForward("fallback_error");
     }
 
@@ -343,7 +343,7 @@ public class MaestroCompletionForwarderTests {
         handler.handleFrameCompleteReport(report);
 
         verify(dispatchSupport, never()).stopFrame(any(DispatchFrame.class), any(FrameState.class),
-                anyInt(), anyLong());
+                anyInt(), anyLong(), anyLong());
     }
 
     /**

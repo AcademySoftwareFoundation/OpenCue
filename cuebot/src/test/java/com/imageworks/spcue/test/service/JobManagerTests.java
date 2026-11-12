@@ -446,7 +446,7 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
         layerDao.updateUsage(layer, new ResourceUsage(100, 3500 * 5, 0), 0);
 
         // Test to make sure our optimization
-        jobManager.optimizeLayer(layer, 100, CueUtil.MB512, 120);
+        jobManager.optimizeLayer(layer, CueUtil.MB512);
 
         assertEquals(CueUtil.MB512 + CueUtil.MB256,
                 layerDao.findLayerDetail(job, "pass_1").minimumMemory);

@@ -448,6 +448,8 @@ Result: Small project pre-layers limited to 2 cores
 
 Enables or disables the memory optimizer for the job. The memory optimizer dynamically adjusts memory requirements based on actual usage patterns.
 
+On Maestro the same flag is **Auto memory**: true lets Maestro size each frame from what finished frames used, and false pins every frame to the layer's minimum memory (see [Layer memory on Maestro](/docs/user-guides/cuetopia-monitoring-guide/#layer-memory-on-maestro)).
+
 **Use Cases:**
 - Enable smart memory management for unpredictable jobs
 - Optimize resource utilization

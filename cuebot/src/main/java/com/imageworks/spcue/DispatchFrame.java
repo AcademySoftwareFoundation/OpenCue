@@ -53,6 +53,10 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
     // Memory requirement for this frame in Kb
     private long minMemory;
 
+    // Memory floor in Kb for this frame's next attempt after an OOM kill (frame.int_mem_retry),
+    // 0 when none. Read by Maestro's frame query only.
+    public long memRetryKb;
+
     // Soft limit to be enforced for this frame in Kb
     public long softMemoryLimit;
 

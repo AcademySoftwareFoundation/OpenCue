@@ -392,24 +392,20 @@ public class CoreUnitDispatcher implements Dispatcher {
                 env.getProperty("dispatcher.frame.selfish.services", "").split(",");
         for (DispatchFrame frame : frames) {
 
-            // Maestro sized this layer from its memory (ask or largest rss seen):
-            // book the frames at that size, and reserve the memory the layer
-            // really uses, so the plan and the commit describe the same frame.
-            // 0 = no resize (ask already right, not threadable, or manual).
+            // Maestro sized this layer (maestro.md 3.9): book the frames at that
+            // size, up or down from the ask, so the plan and the commit describe
+            // the same frame. 0 = no resize (the ask is the size).
             if (effCores > frame.minCores && frame.threadable) {
                 frame.minCores = effCores;
             }
-            if (effMemKb > frame.getMinMemory()) {
+            if (effMemKb > 0) {
                 frame.setMinMemory(effMemKb);
             }
-            // A frame that OOMed carries its own memory bump. Fit and reserve
-            // at that size here, so the commit's capacity gate sees the sum
-            // the plan reserved and never drops the host for a bump it did
-            // not know about.
+            // A frame that OOMed retries at no less than its own floor; the rest
+            // of the layer keeps the layer's size.
             long baseMemKb = frame.getMinMemory();
-            long bump = OomMemoryTracker.INSTANCE.frameBumpKb(frame.getFrameId());
-            if (bump > frame.getMinMemory()) {
-                frame.setMinMemory(bump);
+            if (frame.memRetryKb > frame.getMinMemory()) {
+                frame.setMinMemory(frame.memRetryKb);
             }
 
             VirtualProc proc;
@@ -434,8 +430,8 @@ public class CoreUnitDispatcher implements Dispatcher {
                 break;
             }
             if (host.idleMemory < frame.getMinMemory()) {
-                // A layer's frames are uniform except for a per-frame OOM bump.
-                // When only the bump fails to fit, the bumped frame costs
+                // A layer's frames are uniform except for a per-frame OOM floor.
+                // When only the floor fails to fit, the frame costs
                 // itself and waits for a roomier host; the rest of the slice
                 // the planner accounted is still delivered.
                 if (host.idleMemory >= baseMemKb) {
