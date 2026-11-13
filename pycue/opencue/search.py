@@ -134,7 +134,7 @@ class FrameSearch(BaseSearch):
     @classmethod
     def byRange(cls, job, val):
         """Executes a search by frame range."""
-        cls.byOptions(job, frame_range=val)
+        return cls.byOptions(job, range=val)
 
 
 class HostSearch(BaseSearch):
@@ -220,7 +220,7 @@ class JobSearch(BaseSearch):
     @classmethod
     def byShot(cls, val):
         """Searches for a job by shot."""
-        return cls.byOptions(shots=val)
+        return cls.byOptions(shot=val)
 
     @classmethod
     def byUser(cls, val):

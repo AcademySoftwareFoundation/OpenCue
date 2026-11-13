@@ -83,6 +83,33 @@ class JobSearchTests(unittest.TestCase):
 
         self.assertIsNone(opencue.search.raiseIfNotList('user', ['iamnotalist']))
 
+    def testJobSearchByShot(self, getStubMock):
+        """JobSearch.byShot must map onto the "shot" search option."""
+        stubMock = mock.Mock()
+        getStubMock.return_value = stubMock
+
+        opencue.search.JobSearch.byShot(["bs.012"])
+
+        stubMock.GetJobs.assert_called_with(
+            job_pb2.JobGetJobsRequest(
+                r=job_pb2.JobSearchCriteria(shots=["bs.012"])),
+            timeout=mock.ANY)
+
+    def testFrameSearchByRange(self, getStubMock):
+        """FrameSearch.byRange must map onto the "range" option and return the result."""
+        stubMock = mock.Mock()
+        getStubMock.return_value = stubMock
+
+        result = opencue.search.FrameSearch.byRange("testing-job.0000-fs1", "1-10")
+
+        self.assertIs(result, stubMock.GetFrames.return_value)
+        stubMock.GetFrames.assert_called_with(
+            job_pb2.FrameGetFramesRequest(
+                job="testing-job.0000-fs1",
+                r=job_pb2.FrameSearchCriteria(
+                    frame_range="1-10", page=1, limit=500)),
+            timeout=mock.ANY)
+
 
 if __name__ == '__main__':
     unittest.main()
