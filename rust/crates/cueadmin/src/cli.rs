@@ -342,6 +342,9 @@ pub enum SubscriptionCommand {
 /// Lock source tag used by bulk locks when --source isn't given.
 pub const DEFAULT_LOCK_SOURCE: &str = "cueadmin";
 
+/// Longest lock source tag Cuebot accepts.
+const MAX_LOCK_SOURCE_LEN: usize = 64;
+
 /// Which hosts a host command operates on.
 #[derive(Debug, Args)]
 #[group(required = true, multiple = true)]
@@ -365,23 +368,37 @@ pub struct HostSelection {
 /// Options of a bulk `host lock --nimby` or `host unlock --nimby`.
 #[derive(Debug, Args)]
 pub struct BulkLockOptions {
-    /// With --nimby: lock source tag [default: cueadmin].
+    /// With --nimby: lock source tag.
     ///
     /// `host unlock --nimby` only releases hosts locked with the same tag, so a
     /// scheduled run never lifts someone else's lock.
-    #[arg(long, value_name = "NAME", requires = "nimby")]
-    pub source: Option<String>,
+    #[arg(
+        long,
+        value_name = "NAME",
+        default_value = DEFAULT_LOCK_SOURCE,
+        value_parser = lock_source,
+        requires = "nimby"
+    )]
+    pub source: String,
 
     /// With --nimby: only hosts in these allocations.
     #[arg(long, value_delimiter = ',', requires = "nimby")]
     pub alloc: Vec<String>,
 }
 
-impl BulkLockOptions {
-    /// The lock source tag, falling back to the default.
-    pub fn source(&self) -> &str {
-        self.source.as_deref().unwrap_or(DEFAULT_LOCK_SOURCE)
+/// Parses a lock source tag, rejecting what Cuebot would refuse after the confirmation prompt.
+/// Surrounding whitespace is dropped so `" night"` and `"night"` are the same tag.
+fn lock_source(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("the lock source can't be empty".into());
     }
+    if value.chars().count() > MAX_LOCK_SOURCE_LEN {
+        return Err(format!(
+            "the lock source must be at most {MAX_LOCK_SOURCE_LEN} characters"
+        ));
+    }
+    Ok(value.to_string())
 }
 
 #[derive(Debug, Subcommand)]
@@ -712,7 +729,7 @@ mod tests {
         };
         assert!(selection.nimby && kill_frames);
         assert_eq!(selection.matches, ["lgt"]);
-        assert_eq!(bulk.source(), DEFAULT_LOCK_SOURCE);
+        assert_eq!(bulk.source, DEFAULT_LOCK_SOURCE);
 
         assert!(parse(&["host", "unlock", "--nimby", "--source", "night"]).is_ok());
         assert!(parse(&["host", "delete", "--nimby"]).is_ok());
@@ -730,6 +747,22 @@ mod tests {
             assert!(parse(args).is_err(), "{args:?}");
         }
         assert!(parse(&["host", "unlock", "--nimby", "--kill-frames"]).is_err());
+    }
+
+    #[test]
+    fn lock_source_is_validated() {
+        let source = |value: &str| {
+            let cli = parse(&["host", "lock", "--nimby", "--source", value])?;
+            let Command::Host(HostCommand::Lock { bulk, .. }) = cli.command else {
+                panic!("wrong command")
+            };
+            Ok::<_, clap::Error>(bulk.source)
+        };
+        assert_eq!(source(" night ").unwrap(), "night");
+        assert!(source("").is_err());
+        assert!(source("  ").is_err());
+        assert!(source(&"x".repeat(MAX_LOCK_SOURCE_LEN)).is_ok());
+        assert!(source(&"x".repeat(MAX_LOCK_SOURCE_LEN + 1)).is_err());
     }
 
     #[test]

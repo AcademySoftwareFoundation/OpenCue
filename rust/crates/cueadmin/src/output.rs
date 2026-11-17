@@ -207,7 +207,6 @@ pub fn hosts(hosts: &[Host], now: i64) -> Table {
     table
 }
 
-/// Shows with their stats.
 /// Outcome of a bulk `host lock --nimby` or `host unlock --nimby`.
 #[derive(Debug, Default, PartialEq)]
 pub struct BulkLockOutcome {
@@ -285,6 +284,15 @@ impl BulkLockOutcome {
         out
     }
 
+    /// Every matched host, whatever happened to it.
+    pub fn matched(&self) -> impl Iterator<Item = &str> {
+        self.changed
+            .iter()
+            .chain(&self.unreachable)
+            .chain(&self.skipped)
+            .map(String::as_str)
+    }
+
     /// One row per matched host with what happened to it.
     pub fn hosts(&self) -> Table {
         let mut table = Table::new(
@@ -308,6 +316,7 @@ impl BulkLockOutcome {
     }
 }
 
+/// Shows with their stats.
 pub fn shows(shows: &[Show]) -> Table {
     let mut table = Table::new(
         Noun {
@@ -674,6 +683,10 @@ mod tests {
         assert_eq!(raw_row(&table, 0), ["ws1", "locked"]);
         assert_eq!(raw_row(&table, 2), ["ws3", "unreachable"]);
         assert_eq!(raw_row(&table, 3), ["ws4", "skipped"]);
+        assert_eq!(
+            outcome.matched().collect::<Vec<_>>(),
+            ["ws1", "ws2", "ws3", "ws4"]
+        );
 
         let outcome = BulkLockOutcome::from(HostUnlockHostsResponse {
             unlocked: vec!["ws1".into()],

@@ -31,8 +31,8 @@ back during the night, their activity still locks the host and kills its frames.
 
 - Build the Rust `cueadmin` (`cargo build -r -p cueadmin` in the `rust` directory, see
   [CueAdmin moves to Rust](/news/2026-11-10-cueadmin-moves-to-rust)) and install it on a machine
-  that can reach Cuebot. The deprecated Python tool takes the same options as `-lock`/`-unlock`
-  with `-nimby`, `-kill-frames` and `-source`.
+  that can reach Cuebot. The deprecated Python tool does the same with `-lock`/`-unlock -nimby`,
+  `-kill-frames` and `-source`.
 - Make sure the workstations report nimby as enabled. `cueadmin host list --nimby` lists them.
 - Shows need a subscription to the workstations' allocation to render on them (see
   [Desktop rendering control](/docs/other-guides/desktop-rendering-control)).

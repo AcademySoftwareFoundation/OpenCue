@@ -62,7 +62,7 @@ else's lock. `--kill-frames` sends the killed frames back to waiting without spe
 (best effort). `--source`, `--alloc` and `--kill-frames` require `--nimby`.
 
 Both print a summary, or with `--raw` one `host`/`result` row per matched host (`locked`,
-`unlocked`, `unreachable` or `skipped`), with unconfirmed frame kills logged to stderr:
+`unlocked`, `unreachable` or `skipped`), with the summary on stderr:
 
 ```
 Locked: 42, unreachable: 1, skipped: 3, frames killed: 17

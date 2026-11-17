@@ -202,7 +202,7 @@ async fn bulk_lock(
     bulk: &BulkLockOptions,
     action: BulkAction,
 ) -> Result<()> {
-    let source = bulk.source();
+    let source = &bulk.source;
     let mut criteria = selection_criteria(selection)?;
     criteria.allocs = non_blank(&bulk.alloc);
     let prompt = match action {
@@ -247,11 +247,13 @@ async fn bulk_lock(
             .into_inner()
             .into(),
     };
+    if outcome.matched().next().is_none() {
+        bail!("no hosts matched the selection");
+    }
+    warn_missing(&selection.hosts, outcome.matched());
     if ctx.out.raw {
-        // Frames have no place in the host table, so unconfirmed kills go to stderr.
-        for frame in &outcome.frames_deferred {
-            warn!("could not confirm the kill of frame {frame}, it is still running");
-        }
+        // stdout stays a host table; the frame counts and unconfirmed kills go to stderr.
+        eprint!("{}", outcome.summary());
         ctx.out.table(&outcome.hosts(), false);
     } else {
         print!("{}", outcome.summary());
@@ -299,19 +301,25 @@ async fn resolve(ctx: &Context, selection: &HostSelection) -> Result<Vec<Host>> 
     if hosts.is_empty() {
         bail!("no hosts matched the selection");
     }
-    let missing = missing_names(&selection.hosts, &hosts);
+    warn_missing(&selection.hosts, hosts.iter().map(|h| h.name.as_str()));
+    debug!("selected {} hosts", hosts.len());
+    Ok(hosts)
+}
+
+/// Warns about requested host names that aren't among the `found` ones.
+fn warn_missing<'a>(requested: &[String], found: impl IntoIterator<Item = &'a str>) {
+    let missing = missing_names(requested, found);
     if !missing.is_empty() {
         warn!(
             "these hosts were not found and will be skipped: {}",
             missing.join(", ")
         );
     }
-    debug!("selected {} hosts", hosts.len());
-    Ok(hosts)
 }
 
 /// Builds the search for a host selection. Blank names and substrings are dropped, since an
-/// empty substring would match every host on the farm.
+/// empty substring would match every host on the farm. Names or substrings that are all blank
+/// are an error even with --nimby, so they can't widen the selection to every workstation.
 fn selection_criteria(selection: &HostSelection) -> Result<HostSearchCriteria> {
     let criteria = HostSearchCriteria {
         hosts: non_blank(&selection.hosts),
@@ -319,7 +327,9 @@ fn selection_criteria(selection: &HostSelection) -> Result<HostSearchCriteria> {
         nimby: nimby_filter(selection.nimby) as i32,
         ..Default::default()
     };
-    if criteria.substr.is_empty() && criteria.hosts.is_empty() && !selection.nimby {
+    let narrowed = !selection.hosts.is_empty() || !selection.matches.is_empty();
+    let has_filter = !criteria.substr.is_empty() || !criteria.hosts.is_empty();
+    if !has_filter && (narrowed || !selection.nimby) {
         bail!("the host selection is empty; give host names, a non-empty --match or --nimby");
     }
     Ok(criteria)
@@ -342,8 +352,11 @@ fn nimby_filter(nimby_only: bool) -> NimbyFilter {
     }
 }
 
-fn missing_names<'a>(requested: &'a [String], found: &[Host]) -> Vec<&'a str> {
-    let found: BTreeSet<&str> = found.iter().map(|h| h.name.as_str()).collect();
+fn missing_names<'a, 'b>(
+    requested: &'a [String],
+    found: impl IntoIterator<Item = &'b str>,
+) -> Vec<&'a str> {
+    let found: BTreeSet<&str> = found.into_iter().collect();
     requested
         .iter()
         .map(String::as_str)
@@ -450,12 +463,15 @@ mod tests {
         let c = selection_criteria(&nimby(&["lgt", ""])).unwrap();
         assert_eq!(c.substr, ["lgt"]);
         assert_eq!(c.nimby, NimbyFilter::NimbyOnly as i32);
+        // An empty --match, say from an unset variable, doesn't select every workstation.
+        assert!(selection_criteria(&nimby(&[""])).is_err());
+        assert!(selection_criteria(&nimby(&[" ", ""])).is_err());
     }
 
     #[test]
     fn reports_missing_hosts() {
         let requested = vec!["a".to_string(), "b".to_string()];
-        assert_eq!(missing_names(&requested, &[host("a", 0.0, 0)]), ["b"]);
-        assert!(missing_names(&[], &[host("a", 0.0, 0)]).is_empty());
+        assert_eq!(missing_names(&requested, ["a"]), ["b"]);
+        assert!(missing_names(&[], ["a"]).is_empty());
     }
 }
