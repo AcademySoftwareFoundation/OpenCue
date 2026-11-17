@@ -18,6 +18,7 @@ use miette::{IntoDiagnostic, Result};
 
 use crate::cli::Command;
 use crate::client::Cuebot;
+use crate::table::Printer;
 
 mod alloc;
 mod host;
@@ -31,6 +32,7 @@ mod subscription;
 pub struct Context {
     pub cuebot: Cuebot,
     pub force: bool,
+    pub out: Printer,
 }
 
 impl Context {

@@ -24,8 +24,24 @@ The config file is the one pycue reads: `$OPENCUE_CONFIG_FILE`, `$OPENCUE_CONF`,
 `~/.config/opencue/opencue.yaml`. The keys used are `cuebot.facility`, `cuebot.facility_default`,
 `cuebot.grpc_port`, `cuebot.timeout` and `cuebot.max_message_bytes`.
 
-Global options (`--server`, `--facility`, `-v/--verbose`, `-f/--force`) can go anywhere on the
-command line. `CUEADMIN_LOG` takes a `tracing` filter for finer logging control.
+Global options (`--server`, `--facility`, `-v/--verbose`, `-f/--force`, `--raw`, `--pretty`) can
+go anywhere on the command line. `CUEADMIN_LOG` takes a `tracing` filter for finer logging control.
+
+## Output
+
+By default (`--pretty`) lists print as boxed tables with humanized values (`2.0G`, `3d 4h`), a
+totals row where numbers add up, and a count footer. Commands that change something print one
+`✓` line per item as it completes. Color is used only when stdout is a terminal and `NO_COLOR` is
+unset. `host list`, `job list` and `proc list` take `-w/--wide` for extra columns.
+
+`--raw` is for scripts: a header line of column keys, then tab-separated rows with every column,
+nothing truncated, and exact values (memory in KB, times in epoch seconds, durations in seconds,
+`true`/`false`). Mutating commands print nothing on success. `--pretty` wins when both are given,
+so an alias that adds `--raw` can be overridden per call.
+
+```bash
+cueadmin host list --raw | awk -F'\t' 'NR > 1 && $2 == "DOWN" { print $1 }'
+```
 
 ## Migrating from the Python tool
 
@@ -62,7 +78,7 @@ command line. `CUEADMIN_LOG` takes a `tracing` filter for finer logging control.
 | `-host H... -safe-reboot`                     | `host safe-reboot H...`                              |
 | `-host H... -repair` / `-fixed`               | `host repair H...` / `host up H...`                  |
 | `-host H... -thread MODE`                     | `host thread-mode MODE H...`                         |
-| `-lj [SUBSTR...]` / `-lji [SUBSTR...]`        | `job list [SUBSTR...]` / `job list -l [SUBSTR...]`   |
+| `-lj [SUBSTR...]` / `-lji [SUBSTR...]`        | `job list [SUBSTR...]` / `job list -w [SUBSTR...]`   |
 | `-pause JOB...` / `-unpause JOB...`           | `job pause JOB...` / `job resume JOB...`             |
 | `-kill JOB...` / `-kill-all`                  | `job kill JOB...` / `job kill --all`                 |
 | `-retry JOB...` / `-retry-all`                | `job retry JOB...` / `job retry --all`               |
@@ -76,6 +92,11 @@ command line. `CUEADMIN_LOG` takes a `tracing` filter for finer logging control.
 
 ### Behavior changes
 
+- Output is formatted for people by default, so scripts that parsed the Python tool's columns
+  need `--raw`, which prints tab-separated values with a header (see [Output](#output)).
+- `job list` prints a table instead of bare names. Use `job list --raw | cut -f1 | tail -n +2`
+  for names only.
+
 - `sub size` and `sub burst` take cores, like `sub create` and the `sub list` output. The Python
   tool sent the raw value as core units (hundredths of a core), so `-size pipe alloc 100` set one
   core. Both commands now ask for confirmation and show the old and new core counts.
@@ -85,5 +106,6 @@ command line. `CUEADMIN_LOG` takes a `tracing` filter for finer logging control.
 - With `--server`, an unreadable config file is ignored with a warning instead of failing.
 - `host` commands take either host names or `--match`, not both.
 - `alloc rename` accepts the new name with or without the facility prefix.
-- `service list` shows minimum memory with a unit (`3.2G`) instead of the raw KB value labelled MB.
+- `service list` shows minimum memory with a unit (`3.2G`) instead of the raw KB value labelled MB,
+  and minimum cores in cores instead of core units.
 - `job kill` takes an optional `--reason`.

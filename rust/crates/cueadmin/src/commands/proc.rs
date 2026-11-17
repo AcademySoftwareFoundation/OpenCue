@@ -25,9 +25,9 @@ const HOURS_TO_SECONDS: f64 = 3600.0;
 
 /// Runs a `proc` subcommand.
 pub async fn run(ctx: &Context, cmd: ProcCommand) -> Result<()> {
-    let (filter, logs_only) = match cmd {
-        ProcCommand::List(filter) => (filter, false),
-        ProcCommand::Logs(filter) => (filter, true),
+    let (filter, wide, logs_only) = match cmd {
+        ProcCommand::List { filter, wide } => (filter, wide, false),
+        ProcCommand::Logs(filter) => (filter, false, true),
     };
     let procs = ctx
         .cuebot
@@ -46,7 +46,8 @@ pub async fn run(ctx: &Context, cmd: ProcCommand) -> Result<()> {
             println!("{}", proc.log_path);
         }
     } else {
-        print!("{}", output::procs(&procs, chrono::Utc::now().timestamp()));
+        let now = chrono::Utc::now().timestamp();
+        ctx.out.table(&output::procs(&procs, now), wide);
     }
     Ok(())
 }

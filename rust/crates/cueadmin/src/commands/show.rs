@@ -36,7 +36,7 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                 .shows
                 .unwrap_or_default()
                 .shows;
-            print!("{}", output::shows(&shows));
+            ctx.out.table(&output::shows(&shows), false);
         }
         ShowCommand::Create { show } => {
             if ctx.confirm(&format!("Create new show {show}"))? {
@@ -45,6 +45,7 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     .create_show(ShowCreateShowRequest { name: show.clone() })
                     .await
                     .map_err(rpc_error(format!("creating show '{show}'")))?;
+                ctx.out.done(format!("Created show {show}"));
             }
         }
         ShowCommand::Delete { show } => {
@@ -55,6 +56,7 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     .delete(ShowDeleteRequest { show: Some(found) })
                     .await
                     .map_err(rpc_error(format!("deleting show '{show}'")))?;
+                ctx.out.done(format!("Deleted show {show}"));
             }
         }
         ShowCommand::Enable { show } => set_active(ctx, &show, true).await?,
@@ -70,6 +72,8 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("changing dispatching on '{show}'")))?;
+                ctx.out
+                    .done(format!("Turned dispatching {} on {show}", on_off(enabled)));
             }
         }
         ShowCommand::Booking { show, enabled } => {
@@ -83,6 +87,8 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("changing booking on '{show}'")))?;
+                ctx.out
+                    .done(format!("Turned booking {} on {show}", on_off(enabled)));
             }
         }
         ShowCommand::DefaultMinCores { show, cores } => {
@@ -96,6 +102,8 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting default min cores on '{show}'")))?;
+                ctx.out
+                    .done(format!("Set the default min cores of {show} to {cores}"));
             }
         }
         ShowCommand::DefaultMaxCores { show, cores } => {
@@ -109,6 +117,8 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting default max cores on '{show}'")))?;
+                ctx.out
+                    .done(format!("Set the default max cores of {show} to {cores}"));
             }
         }
         ShowCommand::Archive { show, target } => {
@@ -120,10 +130,11 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     .show()
                     .archive(ShowArchiveRequest {
                         show: Some(found),
-                        target_show_name: target,
+                        target_show_name: target.clone(),
                     })
                     .await
                     .map_err(rpc_error(format!("archiving show '{show}'")))?;
+                ctx.out.done(format!("Archived {show} into {target}"));
             }
         }
         ShowCommand::SchedulerManaged { show, enabled } => {
@@ -138,6 +149,10 @@ pub async fn run(ctx: &Context, cmd: ShowCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("changing scheduler-managed on '{show}'")))?;
+                ctx.out.done(format!(
+                    "Turned scheduler-managed {} on {show}",
+                    on_off(enabled)
+                ));
             }
         }
     }
@@ -156,6 +171,15 @@ async fn set_active(ctx: &Context, show: &str, active: bool) -> Result<()> {
             })
             .await
             .map_err(rpc_error(format!("changing active state of '{show}'")))?;
+        ctx.out.done(format!("{}d show {show}", verb));
     }
     Ok(())
+}
+
+fn on_off(enabled: bool) -> &'static str {
+    if enabled {
+        "on"
+    } else {
+        "off"
+    }
 }

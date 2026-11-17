@@ -14,8 +14,9 @@ use super::Context;
 use crate::cli::SubscriptionCommand;
 use crate::client::rpc_error;
 use crate::criteria::cores_to_units;
-use crate::format::py_float;
+use crate::format::format_num;
 use crate::output;
+use crate::table::Table;
 use miette::{bail, Result};
 use opencue_proto::facility::AllocGetSubscriptionsRequest;
 use opencue_proto::show::{ShowCreateSubscriptionRequest, ShowGetSubscriptionRequest};
@@ -42,10 +43,11 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                 .subscriptions
                 .unwrap_or_default()
                 .subscriptions;
-            print!("{}", output::subscriptions(&subs, "All Shows"));
+            ctx.out.table(&output::subscriptions(&subs, &alloc), false);
         }
         SubscriptionCommand::List { shows, alloc: None } => {
-            let mut found_any = false;
+            // Pretty prints a table per show; raw prints them as one, under a single header.
+            let mut combined: Option<Table> = None;
             for name in &shows {
                 let show = match cuebot.find_show(name).await {
                     Ok(show) => show,
@@ -54,7 +56,6 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                         continue;
                     }
                 };
-                found_any = true;
                 let subs = cuebot
                     .show()
                     .get_subscriptions(ShowGetSubscriptionRequest { show: Some(show) })
@@ -64,10 +65,27 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                     .subscriptions
                     .unwrap_or_default()
                     .subscriptions;
-                print!("{}", output::subscriptions(&subs, name));
+                let table = output::subscriptions(&subs, name);
+                match &mut combined {
+                    Some(all) if ctx.out.raw => all.extend(table),
+                    Some(_) => {
+                        println!();
+                        ctx.out.table(&table, false);
+                    }
+                    None => {
+                        if !ctx.out.raw {
+                            ctx.out.table(&table, false);
+                        }
+                        combined = Some(table);
+                    }
+                }
             }
-            if !found_any {
-                bail!("none of the given shows exist: {}", shows.join(", "));
+            match combined {
+                Some(all) if ctx.out.raw => ctx.out.table(&all, false),
+                Some(_) => {}
+                None => {
+                    bail!("none of the given shows exist: {}", shows.join(", "));
+                }
             }
         }
         SubscriptionCommand::Create {
@@ -89,6 +107,9 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("subscribing '{show}' to '{alloc}'")))?;
+                ctx.out.done(format!(
+                    "Subscribed {show} to {alloc} with {size} cores, bursting to {burst}"
+                ));
             }
         }
         SubscriptionCommand::Delete { show, alloc } => {
@@ -101,6 +122,8 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("deleting subscription of '{show}'")))?;
+                ctx.out
+                    .done(format!("Deleted {show}'s subscription to {alloc}"));
             }
         }
         SubscriptionCommand::Size { show, alloc, cores } => {
@@ -121,6 +144,10 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                 })
                 .await
                 .map_err(rpc_error(format!("resizing subscription of '{show}'")))?;
+            ctx.out.done(format!(
+                "Set the size of {show}'s subscription to {alloc} to {} cores",
+                units_to_cores(new_size)
+            ));
         }
         SubscriptionCommand::Burst { show, alloc, burst } => {
             let sub = cuebot.find_subscription(&show, &alloc).await?;
@@ -140,11 +167,15 @@ pub async fn run(ctx: &Context, cmd: SubscriptionCommand) -> Result<()> {
                 })
                 .await
                 .map_err(rpc_error(format!("setting burst of '{show}'")))?;
+            ctx.out.done(format!(
+                "Set the burst of {show}'s subscription to {alloc} to {} cores",
+                units_to_cores(burst)
+            ));
         }
     }
     Ok(())
 }
 
 fn units_to_cores(units: i32) -> String {
-    py_float(units as f64 / 100.0)
+    format_num(units as f64 / 100.0)
 }

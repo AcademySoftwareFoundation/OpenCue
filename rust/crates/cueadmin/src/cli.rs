@@ -74,8 +74,25 @@ pub struct Cli {
     )]
     pub force: bool,
 
+    /// Print tab-separated values for scripts: a header of keys, every column, exact values
+    /// (memory in KB, times in epoch seconds) and no success messages.
+    #[arg(long, global = true, help_heading = "Global Options")]
+    pub raw: bool,
+
+    /// Print boxed tables and messages for people. This is the default; it wins over --raw, so
+    /// an alias that adds --raw can be overridden.
+    #[arg(long, global = true, help_heading = "Global Options")]
+    pub pretty: bool,
+
     #[command(subcommand)]
     pub command: Command,
+}
+
+impl Cli {
+    /// Whether to print raw output, after applying --pretty's precedence.
+    pub fn raw_output(&self) -> bool {
+        self.raw && !self.pretty
+    }
 }
 
 #[derive(Debug, Subcommand)]
@@ -355,6 +372,9 @@ pub enum HostCommand {
         /// Sort by most idle cores and memory first, instead of by name.
         #[arg(long)]
         sort_idle: bool,
+        /// Also show free memory, swap and MCP, OS, thread mode and NIMBY.
+        #[arg(short, long)]
+        wide: bool,
     },
 
     /// Lock hosts so they take no new frames.
@@ -428,15 +448,15 @@ pub enum ThreadMode {
 
 #[derive(Debug, Subcommand)]
 pub enum JobCommand {
-    /// List active job names, optionally filtered.
+    /// List active jobs, optionally filtered.
     #[command(visible_alias = "ls")]
     List {
         /// Only jobs whose name contains one of these substrings.
         #[arg(value_name = "SUBSTR")]
         matches: Vec<String>,
-        /// Show a table with group, cores, waiting frames and priority.
-        #[arg(short, long)]
-        long: bool,
+        /// Also show min and max cores.
+        #[arg(short, long, alias = "long", short_alias = 'l')]
+        wide: bool,
     },
 
     /// Pause jobs.
@@ -554,7 +574,13 @@ pub struct ProcFilter {
 pub enum ProcCommand {
     /// List running procs.
     #[command(visible_alias = "ls")]
-    List(ProcFilter),
+    List {
+        #[command(flatten)]
+        filter: ProcFilter,
+        /// Also show when each proc started.
+        #[arg(short, long)]
+        wide: bool,
+    },
 
     /// Print the log path of each running proc, one per line.
     Logs(ProcFilter),
@@ -648,6 +674,27 @@ mod tests {
         assert!(parse(&["sub", "list", "pipe", "--alloc", "a"]).is_err());
         assert!(parse(&["sub", "list", "--alloc", "a"]).is_ok());
         assert!(parse(&["subscription", "ls", "pipe", "dev"]).is_ok());
+    }
+
+    #[test]
+    fn pretty_wins_over_raw() {
+        let raw = |args: &[&str]| parse(args).unwrap().raw_output();
+        assert!(!raw(&["show", "list"]));
+        assert!(raw(&["--raw", "show", "list"]));
+        assert!(raw(&["show", "list", "--raw"]));
+        assert!(!raw(&["--raw", "show", "list", "--pretty"]));
+        assert!(!raw(&["show", "list", "--pretty", "--raw"]));
+    }
+
+    #[test]
+    fn job_list_keeps_long_flag() {
+        for flag in ["-l", "--long", "-w", "--wide"] {
+            let cli = parse(&["job", "list", flag]).unwrap();
+            let Command::Job(JobCommand::List { wide, .. }) = cli.command else {
+                panic!("wrong command")
+            };
+            assert!(wide, "{flag}");
+        }
     }
 
     #[test]

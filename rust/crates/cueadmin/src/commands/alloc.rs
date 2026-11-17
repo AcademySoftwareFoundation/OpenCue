@@ -36,7 +36,7 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                 .allocations
                 .unwrap_or_default()
                 .allocations;
-            print!("{}", output::allocations(&allocations));
+            ctx.out.table(&output::allocations(&allocations), false);
         }
         AllocCommand::Create {
             facility,
@@ -68,10 +68,10 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                 .map_err(rpc_error(format!("creating allocation '{name}'")))?
                 .into_inner()
                 .allocation;
-            println!(
-                "Created allocation: {}",
+            ctx.out.done(format!(
+                "Created allocation {}",
                 required(created, "allocation")?.name
-            );
+            ));
         }
         AllocCommand::Delete { alloc } => {
             let found = cuebot.find_allocation(&alloc).await?;
@@ -83,6 +83,7 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("deleting allocation '{alloc}'")))?;
+                ctx.out.done(format!("Deleted allocation {alloc}"));
             }
         }
         AllocCommand::Rename { alloc, new_name } => {
@@ -93,10 +94,12 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                     .allocation()
                     .set_name(AllocSetNameRequest {
                         allocation: Some(found),
-                        name: new_name,
+                        name: new_name.clone(),
                     })
                     .await
                     .map_err(rpc_error(format!("renaming allocation '{alloc}'")))?;
+                ctx.out
+                    .done(format!("Renamed allocation {alloc} to {new_name}"));
             }
         }
         AllocCommand::Transfer { src, dst } => {
@@ -118,6 +121,7 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                 .into_inner()
                 .hosts
                 .unwrap_or_default();
+            let count = hosts.hosts.len();
             cuebot
                 .allocation()
                 .reparent_hosts(AllocReparentHostsRequest {
@@ -126,6 +130,8 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                 })
                 .await
                 .map_err(rpc_error(format!("moving hosts into '{dst}'")))?;
+            ctx.out
+                .done(format!("Moved {count} hosts from {src} to {dst}"));
         }
         AllocCommand::Tag { alloc, tag } => {
             let found = cuebot.find_allocation(&alloc).await?;
@@ -134,10 +140,12 @@ pub async fn run(ctx: &Context, cmd: AllocCommand) -> Result<()> {
                     .allocation()
                     .set_tag(AllocSetTagRequest {
                         allocation: Some(found),
-                        tag,
+                        tag: tag.clone(),
                     })
                     .await
                     .map_err(rpc_error(format!("tagging allocation '{alloc}'")))?;
+                ctx.out
+                    .done(format!("Tagged allocation {alloc} with {tag}"));
             }
         }
     }

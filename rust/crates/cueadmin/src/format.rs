@@ -10,7 +10,7 @@
 // or implied. See the License for the specific language governing permissions and limitations under
 // the License.
 
-//! Formatting helpers for table cells.
+//! Formatting helpers for human-readable table cells.
 
 use chrono::{Local, TimeZone};
 
@@ -25,21 +25,19 @@ pub fn format_time(epoch: i64) -> String {
     }
 }
 
-/// Formats seconds as `HH:MM:SS`. Hours grow past two digits as needed.
+/// Formats seconds with its two largest units: `45s`, `12m 05s`, `1h 02m`, `3d 4h`.
 pub fn format_duration(seconds: i64) -> String {
-    let seconds = seconds.max(0);
-    format!(
-        "{:02}:{:02}:{:02}",
-        seconds / 3600,
-        seconds % 3600 / 60,
-        seconds % 60
-    )
-}
-
-/// Formats seconds as `DD:HH`, for long spans such as uptime.
-pub fn format_long_duration(seconds: i64) -> String {
-    let hours = seconds.max(0) / 3600;
-    format!("{:02}:{:02}", hours / 24, hours % 24)
+    let s = seconds.max(0);
+    let (days, hours, minutes) = (s / 86_400, s % 86_400 / 3600, s % 3600 / 60);
+    if days > 0 {
+        format!("{days}d {hours}h")
+    } else if hours > 0 {
+        format!("{hours}h {minutes:02}m")
+    } else if minutes > 0 {
+        format!("{minutes}m {:02}s", s % 60)
+    } else {
+        format!("{s}s")
+    }
 }
 
 /// Formats an amount of memory given in KB with the closest unit: `512K`, `300M`, `1.5G`.
@@ -54,31 +52,26 @@ pub fn format_mem(kb: i64) -> String {
     }
 }
 
-/// Truncates `s` to at most `len` characters, marking the cut with `..`.
-pub fn cutoff(s: &str, len: usize) -> String {
-    if s.chars().count() <= len {
-        return s.to_string();
-    }
-    let kept: String = s.chars().take(len.saturating_sub(2)).collect();
-    format!("{kept}..")
-}
-
-/// Formats a bool the way the Python tool did, so scripts parsing the output keep working.
-pub fn py_bool(value: bool) -> &'static str {
-    if value {
-        "True"
+/// Formats a number with at most two decimals and no trailing zeros: `16`, `4.5`, `0.33`.
+pub fn format_num(value: f64) -> String {
+    let fixed = format!("{value:.2}");
+    let trimmed = fixed.trim_end_matches('0').trim_end_matches('.');
+    if trimmed == "-0" {
+        "0".to_string()
     } else {
-        "False"
+        trimmed.to_string()
     }
 }
 
-/// Formats a float the way Python's `str()` does for simple values: `16.0`, `0.5`.
-pub fn py_float(value: f64) -> String {
-    if value.fract() == 0.0 && value.abs() < 1e15 {
-        format!("{value:.1}")
+/// Draws `ratio` (0 to 1, clamped) as a bar `width` characters long: `██░░░░░░`.
+pub fn usage_bar(ratio: f64, width: usize) -> String {
+    let ratio = if ratio.is_finite() {
+        ratio.clamp(0.0, 1.0)
     } else {
-        value.to_string()
-    }
+        0.0
+    };
+    let filled = (ratio * width as f64).round() as usize;
+    format!("{}{}", "█".repeat(filled), "░".repeat(width - filled))
 }
 
 #[cfg(test)]
@@ -93,12 +86,12 @@ mod tests {
 
     #[test]
     fn durations() {
-        assert_eq!(format_duration(0), "00:00:00");
-        assert_eq!(format_duration(3_723), "01:02:03");
-        assert_eq!(format_duration(360_000), "100:00:00");
-        assert_eq!(format_duration(-5), "00:00:00");
-        assert_eq!(format_long_duration(90_000), "01:01");
-        assert_eq!(format_long_duration(3_599), "00:00");
+        assert_eq!(format_duration(-5), "0s");
+        assert_eq!(format_duration(45), "45s");
+        assert_eq!(format_duration(725), "12m 05s");
+        assert_eq!(format_duration(3_723), "1h 02m");
+        assert_eq!(format_duration(273_600), "3d 4h");
+        assert_eq!(format_duration(360_000), "4d 4h");
     }
 
     #[test]
@@ -110,17 +103,18 @@ mod tests {
     }
 
     #[test]
-    fn truncation() {
-        assert_eq!(cutoff("short", 10), "short");
-        assert_eq!(cutoff("exactly10!", 10), "exactly10!");
-        assert_eq!(cutoff("a_long_job_name", 10), "a_long_j..");
-        assert_eq!(cutoff("día_de_render", 6), "día_..");
+    fn numbers() {
+        assert_eq!(format_num(16.0), "16");
+        assert_eq!(format_num(4.5), "4.5");
+        assert_eq!(format_num(1.0 / 3.0), "0.33");
+        assert_eq!(format_num(0.001), "0");
+        assert_eq!(format_num(-0.001), "0");
     }
 
     #[test]
-    fn python_style_values() {
-        assert_eq!(py_bool(true), "True");
-        assert_eq!(py_float(16.0), "16.0");
-        assert_eq!(py_float(0.5), "0.5");
+    fn bars() {
+        assert_eq!(usage_bar(0.25, 8), "██░░░░░░");
+        assert_eq!(usage_bar(1.5, 4), "████");
+        assert_eq!(usage_bar(f64::NAN, 4), "░░░░");
     }
 }

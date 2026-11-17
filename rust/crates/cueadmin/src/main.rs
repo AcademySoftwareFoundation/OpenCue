@@ -22,6 +22,7 @@ use crate::cli::Cli;
 use crate::client::Cuebot;
 use crate::commands::Context;
 use crate::config::Config;
+use crate::table::Printer;
 
 mod cli;
 mod client;
@@ -30,6 +31,7 @@ mod config;
 mod criteria;
 mod format;
 mod output;
+mod table;
 
 fn main() -> ExitCode {
     let cli = Cli::parse();
@@ -73,6 +75,7 @@ async fn run(cli: Cli) -> Result<()> {
     let ctx = Context {
         cuebot: Cuebot::connect(&hosts, &config).await?,
         force: cli.force,
+        out: Printer::new(cli.raw_output()),
     };
     commands::run(&ctx, cli.command).await
 }

@@ -51,6 +51,6 @@ pub async fn run(ctx: &Context, cmd: ServiceCommand) -> Result<()> {
                 .services
         }
     };
-    print!("{}", output::services(&services));
+    ctx.out.table(&output::services(&services), false);
     Ok(())
 }

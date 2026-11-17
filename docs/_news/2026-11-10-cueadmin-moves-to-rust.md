@@ -61,8 +61,6 @@ Things that stay the same:
 - **Connection settings.** The Rust tool reads the same pycue config file (`OPENCUE_CONFIG_FILE`,
   `OPENCUE_CONF` or `~/.config/opencue/opencue.yaml`) and the same `CUEBOT_HOSTS` and
   `CUEBOT_FACILITY` variables. `--server` and `--facility` still override them.
-- **Output.** Table columns match the Python tool, so scripts that parse `show list`, `host list`
-  or `proc list` output keep working.
 - **Confirmations.** Destructive commands still prompt, and `--force` (or `--yes`) still skips the
   prompt.
 
@@ -71,6 +69,10 @@ Things that stay the same:
 A few Python behaviors were bugs, and the Rust version fixes them. Check any scripts that depend on
 them:
 
+- **Output is for people by default.** Lists print as boxed tables with humanized values, and
+  `job list` prints a table instead of bare names. Scripts should pass `--raw`, which prints a
+  header of column keys and tab-separated rows with exact values (memory in KB, times in epoch
+  seconds). The Python column layout is not kept.
 - **`sub size` and `sub burst` take cores.** The Python `-size` and `-burst` sent the raw value in
   core units (hundredths of a core), so `-size pipe alloc 100` set **one** core, unlike
   `-create-sub`, which took cores. The Rust commands take cores everywhere, matching
@@ -103,7 +105,8 @@ installing `protoc` on macOS and Linux.
 commands map one to one.
 
 **If you have scripts that call CueAdmin,** port them using the README's migration table, and
-check them against the behavior changes above, especially any use of `-size` or `-burst`.
+check them against the behavior changes above, especially output parsing (add `--raw`) and any
+use of `-size` or `-burst`.
 
 **If you depend on the Python `cueadmin` package,** it keeps working for now. We will announce its
 removal here ahead of time.

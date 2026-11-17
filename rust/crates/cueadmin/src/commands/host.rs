@@ -36,6 +36,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
             alloc,
             lock_state,
             sort_idle,
+            wide,
         } => {
             let criteria = HostSearchCriteria {
                 substr: matches,
@@ -54,7 +55,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                 hosts.retain(|h| h.lock_state == wanted);
             }
             sort_hosts(&mut hosts, sort_idle);
-            print!("{}", output::hosts(&hosts, now()));
+            ctx.out.table(&output::hosts(&hosts, now()), wide);
         }
         HostCommand::Lock(selection) => {
             for host in resolve(ctx, &selection).await? {
@@ -65,6 +66,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     .lock(HostLockRequest { host: Some(host) })
                     .await
                     .map_err(rpc_error(format!("locking '{name}'")))?;
+                ctx.out.done(format!("Locked {name}"));
             }
         }
         HostCommand::Unlock(selection) => {
@@ -76,6 +78,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     .unlock(HostUnlockRequest { host: Some(host) })
                     .await
                     .map_err(rpc_error(format!("unlocking '{name}'")))?;
+                ctx.out.done(format!("Unlocked {name}"));
             }
         }
         HostCommand::Move { alloc, selection } => {
@@ -95,6 +98,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("moving '{name}' to '{alloc}'")))?;
+                ctx.out.done(format!("Moved {name} to {alloc}"));
             }
         }
         HostCommand::Delete(selection) => {
@@ -110,6 +114,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     .delete(HostDeleteRequest { host: Some(host) })
                     .await
                     .map_err(rpc_error(format!("deleting '{name}'")))?;
+                ctx.out.done(format!("Deleted {name}"));
             }
         }
         HostCommand::SafeReboot(selection) => {
@@ -125,6 +130,7 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     .reboot_when_idle(HostRebootWhenIdleRequest { host: Some(host) })
                     .await
                     .map_err(rpc_error(format!("rebooting '{name}'")))?;
+                ctx.out.done(format!("Locked {name}, rebooting when idle"));
             }
         }
         HostCommand::Repair(selection) => {
@@ -158,6 +164,8 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting thread mode of '{name}'")))?;
+                ctx.out
+                    .done(format!("Set {name} to thread mode {}", mode.as_str_name()));
             }
         }
     }
@@ -192,6 +200,8 @@ async fn set_hardware_state(
             })
             .await
             .map_err(rpc_error(format!("setting state of '{name}'")))?;
+        ctx.out
+            .done(format!("Set {name} to {}", state.as_str_name()));
     }
     Ok(())
 }

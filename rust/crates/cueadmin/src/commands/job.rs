@@ -28,20 +28,14 @@ use crate::output;
 pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
     let cuebot = &ctx.cuebot;
     match cmd {
-        JobCommand::List { matches, long } => {
+        JobCommand::List { matches, wide } => {
             let jobs = cuebot
                 .get_jobs(JobSearchCriteria {
                     substr: matches,
                     ..Default::default()
                 })
                 .await?;
-            if long {
-                print!("{}", output::jobs(&jobs));
-            } else {
-                for job in jobs {
-                    println!("{}", job.name);
-                }
-            }
+            ctx.out.table(&output::jobs(&jobs), wide);
         }
         JobCommand::Pause { jobs } => {
             for name in jobs {
@@ -52,6 +46,7 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     .pause(JobPauseRequest { job: Some(job) })
                     .await
                     .map_err(rpc_error(format!("pausing '{name}'")))?;
+                ctx.out.done(format!("Paused {name}"));
             }
         }
         JobCommand::Resume { jobs } => {
@@ -63,6 +58,7 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     .resume(JobResumeRequest { job: Some(job) })
                     .await
                     .map_err(rpc_error(format!("resuming '{name}'")))?;
+                ctx.out.done(format!("Resumed {name}"));
             }
         }
         JobCommand::Kill { jobs, all, reason } => {
@@ -83,6 +79,7 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     .kill(kill_request(job, &reason))
                     .await
                     .map_err(rpc_error(format!("killing '{name}'")))?;
+                ctx.out.done(format!("Killed {name}"));
             }
         }
         JobCommand::Retry { jobs, all } => {
@@ -105,6 +102,7 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("retrying frames of '{name}'")))?;
+                ctx.out.done(format!("Retried dead frames of {name}"));
             }
         }
         JobCommand::DropDepends { jobs } => {
@@ -112,7 +110,9 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                 return Ok(());
             }
             for name in jobs {
-                drop_depends(ctx, &name).await?;
+                let count = drop_depends(ctx, &name).await?;
+                ctx.out
+                    .done(format!("Dropped {count} dependencies of {name}"));
             }
         }
         JobCommand::MinCores { job, cores } => {
@@ -126,6 +126,8 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting min cores of '{job}'")))?;
+                ctx.out
+                    .done(format!("Set min cores of {job} to {cores:.2}"));
             }
         }
         JobCommand::MaxCores { job, cores } => {
@@ -139,6 +141,8 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting max cores of '{job}'")))?;
+                ctx.out
+                    .done(format!("Set max cores of {job} to {cores:.2}"));
             }
         }
         JobCommand::Priority { job, priority } => {
@@ -152,6 +156,7 @@ pub async fn run(ctx: &Context, cmd: JobCommand) -> Result<()> {
                     })
                     .await
                     .map_err(rpc_error(format!("setting priority of '{job}'")))?;
+                ctx.out.done(format!("Set priority of {job} to {priority}"));
             }
         }
     }
@@ -170,7 +175,8 @@ async fn targets(ctx: &Context, names: Vec<String>, all: bool) -> Result<Vec<Job
     Ok(jobs)
 }
 
-async fn drop_depends(ctx: &Context, name: &str) -> Result<()> {
+/// Satisfies every dependency of the job and returns how many there were.
+async fn drop_depends(ctx: &Context, name: &str) -> Result<usize> {
     let job = ctx.cuebot.find_job(name).await?;
     let depends = ctx
         .cuebot
@@ -182,6 +188,7 @@ async fn drop_depends(ctx: &Context, name: &str) -> Result<()> {
         .depends
         .unwrap_or_default()
         .depends;
+    let count = depends.len();
     for depend in depends {
         debug!("dropping depend {} of {name}", depend.id);
         ctx.cuebot
@@ -192,7 +199,7 @@ async fn drop_depends(ctx: &Context, name: &str) -> Result<()> {
             .await
             .map_err(rpc_error(format!("dropping a dependency of '{name}'")))?;
     }
-    Ok(())
+    Ok(count)
 }
 
 /// Builds a kill request recording who killed the job, from where.
