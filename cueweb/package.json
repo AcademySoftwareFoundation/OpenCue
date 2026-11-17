@@ -51,7 +51,7 @@
     "lodash": "^4.17.21",
     "lodash.debounce": "^4.0.8",
     "lucide-react": "^0.304.0",
-    "next": "^16.4.0",
+    "next": "^16.4.6",
     "next-auth": "^4.24.15",
     "next-themes": "^0.2.1",
     "prom-client": "^15.1.2",
@@ -69,7 +69,7 @@
     "tailwind-merge": "^2.2.0",
     "tailwindcss-animate": "^1.0.7",
     "worker-loader": "^3.0.8",
-    "zod": "^3.22.4"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@babel/core": "^7.29.6",
