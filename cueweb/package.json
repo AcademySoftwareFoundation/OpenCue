@@ -20,7 +20,7 @@
     "@dnd-kit/react": "^0.4.0",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
-    "@hookform/resolvers": "^3.3.4",
+    "@hookform/resolvers": "^5.9.2",
     "@monaco-editor/react": "^4.6.0",
     "@mui/material": "^5.15.19",
     "@radix-ui/react-checkbox": "^1.0.4",
