@@ -15,14 +15,17 @@ use std::collections::BTreeSet;
 
 use miette::{bail, Result};
 use opencue_proto::host::{
-    self as pb, HardwareStateSeq, Host, HostDeleteRequest, HostLockRequest,
+    self as pb, HardwareStateSeq, Host, HostDeleteRequest, HostLockHostsRequest, HostLockRequest,
     HostRebootWhenIdleRequest, HostSearchCriteria, HostSetAllocationRequest,
-    HostSetHardwareStateRequest, HostSetThreadModeRequest, HostUnlockRequest,
+    HostSetHardwareStateRequest, HostSetThreadModeRequest, HostUnlockHostsRequest,
+    HostUnlockRequest, NimbyFilter,
 };
 use tracing::{debug, warn};
 
 use super::Context;
-use crate::cli::{HardwareState, HostCommand, HostSelection, LockState, ThreadMode};
+use crate::cli::{
+    BulkLockOptions, HardwareState, HostCommand, HostSelection, LockState, ThreadMode,
+};
 use crate::client::rpc_error;
 use crate::output;
 
@@ -35,12 +38,14 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
             state,
             alloc,
             lock_state,
+            nimby,
             sort_idle,
             wide,
         } => {
             let criteria = HostSearchCriteria {
                 substr: matches,
                 allocs: alloc,
+                nimby: nimby_filter(nimby) as i32,
                 states: (!state.is_empty()).then(|| HardwareStateSeq {
                     state: state
                         .into_iter()
@@ -57,7 +62,14 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
             sort_hosts(&mut hosts, sort_idle);
             ctx.out.table(&output::hosts(&hosts, now()), wide);
         }
-        HostCommand::Lock(selection) => {
+        HostCommand::Lock {
+            selection,
+            bulk,
+            kill_frames,
+        } if selection.nimby => {
+            bulk_lock(ctx, &selection, &bulk, BulkAction::Lock { kill_frames }).await?
+        }
+        HostCommand::Lock { selection, .. } => {
             for host in resolve(ctx, &selection).await? {
                 debug!("locking host {}", host.name);
                 let name = host.name.clone();
@@ -69,7 +81,10 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
                 ctx.out.done(format!("Locked {name}"));
             }
         }
-        HostCommand::Unlock(selection) => {
+        HostCommand::Unlock { selection, bulk } if selection.nimby => {
+            bulk_lock(ctx, &selection, &bulk, BulkAction::Unlock).await?
+        }
+        HostCommand::Unlock { selection, .. } => {
             for host in resolve(ctx, &selection).await? {
                 debug!("unlocking host {}", host.name);
                 let name = host.name.clone();
@@ -172,6 +187,78 @@ pub async fn run(ctx: &Context, cmd: HostCommand) -> Result<()> {
     Ok(())
 }
 
+/// A bulk change to the lock of nimby hosts.
+#[derive(Debug, Clone, Copy)]
+enum BulkAction {
+    Lock { kill_frames: bool },
+    Unlock,
+}
+
+/// Locks or unlocks every matching nimby host in one Cuebot request, tagged with the bulk lock
+/// source. Cuebot skips hosts whose lock belongs to another source.
+async fn bulk_lock(
+    ctx: &Context,
+    selection: &HostSelection,
+    bulk: &BulkLockOptions,
+    action: BulkAction,
+) -> Result<()> {
+    let source = bulk.source();
+    let mut criteria = selection_criteria(selection)?;
+    criteria.allocs = non_blank(&bulk.alloc);
+    let prompt = match action {
+        BulkAction::Lock { kill_frames } => format!(
+            "Lock every nimby host matching the selection with source '{source}'{}",
+            if kill_frames {
+                " and kill their running frames"
+            } else {
+                ""
+            }
+        ),
+        BulkAction::Unlock => {
+            format!("Unlock every nimby host matching the selection locked by source '{source}'")
+        }
+    };
+    if !ctx.confirm(&prompt)? {
+        return Ok(());
+    }
+    debug!("bulk {action:?} with source {source}: {criteria:?}");
+    let outcome: output::BulkLockOutcome = match action {
+        BulkAction::Lock { kill_frames } => ctx
+            .cuebot
+            .host()
+            .lock_hosts(HostLockHostsRequest {
+                criteria: Some(criteria),
+                kill_running: kill_frames,
+                source: source.to_string(),
+            })
+            .await
+            .map_err(rpc_error("locking nimby hosts"))?
+            .into_inner()
+            .into(),
+        BulkAction::Unlock => ctx
+            .cuebot
+            .host()
+            .unlock_hosts(HostUnlockHostsRequest {
+                criteria: Some(criteria),
+                source: source.to_string(),
+            })
+            .await
+            .map_err(rpc_error("unlocking nimby hosts"))?
+            .into_inner()
+            .into(),
+    };
+    if ctx.out.raw {
+        // Frames have no place in the host table, so unconfirmed kills go to stderr.
+        for frame in &outcome.frames_deferred {
+            warn!("could not confirm the kill of frame {frame}, it is still running");
+        }
+        ctx.out.table(&outcome.hosts(), false);
+    } else {
+        print!("{}", outcome.summary());
+    }
+    Ok(())
+}
+
 async fn set_hardware_state(
     ctx: &Context,
     selection: &HostSelection,
@@ -226,29 +313,33 @@ async fn resolve(ctx: &Context, selection: &HostSelection) -> Result<Vec<Host>> 
 /// Builds the search for a host selection. Blank names and substrings are dropped, since an
 /// empty substring would match every host on the farm.
 fn selection_criteria(selection: &HostSelection) -> Result<HostSearchCriteria> {
-    let non_blank = |values: &[String]| -> Vec<String> {
-        values
-            .iter()
-            .map(|v| v.trim())
-            .filter(|v| !v.is_empty())
-            .map(str::to_string)
-            .collect()
+    let criteria = HostSearchCriteria {
+        hosts: non_blank(&selection.hosts),
+        substr: non_blank(&selection.matches),
+        nimby: nimby_filter(selection.nimby) as i32,
+        ..Default::default()
     };
-    let criteria = if selection.hosts.is_empty() {
-        HostSearchCriteria {
-            substr: non_blank(&selection.matches),
-            ..Default::default()
-        }
-    } else {
-        HostSearchCriteria {
-            hosts: non_blank(&selection.hosts),
-            ..Default::default()
-        }
-    };
-    if criteria.substr.is_empty() && criteria.hosts.is_empty() {
-        bail!("the host selection is empty; give host names or a non-empty --match");
+    if criteria.substr.is_empty() && criteria.hosts.is_empty() && !selection.nimby {
+        bail!("the host selection is empty; give host names, a non-empty --match or --nimby");
     }
     Ok(criteria)
+}
+
+fn non_blank(values: &[String]) -> Vec<String> {
+    values
+        .iter()
+        .map(|v| v.trim())
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+        .collect()
+}
+
+fn nimby_filter(nimby_only: bool) -> NimbyFilter {
+    if nimby_only {
+        NimbyFilter::NimbyOnly
+    } else {
+        NimbyFilter::NimbyAny
+    }
 }
 
 fn missing_names<'a>(requested: &'a [String], found: &[Host]) -> Vec<&'a str> {
@@ -334,6 +425,7 @@ mod tests {
         let selection = |hosts: &[&str], matches: &[&str]| HostSelection {
             hosts: hosts.iter().map(|s| s.to_string()).collect(),
             matches: matches.iter().map(|s| s.to_string()).collect(),
+            nimby: false,
         };
         let c = selection_criteria(&selection(&[], &["vrack", "", " "])).unwrap();
         assert_eq!(c.substr, ["vrack"]);
@@ -343,6 +435,21 @@ mod tests {
             selection_criteria(&selection(&["h1"], &[])).unwrap().hosts,
             ["h1"]
         );
+    }
+
+    #[test]
+    fn nimby_selection() {
+        let nimby = |matches: &[&str]| HostSelection {
+            hosts: vec![],
+            matches: matches.iter().map(|s| s.to_string()).collect(),
+            nimby: true,
+        };
+        let c = selection_criteria(&nimby(&[])).unwrap();
+        assert_eq!(c.nimby, NimbyFilter::NimbyOnly as i32);
+        assert!(c.hosts.is_empty() && c.substr.is_empty());
+        let c = selection_criteria(&nimby(&["lgt", ""])).unwrap();
+        assert_eq!(c.substr, ["lgt"]);
+        assert_eq!(c.nimby, NimbyFilter::NimbyOnly as i32);
     }
 
     #[test]

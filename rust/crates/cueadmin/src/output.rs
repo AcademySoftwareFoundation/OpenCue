@@ -16,7 +16,10 @@
 //! seconds, cores as plain numbers and enums by their proto names.
 
 use opencue_proto::facility::Allocation;
-use opencue_proto::host::{HardwareState, Host, LockState, Proc, ThreadMode};
+use opencue_proto::host::{
+    HardwareState, Host, HostLockHostsResponse, HostUnlockHostsResponse, LockState, Proc,
+    ThreadMode,
+};
 use opencue_proto::job::Job;
 use opencue_proto::service::Service;
 use opencue_proto::show::Show;
@@ -205,6 +208,106 @@ pub fn hosts(hosts: &[Host], now: i64) -> Table {
 }
 
 /// Shows with their stats.
+/// Outcome of a bulk `host lock --nimby` or `host unlock --nimby`.
+#[derive(Debug, Default, PartialEq)]
+pub struct BulkLockOutcome {
+    /// Whether this is a lock (true) or an unlock (false).
+    pub locking: bool,
+    /// Hosts now locked or unlocked.
+    pub changed: Vec<String>,
+    /// Hosts whose lock changed in Cuebot but whose RQD could not be reached.
+    pub unreachable: Vec<String>,
+    /// Matched hosts left alone because another source holds their lock.
+    pub skipped: Vec<String>,
+    /// Frames killed and returned to waiting.
+    pub frames_killed: i32,
+    /// Frames whose kill could not be confirmed. They keep running until their host reports
+    /// them done.
+    pub frames_deferred: Vec<String>,
+}
+
+impl From<HostLockHostsResponse> for BulkLockOutcome {
+    fn from(r: HostLockHostsResponse) -> Self {
+        Self {
+            locking: true,
+            changed: r.locked,
+            unreachable: r.unreachable,
+            skipped: r.skipped,
+            frames_killed: r.frames_killed,
+            frames_deferred: r.frames_deferred,
+        }
+    }
+}
+
+impl From<HostUnlockHostsResponse> for BulkLockOutcome {
+    fn from(r: HostUnlockHostsResponse) -> Self {
+        Self {
+            locking: false,
+            changed: r.unlocked,
+            unreachable: r.unreachable,
+            skipped: r.skipped,
+            ..Default::default()
+        }
+    }
+}
+
+impl BulkLockOutcome {
+    /// Counts, unreachable hosts and unconfirmed frame kills, for people.
+    pub fn summary(&self) -> String {
+        let mut out = if self.locking {
+            format!(
+                "Locked: {}, unreachable: {}, skipped: {}, frames killed: {}\n",
+                self.changed.len(),
+                self.unreachable.len(),
+                self.skipped.len(),
+                self.frames_killed
+            )
+        } else {
+            format!(
+                "Unlocked: {}, unreachable: {}, skipped: {}\n",
+                self.changed.len(),
+                self.unreachable.len(),
+                self.skipped.len()
+            )
+        };
+        if !self.unreachable.is_empty() {
+            out.push_str(&format!(
+                "Unreachable hosts: {}\n",
+                self.unreachable.join(", ")
+            ));
+        }
+        if !self.frames_deferred.is_empty() {
+            out.push_str("Frames whose kill could not be confirmed (still running):\n");
+            for frame in &self.frames_deferred {
+                out.push_str(&format!("  {frame}\n"));
+            }
+        }
+        out
+    }
+
+    /// One row per matched host with what happened to it.
+    pub fn hosts(&self) -> Table {
+        let mut table = Table::new(
+            Noun {
+                one: "host",
+                many: "hosts",
+            },
+            &[Column::new("Host", "host"), Column::new("Result", "result")],
+        );
+        let changed = if self.locking { "locked" } else { "unlocked" };
+        for (names, result) in [
+            (&self.changed, changed),
+            (&self.unreachable, "unreachable"),
+            (&self.skipped, "skipped"),
+        ] {
+            for name in names {
+                table.row(vec![Cell::same(name), Cell::same(result)]);
+            }
+        }
+        table
+    }
+}
+
 pub fn shows(shows: &[Show]) -> Table {
     let mut table = Table::new(
         Noun {
@@ -549,6 +652,39 @@ mod tests {
         assert_eq!(field("uptime_secs"), "90000");
         assert_eq!(field("thread_mode"), "VARIABLE");
         assert_eq!(field("nimby"), "false");
+    }
+
+    #[test]
+    fn bulk_lock_outcome() {
+        let outcome = BulkLockOutcome::from(HostLockHostsResponse {
+            locked: vec!["ws1".into(), "ws2".into()],
+            unreachable: vec!["ws3".into()],
+            skipped: vec!["ws4".into()],
+            frames_killed: 5,
+            frames_deferred: vec!["0042-comp".into()],
+        });
+        assert_eq!(
+            outcome.summary(),
+            "Locked: 2, unreachable: 1, skipped: 1, frames killed: 5\n\
+             Unreachable hosts: ws3\n\
+             Frames whose kill could not be confirmed (still running):\n  0042-comp\n"
+        );
+        let table = outcome.hosts();
+        assert_eq!(raw_header(&table), ["host", "result"]);
+        assert_eq!(raw_row(&table, 0), ["ws1", "locked"]);
+        assert_eq!(raw_row(&table, 2), ["ws3", "unreachable"]);
+        assert_eq!(raw_row(&table, 3), ["ws4", "skipped"]);
+
+        let outcome = BulkLockOutcome::from(HostUnlockHostsResponse {
+            unlocked: vec!["ws1".into()],
+            unreachable: vec![],
+            skipped: vec!["ws4".into()],
+        });
+        assert_eq!(
+            outcome.summary(),
+            "Unlocked: 1, unreachable: 0, skipped: 1\n"
+        );
+        assert_eq!(raw_row(&outcome.hosts(), 0), ["ws1", "unlocked"]);
     }
 
     #[test]

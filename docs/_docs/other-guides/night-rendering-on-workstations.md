@@ -29,9 +29,11 @@ back during the night, their activity still locks the host and kills its frames.
 
 ## Before you start
 
-- Install `cueadmin` on a machine that can reach Cuebot (see
-  [Installing CueAdmin](/docs/getting-started/installing-cueadmin)).
-- Make sure the workstations report nimby as enabled. `cueadmin -lh -nimby` lists them.
+- Build the Rust `cueadmin` (`cargo build -r -p cueadmin` in the `rust` directory, see
+  [CueAdmin moves to Rust](/news/2026-11-10-cueadmin-moves-to-rust)) and install it on a machine
+  that can reach Cuebot. The deprecated Python tool takes the same options as `-lock`/`-unlock`
+  with `-nimby`, `-kill-frames` and `-source`.
+- Make sure the workstations report nimby as enabled. `cueadmin host list --nimby` lists them.
 - Shows need a subscription to the workstations' allocation to render on them (see
   [Desktop rendering control](/docs/other-guides/desktop-rendering-control)).
 
@@ -41,19 +43,19 @@ Pick a source tag for the schedule, for example `night-render`, and add two cron
 
 ```
 # Weekdays: open workstations at 20:00, clear them at 07:00
-0 20 * * 1-5  cueadmin -unlock -nimby -source night-render -force
-0  7 * * 1-5  cueadmin -lock -nimby -kill-frames -source night-render -force
+0 20 * * 1-5  cueadmin host unlock --nimby --source night-render --force
+0  7 * * 1-5  cueadmin host lock --nimby --kill-frames --source night-render --force
 ```
 
-`-force` skips the confirmation prompt, which a cron job can't answer. The evening unlock only
+`--force` skips the confirmation prompt, which a cron job can't answer. The evening unlock only
 releases hosts locked with the `night-render` tag, so a workstation locked earlier by hand stays
-locked until it's unlocked by hand (`cueadmin -host ws-01 -unlock`).
+locked until it's unlocked by hand (`cueadmin host unlock ws-01`).
 
 To give long frames a chance to finish, lock first and kill later:
 
 ```
-30 6 * * 1-5  cueadmin -lock -nimby -source night-render -force
-0  7 * * 1-5  cueadmin -lock -nimby -kill-frames -source night-render -force
+30 6 * * 1-5  cueadmin host lock --nimby --source night-render --force
+0  7 * * 1-5  cueadmin host lock --nimby --kill-frames --source night-render --force
 ```
 
 The first call stops new frames from being booked; the second kills whatever is still running.
@@ -64,7 +66,7 @@ Locking again with the same source is safe.
 The schedule never takes over or lifts someone else's lock:
 
 - A host locked by another source, for example a maintenance lock taken with
-  `cueadmin -host ws-01 -lock`, is skipped by both calls and stays locked.
+  `cueadmin host lock ws-01`, is skipped by both calls and stays locked.
 - A host nimby-locked because an artist is working is locked by the morning call, and isn't
   touched by the evening call.
 
@@ -106,6 +108,7 @@ and refuse a request with no filter at all, so an empty call can't lock the whol
 
 ## Related documentation
 
-* [CueAdmin reference](/docs/reference/tools/cueadmin) - Bulk lock flags
+* [CueAdmin README](https://github.com/AcademySoftwareFoundation/OpenCue/tree/master/rust/crates/cueadmin#bulk-lock-of-nimby-hosts) - Bulk lock options
+* [CueAdmin reference](/docs/reference/tools/cueadmin) - Bulk lock flags of the deprecated Python tool
 * [Desktop rendering control](/docs/other-guides/desktop-rendering-control) - Allocations and subscriptions for workstations
 * [NIMBY concept guide](/docs/concepts/nimby) - How nimby locks a host
