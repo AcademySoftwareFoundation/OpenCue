@@ -97,6 +97,26 @@ class Layer(object):
             layer=self.data, value=value),
             timeout=Cuebot.Timeout)
 
+    def isAutoMemory(self):
+        """Returns whether auto memory is on for this layer.
+
+        On scheduler-managed shows auto memory lets the scheduler size each frame from what
+        finished frames used, up or down from minMemory(); off pins every frame to minMemory().
+        It is the same flag as the memory optimizer.
+
+        :rtype:  bool
+        :return: whether auto memory (the memory optimizer) is enabled
+        """
+        return self.data.memory_optimizer_enabled
+
+    def setAutoMemory(self, value):
+        """Turns auto memory on or off for this layer. See isAutoMemory().
+
+        :type  value: bool
+        :param value: whether auto memory is enabled
+        """
+        return self.enableMemoryOptimizer(value)
+
     def getFrames(self, **options):
         """Returns a list of up to 1000 frames from within the layer.
 
@@ -500,6 +520,15 @@ class Layer(object):
         :return: minimum kB of memory required by frames in this layer
         """
         return self.data.min_memory
+
+    def bookedMemory(self):
+        """Returns the memory the scheduler last booked each frame of this layer at, on
+        scheduler-managed shows.
+
+        :rtype:  int
+        :return: kB booked per frame, or 0 when the scheduler has not sized the layer yet
+        """
+        return self.data.booked_memory
 
     def limits(self):
         """Returns the limit names for this layer.

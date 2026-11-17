@@ -444,6 +444,53 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(420000, frame.maxRss);
     }
 
+    /** Reports a running frame of the proc at the given max rss. */
+    private void reportRss(VirtualProc proc, long maxRss) {
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).setLluTime(System.currentTimeMillis() / 1000)
+                .setRss(maxRss).setMaxRss(maxRss).build();
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(info).build();
+        hostReportHandler.handleHostReport(report, false);
+    }
+
+    private long layerMaxRss(VirtualProc proc) {
+        return jdbcTemplate.queryForObject("SELECT int_max_rss FROM layer_mem WHERE pk_layer = ?",
+                Long.class, proc.getLayerId());
+    }
+
+    /**
+     * On a scheduler-managed show a host report records the layer's max rss, the fact Maestro sizes
+     * from, but never raises the layer's memory: the ask stays the user's. A legacy show still
+     * ratchets its ask up to the running frame's rss.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostReportRecordsRssButLeavesAManagedLayersMemory() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+        List<VirtualProc> procs = dispatcher.dispatchHost(getHost(hostname));
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        long ask = jobManager.getLayerDetail(proc.getLayerId()).minimumMemory;
+
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = true WHERE pk_show = ?",
+                proc.getShowId());
+        reportRss(proc, ask + CueUtil.GB);
+        assertEquals("the managed layer's ask stays", ask,
+                jobManager.getLayerDetail(proc.getLayerId()).minimumMemory);
+        assertEquals("the managed layer's max rss is recorded", ask + CueUtil.GB,
+                layerMaxRss(proc));
+
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = false WHERE pk_show = ?",
+                proc.getShowId());
+        reportRss(proc, ask + CueUtil.GB2);
+        assertEquals("a legacy layer still ratchets", ask + CueUtil.GB2,
+                jobManager.getLayerDetail(proc.getLayerId()).minimumMemory);
+    }
+
     /**
      * Strict fencing: a reported running frame whose resource_id maps to a proc that now owns a
      * different frame is a zombie and must be killed immediately, skipping the grace period. The

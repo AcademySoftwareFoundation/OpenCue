@@ -194,18 +194,23 @@ public interface FrameDao {
     /**
      * Updates a frame to the stopped state. The frame MUST be in the Running state to be stopped.
      *
+     * The frame's memory floor for its next attempt ({@code frame.int_mem_retry}) is cleared on
+     * success and otherwise raised to {@code memRetryKb}; 0 leaves it as it is.
+     *
      * @param frame
      * @param state
      * @param exitStatus
      * @param maxRss
-     * @return
+     * @param memRetryKb the memory floor (KB) of the frame's next attempt, 0 for none
+     * @return true if the frame was stopped
      */
-    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss);
+    boolean updateFrameStopped(FrameInterface frame, FrameState state, int exitStatus, long maxRss,
+            long memRetryKb);
 
     /**
-     * Batch variant of {@link #updateFrameStopped(FrameInterface, FrameState, int, long)} for the
-     * scheduler's queued frame completions: stops many RUNNING frames in one round-trip with the
-     * same per-row state+version guard, firing the stat-count trigger for every row inside the
+     * Batch variant of {@link #updateFrameStopped(FrameInterface, FrameState, int, long, long)} for
+     * the scheduler's queued frame completions: stops many RUNNING frames in one round-trip with
+     * the same per-row state+version guard, firing the stat-count trigger for every row inside the
      * caller's single transaction (stat counter rows are pre-locked in sorted layer-then-job order
      * first, so the batch cannot deadlock a concurrent single-frame transition). A frame that was
      * killed, eaten or retried after its report arrived updates zero rows and is reported as a

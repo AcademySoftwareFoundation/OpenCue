@@ -403,7 +403,7 @@ public class JobManagerService implements JobManager {
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
     public void increaseLayerMemoryRequirement(LayerInterface layer, long memKb) {
-        layerDao.increaseLayerMinMemory(layer, memKb);
+        layerDao.increaseUnmanagedLayerMinMemory(layer, memKb);
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
@@ -439,7 +439,7 @@ public class JobManagerService implements JobManager {
 
     @Override
     @Transactional(propagation = Propagation.REQUIRED)
-    public void optimizeLayer(LayerInterface layer, int cores, long maxRss, int runTime) {
+    public void optimizeLayer(LayerInterface layer, long maxRss) {
         layerDao.balanceLayerMinMemory(layer, maxRss);
     }
 

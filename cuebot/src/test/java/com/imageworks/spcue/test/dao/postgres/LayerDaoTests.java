@@ -548,50 +548,22 @@ public class LayerDaoTests extends AbstractTransactionalJUnit4SpringContextTests
     @Test
     @Transactional
     @Rollback(true)
-    public void isOptimizable() {
+    public void theRssRatchetSkipsManagedShows() {
         LayerDetail layer = getLayer();
+        long ask = layerDao.getLayerDetail(layer.getLayerId()).minimumMemory;
+        long rss = ask + CueUtil.GB;
 
-        assertFalse(layerDao.isOptimizable(layer, 5, 3600));
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = true WHERE pk_show = ?",
+                ROOT_SHOW);
+        layerDao.increaseUnmanagedLayerMinMemory(layer, rss);
+        assertEquals("Maestro sizes a managed show's memory: the ask stays", ask,
+                layerDao.getLayerDetail(layer.getLayerId()).minimumMemory);
 
-        /*
-         * The succeeded count is good but the frames are too long Assert False
-         */
-        jdbcTemplate.update("UPDATE layer_stat SET int_succeeded_count = 5 WHERE pk_layer=?",
-                layer.getLayerId());
-
-        jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3600 * 6 " + "WHERE pk_layer=?",
-                layer.getLayerId());
-
-        assertFalse(layerDao.isOptimizable(layer, 5, 3600));
-
-        /*
-         * Set the frame times lower, so now we meet the criteria Assert True
-         */
-        jdbcTemplate.update(
-                "UPDATE layer_usage SET int_core_time_success = 3500 * 5 " + "WHERE pk_layer=?",
-                layer.getLayerId());
-
-        assertTrue(layerDao.isOptimizable(layer, 5, 3600));
-
-        /*
-         * Take the general tag away. If a layer is not a general layer it cannot be optmiized.
-         * Assert False
-         */
-        jdbcTemplate.update("UPDATE layer SET str_tags=? WHERE pk_layer=?", "desktop",
-                layer.getLayerId());
-
-        assertFalse(layerDao.isOptimizable(layer, 5, 3600));
-
-        /*
-         * Layers that are already tagged util should return false as well.
-         *
-         * Assert False
-         */
-        jdbcTemplate.update("UPDATE layer SET str_tags=? WHERE pk_layer=?", "general | util",
-                layer.getLayerId());
-
-        assertFalse(layerDao.isOptimizable(layer, 5, 3600));
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = false WHERE pk_show = ?",
+                ROOT_SHOW);
+        layerDao.increaseUnmanagedLayerMinMemory(layer, rss);
+        assertEquals("a legacy show still ratchets", rss,
+                layerDao.getLayerDetail(layer.getLayerId()).minimumMemory);
     }
 
     @Test

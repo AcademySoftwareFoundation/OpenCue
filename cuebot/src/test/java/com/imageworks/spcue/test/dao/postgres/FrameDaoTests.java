@@ -47,6 +47,7 @@ import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.dao.HostDao;
+import com.imageworks.spcue.dao.MaestroDao;
 import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchFactory;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
@@ -112,6 +113,9 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
 
     @Resource
     FrameSearchFactory frameSearchFactory;
+
+    @Resource
+    MaestroDao maestroDao;
 
     private static final String HOST = "beta";
 
@@ -483,10 +487,122 @@ public class FrameDaoTests extends AbstractTransactionalJUnit4SpringContextTests
         }
 
         DispatchFrame fd2 = frameDao.getDispatchFrame(frame.getId());
-        assertTrue(frameDao.updateFrameStopped(fd2, FrameState.DEAD, 1, 1000l));
+        assertTrue(frameDao.updateFrameStopped(fd2, FrameState.DEAD, 1, 1000l, 0));
 
         assertEquals(FrameState.DEAD.toString(), jdbcTemplate.queryForObject(
                 "SELECT str_state FROM frame WHERE pk_frame=?", String.class, frame.getFrameId()));
+    }
+
+    /** Release the job's pass_1 frames from their dependency, so they are WAITING. */
+    private void releasePass1(JobDetail job) {
+        jdbcTemplate.update("UPDATE frame SET int_depend_count = 0 "
+                + "WHERE pk_job = ? AND str_name LIKE '%-pass_1'", job.getJobId());
+    }
+
+    /** Mark the named frame of the job RUNNING, as a dispatch would, and read it back. */
+    private DispatchFrame runningFrame(JobDetail job, String name) {
+        FrameDetail frame = frameDao.findFrameDetail(job, name);
+        jdbcTemplate.update("UPDATE frame SET str_state = 'RUNNING', "
+                + "ts_started = current_timestamp WHERE pk_frame = ?", frame.getFrameId());
+        return frameDao.getDispatchFrame(frame.getId());
+    }
+
+    private long memRetry(FrameInterface frame) {
+        return jdbcTemplate.queryForObject("SELECT int_mem_retry FROM frame WHERE pk_frame=?",
+                Long.class, frame.getFrameId());
+    }
+
+    private void setMemRetry(FrameInterface frame, long memKb) {
+        jdbcTemplate.update("UPDATE frame SET int_mem_retry = ? WHERE pk_frame = ?", memKb,
+                frame.getFrameId());
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void aSuccessClearsTheRetryFloorAndAFailureKeepsIt() {
+        JobDetail job = launchJob();
+        releasePass1(job);
+        DispatchFrame failed = runningFrame(job, "0001-pass_1");
+        DispatchFrame succeeded = runningFrame(job, "0002-pass_1");
+        setMemRetry(failed, CueUtil.GB8);
+        setMemRetry(succeeded, CueUtil.GB8);
+
+        assertTrue(frameDao.updateFrameStopped(failed, FrameState.WAITING, 33, 1000L, 0));
+        assertTrue(frameDao.updateFrameStopped(succeeded, FrameState.SUCCEEDED, 0, 1000L, 0));
+
+        assertEquals(CueUtil.GB8, memRetry(failed));
+        assertEquals(0L, memRetry(succeeded));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void theStopWritesTheRetryFloorAndNeverLowersIt() {
+        JobDetail job = launchJob();
+        releasePass1(job);
+        DispatchFrame oomed = runningFrame(job, "0001-pass_1");
+        DispatchFrame floored = runningFrame(job, "0002-pass_1");
+        setMemRetry(floored, CueUtil.GB16);
+
+        assertTrue(frameDao.updateFrameStopped(oomed, FrameState.WAITING, 33, 1000L, CueUtil.GB8));
+        assertTrue(
+                frameDao.updateFrameStopped(floored, FrameState.WAITING, 33, 1000L, CueUtil.GB8));
+
+        assertEquals(CueUtil.GB8, memRetry(oomed));
+        assertEquals(CueUtil.GB16, memRetry(floored));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void theBatchedStopWritesTheRetryFloor() {
+        JobDetail job = launchJob();
+        releasePass1(job);
+        DispatchFrame oomed = runningFrame(job, "0001-pass_1");
+        DispatchFrame succeeded = runningFrame(job, "0002-pass_1");
+        setMemRetry(succeeded, CueUtil.GB8);
+        FrameCompleteReport report = FrameCompleteReport.newBuilder()
+                .setFrame(RunningFrameInfo.newBuilder().setMaxRss(1000L).build()).build();
+
+        boolean[] won = frameDao.batchUpdateFramesStopped(Arrays.asList(
+                new QueuedFrameCompletion(report, null, null, null, null, oomed, FrameState.WAITING,
+                        33, CueUtil.GB8),
+                new QueuedFrameCompletion(report, null, null, null, null, succeeded,
+                        FrameState.SUCCEEDED, 0, CueUtil.GB16)));
+
+        assertTrue(won[0] && won[1]);
+        assertEquals("the OOMed frame waits with its floor", CueUtil.GB8, memRetry(oomed));
+        assertEquals("a success clears the floor", 0L, memRetry(succeeded));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void theRssPercentileCountsOnlySucceededFramesWithRss() {
+        JobDetail job = launchJob();
+        releasePass1(job);
+        String layerId = frameDao.findFrameDetail(job, "0001-pass_1").getLayerId();
+        // Frames 1-8 succeed at 1G..8G; 9 succeeds without rss; 10 dies at 500G.
+        for (int i = 1; i <= 8; i++) {
+            jdbcTemplate.update(
+                    "UPDATE frame SET str_state = 'SUCCEEDED', int_mem_max_used = ? "
+                            + "WHERE pk_layer = ? AND str_name = ?",
+                    i * CueUtil.GB, layerId, String.format("%04d-pass_1", i));
+        }
+        jdbcTemplate.update("UPDATE frame SET str_state = 'SUCCEEDED', int_mem_max_used = 0 "
+                + "WHERE pk_layer = ? AND str_name = '0009-pass_1'", layerId);
+        jdbcTemplate.update(
+                "UPDATE frame SET str_state = 'DEAD', int_mem_max_used = ? "
+                        + "WHERE pk_layer = ? AND str_name = '0010-pass_1'",
+                500 * CueUtil.GB, layerId);
+
+        Map<String, Long> pct =
+                maestroDao.getSucceededRssPercentile(Arrays.asList(layerId, "no-such-layer"), 0.9);
+
+        // percentile_cont(0.9) over 1G..8G = 7.3G.
+        assertEquals(1, pct.size());
+        assertEquals(7.3 * CueUtil.GB, pct.get(layerId), 1.0);
     }
 
     @Test

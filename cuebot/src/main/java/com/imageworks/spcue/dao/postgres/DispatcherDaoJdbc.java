@@ -548,7 +548,11 @@ public class DispatcherDaoJdbc extends JdbcDaoSupport implements DispatcherDao {
         List<DispatchFrame> frames = getNamedJdbcTemplate().query(
                 FIND_DISPATCH_FRAMES_BY_LAYER, new MapSqlParameterSource()
                         .addValue("layerId", layerId).addValue("frameLimit", limit),
-                FrameDaoJdbc.DISPATCH_FRAME_MAPPER);
+                (rs, rowNum) -> {
+                    DispatchFrame frame = FrameDaoJdbc.DISPATCH_FRAME_MAPPER.mapRow(rs, rowNum);
+                    frame.memRetryKb = rs.getLong("int_mem_retry");
+                    return frame;
+                });
         prometheusMetrics.setBookingDurationMetric("findNextDispatchFrames by layer query",
                 System.currentTimeMillis() - lastTime);
         return frames;

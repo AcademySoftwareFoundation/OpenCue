@@ -318,6 +318,7 @@ service LayerInterface {
     rpc EatFrames(LayerEatFramesRequest) returns (LayerEatFramesResponse);
 
     // When disabled, This will stop Cuebot from lowering the amount of memory required for a given layer.
+    // On scheduler-managed shows it toggles auto memory instead; disabled pins the layer to its min_memory.
     rpc EnableMemoryOptimizer(LayerEnableMemoryOptimizerRequest) returns (LayerEnableMemoryOptimizerResponse);
 
     // Finds a layer in a pending job based the job and layer name
@@ -720,6 +721,9 @@ message Layer {
     // An array of services that are being run on all frames within this layer.
     repeated string services = 13;
     // True if the memory optimizer is enabled.  Disabling the optimizer will stop Cuebot from lowering memory.
+    // On scheduler-managed shows this is auto memory: when true the scheduler sizes each frame from
+    // what finished frames used, up or down from min_memory; when false the layer is pinned and every
+    // frame books exactly min_memory.
     bool memory_optimizer_enabled = 14;
     LayerStats layer_stats = 15;
     string parent_id = 16;
@@ -737,6 +741,9 @@ message Layer {
     int64 start_after = 26;
     // Free-text provenance for start_after, displayed verbatim.
     string start_after_reason = 27;
+    // Read-only. The per-frame memory (KB) the scheduler last booked this layer at, on
+    // scheduler-managed shows; 0 = not sized yet.
+    int64 booked_memory = 28;
 }
 
 message LayerSeq {
