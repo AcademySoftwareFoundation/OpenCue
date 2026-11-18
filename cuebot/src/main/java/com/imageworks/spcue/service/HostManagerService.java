@@ -15,10 +15,19 @@
 package com.imageworks.spcue.service;
 
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.function.Function;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +52,11 @@ import com.imageworks.spcue.dao.ProcDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.SubscriptionDao;
 import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
+import com.imageworks.spcue.dao.criteria.HostSearchInterface;
 import com.imageworks.spcue.dao.criteria.ProcSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
+import com.imageworks.spcue.grpc.host.HostLockHostsResponse;
+import com.imageworks.spcue.grpc.host.HostUnlockHostsResponse;
 import com.imageworks.spcue.grpc.host.HostTagType;
 import com.imageworks.spcue.grpc.host.LockState;
 import com.imageworks.spcue.grpc.report.HostReport;
@@ -56,6 +68,9 @@ import com.imageworks.spcue.rqd.RqdClientException;
 public class HostManagerService implements HostManager {
     private static final Logger logger = LogManager.getLogger(HostManagerService.class);
 
+    @Autowired
+    private Environment env;
+
     private HostDao hostDao;
     private RqdClient rqdClient;
     private ProcDao procDao;
@@ -63,8 +78,162 @@ public class HostManagerService implements HostManager {
     private FacilityDao facilityDao;
     private SubscriptionDao subscriptionDao;
     private AllocationDao allocationDao;
+    private JobManagerSupport jobManagerSupport;
 
     public HostManagerService() {}
+
+    /**
+     * Builds the lock source recorded by bulk host locks for the given source tag.
+     *
+     * @param source the source tag, e.g. "night-render"
+     * @return the Source whose string is stored in host.str_lock_source
+     */
+    public static Source bulkLockSource(String source) {
+        return new Source("HostApi:" + source);
+    }
+
+    private enum BulkOutcome {
+        DONE, UNREACHABLE, SKIPPED
+    }
+
+    private static final class HostLockOutcome {
+        final String hostName;
+        final BulkOutcome outcome;
+        final JobManagerSupport.HostLockKillResult killResult;
+
+        HostLockOutcome(String hostName, BulkOutcome outcome,
+                JobManagerSupport.HostLockKillResult killResult) {
+            this.hostName = hostName;
+            this.outcome = outcome;
+            this.killResult = killResult;
+        }
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public HostLockHostsResponse lockHosts(HostSearchInterface search, boolean killRunning,
+            String source) {
+        Source lockSource = bulkLockSource(source);
+        List<HostLockOutcome> outcomes =
+                forEachHost(search, host -> lockHost(host, killRunning, lockSource));
+
+        HostLockHostsResponse.Builder response = HostLockHostsResponse.newBuilder();
+        for (HostLockOutcome o : outcomes) {
+            switch (o.outcome) {
+                case SKIPPED:
+                    response.addSkipped(o.hostName);
+                    break;
+                case UNREACHABLE:
+                    response.addUnreachable(o.hostName);
+                    break;
+                default:
+                    response.addLocked(o.hostName);
+                    break;
+            }
+            if (o.killResult != null) {
+                response.setFramesKilled(response.getFramesKilled() + o.killResult.framesKilled);
+                response.addAllFramesDeferred(o.killResult.framesDeferred);
+            }
+        }
+        return response.build();
+    }
+
+    private HostLockOutcome lockHost(HostInterface host, boolean killRunning, Source source) {
+        if (!hostDao.lockHostIfNotLockedByOther(host, source)) {
+            return new HostLockOutcome(host.getName(), BulkOutcome.SKIPPED, null);
+        }
+        BulkOutcome outcome = BulkOutcome.DONE;
+        // Lock RQD before the kill so it stops accepting launches on the freed cores.
+        try {
+            rqdClient.setHostLock(host, LockState.LOCKED);
+        } catch (RqdClientException e) {
+            logger.info("bulk lock: failed to lock RQD on " + host.getName() + ", " + e);
+            outcome = BulkOutcome.UNREACHABLE;
+        }
+        JobManagerSupport.HostLockKillResult killResult = null;
+        if (killRunning) {
+            killResult = jobManagerSupport.killForHostLock(host, source);
+        }
+        return new HostLockOutcome(host.getName(), outcome, killResult);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public HostUnlockHostsResponse unlockHosts(HostSearchInterface search, String source) {
+        Source lockSource = bulkLockSource(source);
+        List<HostLockOutcome> outcomes = forEachHost(search, host -> unlockHost(host, lockSource));
+
+        HostUnlockHostsResponse.Builder response = HostUnlockHostsResponse.newBuilder();
+        for (HostLockOutcome o : outcomes) {
+            switch (o.outcome) {
+                case SKIPPED:
+                    response.addSkipped(o.hostName);
+                    break;
+                case UNREACHABLE:
+                    response.addUnreachable(o.hostName);
+                    break;
+                default:
+                    response.addUnlocked(o.hostName);
+                    break;
+            }
+        }
+        return response.build();
+    }
+
+    private HostLockOutcome unlockHost(HostInterface host, Source source) {
+        if (!hostDao.unlockHostIfLockedBy(host, source)) {
+            return new HostLockOutcome(host.getName(), BulkOutcome.SKIPPED, null);
+        }
+        try {
+            rqdClient.setHostLock(host, LockState.OPEN);
+        } catch (RqdClientException e) {
+            logger.info("bulk unlock: failed to unlock RQD on " + host.getName() + ", " + e);
+            return new HostLockOutcome(host.getName(), BulkOutcome.UNREACHABLE, null);
+        }
+        return new HostLockOutcome(host.getName(), BulkOutcome.DONE, null);
+    }
+
+    /**
+     * Runs the task for every host matching the search on a pool of {@code host.bulk_lock.threads}
+     * threads and returns the outcomes in host order. A host whose task fails unexpectedly is
+     * reported as unreachable.
+     */
+    private List<HostLockOutcome> forEachHost(HostSearchInterface search,
+            Function<HostInterface, HostLockOutcome> task) {
+        List<HostEntity> hosts = hostDao.findHosts(search);
+        List<HostLockOutcome> outcomes = new ArrayList<>(hosts.size());
+        if (hosts.isEmpty()) {
+            return outcomes;
+        }
+
+        int threads = env == null ? 8 : env.getProperty("host.bulk_lock.threads", Integer.class, 8);
+        ExecutorService executor =
+                Executors.newFixedThreadPool(Math.max(1, Math.min(threads, hosts.size())));
+        try {
+            List<Callable<HostLockOutcome>> calls = new ArrayList<>(hosts.size());
+            for (HostEntity host : hosts) {
+                calls.add(() -> {
+                    try {
+                        return task.apply(host);
+                    } catch (RuntimeException e) {
+                        logger.warn("bulk lock change failed on " + host.getName(), e);
+                        return new HostLockOutcome(host.getName(), BulkOutcome.UNREACHABLE, null);
+                    }
+                });
+            }
+            for (Future<HostLockOutcome> future : executor.invokeAll(calls)) {
+                outcomes.add(future.get());
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while changing host locks", e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("failed to change host locks", e.getCause());
+        } finally {
+            executor.shutdown();
+        }
+        return outcomes;
+    }
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -451,6 +620,14 @@ public class HostManagerService implements HostManager {
 
     public void setFacilityDao(FacilityDao facilityDao) {
         this.facilityDao = facilityDao;
+    }
+
+    public JobManagerSupport getJobManagerSupport() {
+        return jobManagerSupport;
+    }
+
+    public void setJobManagerSupport(JobManagerSupport jobManagerSupport) {
+        this.jobManagerSupport = jobManagerSupport;
     }
 
     public ShowDao getShowDao() {

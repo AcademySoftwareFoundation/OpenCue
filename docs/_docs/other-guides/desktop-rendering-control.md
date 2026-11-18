@@ -383,6 +383,9 @@ cueadmin -burst myshow local.desktop 100
    * Users receive notifications when renders start
    * Users can override schedule manually if needed
 
+To run the schedule centrally instead, without configuring each workstation, see
+[Night rendering on workstations](/docs/other-guides/night-rendering-on-workstations).
+
 ### Workflow 3: Department-specific rendering
 
 **Scenario**: Only allow specific departments' machines to render.

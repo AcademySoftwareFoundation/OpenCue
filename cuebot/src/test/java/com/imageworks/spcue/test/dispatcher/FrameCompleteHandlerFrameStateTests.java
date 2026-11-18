@@ -86,6 +86,15 @@ public class FrameCompleteHandlerFrameStateTests {
     }
 
     @Test
+    public void testHostLockKilledFrameStaysWaiting() {
+        // A frame stopped by a bulk host lock is already WAITING when the killed render reports.
+        frame.state = FrameState.WAITING;
+        frame.retries = job.maxRetries;
+        frameDetail.exitStatus = Dispatcher.EXIT_STATUS_HOST_LOCKED;
+        assertEquals(FrameState.WAITING, determine(report(1, EXIT_SIGNAL_SIGTERM)));
+    }
+
+    @Test
     public void testEatenFramePreservesState() {
         frame.state = FrameState.EATEN;
         assertEquals(FrameState.EATEN, determine(report(0, 0)));

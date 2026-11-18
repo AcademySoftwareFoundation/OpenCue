@@ -60,6 +60,13 @@ class JobSearchTests(unittest.TestCase):
             host_pb2.HostGetHostsRequest(r=host_pb2.HostSearchCriteria(substr=['unittest_host'])),
             timeout=mock.ANY)
 
+    def testHostCriteriaNimby(self, getStubMock):
+        criteriaFromOptions = opencue.search.HostSearch.criteriaFromOptions
+        self.assertEqual(host_pb2.NIMBY_ONLY, criteriaFromOptions(nimby=True).nimby)
+        self.assertEqual(host_pb2.NIMBY_EXCLUDE, criteriaFromOptions(nimby=False).nimby)
+        self.assertEqual(host_pb2.NIMBY_ANY, criteriaFromOptions(nimby=None).nimby)
+        self.assertEqual(host_pb2.NIMBY_ANY, criteriaFromOptions().nimby)
+
     def testBaseSearchJob(self, getStubMock):
         stubMock = mock.Mock()
         getStubMock.return_value = stubMock

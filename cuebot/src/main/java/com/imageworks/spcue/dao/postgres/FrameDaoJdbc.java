@@ -78,10 +78,11 @@ public class FrameDaoJdbc extends JdbcDaoSupport implements FrameDao {
 
     @Autowired
     public FrameDaoJdbc(Environment env) {
-        List<Integer> exclusions = new ArrayList<Integer>(Arrays.asList(-1,
-                FrameExitStatus.SKIP_RETRY_VALUE, FrameExitStatus.FAILED_LAUNCH_VALUE,
-                Dispatcher.EXIT_STATUS_FRAME_CLEARED, Dispatcher.EXIT_STATUS_FRAME_ORPHAN,
-                Dispatcher.EXIT_STATUS_FAILED_KILL, Dispatcher.EXIT_STATUS_DOWN_HOST));
+        List<Integer> exclusions =
+                new ArrayList<Integer>(Arrays.asList(-1, FrameExitStatus.SKIP_RETRY_VALUE,
+                        FrameExitStatus.FAILED_LAUNCH_VALUE, Dispatcher.EXIT_STATUS_FRAME_CLEARED,
+                        Dispatcher.EXIT_STATUS_FRAME_ORPHAN, Dispatcher.EXIT_STATUS_FAILED_KILL,
+                        Dispatcher.EXIT_STATUS_DOWN_HOST, Dispatcher.EXIT_STATUS_HOST_LOCKED));
         exclusions.addAll(LayerDelayRules.parse(env.getProperty("dispatcher.layer_delay.rules", ""))
                 .keySet());
         this.retryExclusions = exclusions.toArray(new Integer[0]);

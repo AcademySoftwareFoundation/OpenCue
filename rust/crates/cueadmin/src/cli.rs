@@ -339,17 +339,66 @@ pub enum SubscriptionCommand {
 // host
 // ---------------------------------------------------------------------------------------------
 
+/// Lock source tag used by bulk locks when --source isn't given.
+pub const DEFAULT_LOCK_SOURCE: &str = "cueadmin";
+
+/// Longest lock source tag Cuebot accepts.
+const MAX_LOCK_SOURCE_LEN: usize = 64;
+
 /// Which hosts a host command operates on.
 #[derive(Debug, Args)]
-#[group(required = true, multiple = false)]
+#[group(required = true, multiple = true)]
 pub struct HostSelection {
     /// Exact names of the hosts to operate on.
-    #[arg(value_name = "HOST")]
+    #[arg(value_name = "HOST", conflicts_with = "matches")]
     pub hosts: Vec<String>,
 
     /// Operate on every host whose name contains one of these substrings.
     #[arg(short, long = "match", value_name = "SUBSTR", value_delimiter = ',')]
     pub matches: Vec<String>,
+
+    /// Only hosts with nimby enabled (workstations).
+    ///
+    /// Counts as a selection on its own, and narrows host names or --match when
+    /// given with them.
+    #[arg(long)]
+    pub nimby: bool,
+}
+
+/// Options of a bulk `host lock --nimby` or `host unlock --nimby`.
+#[derive(Debug, Args)]
+pub struct BulkLockOptions {
+    /// With --nimby: lock source tag.
+    ///
+    /// `host unlock --nimby` only releases hosts locked with the same tag, so a
+    /// scheduled run never lifts someone else's lock.
+    #[arg(
+        long,
+        value_name = "NAME",
+        default_value = DEFAULT_LOCK_SOURCE,
+        value_parser = lock_source,
+        requires = "nimby"
+    )]
+    pub source: String,
+
+    /// With --nimby: only hosts in these allocations.
+    #[arg(long, value_delimiter = ',', requires = "nimby")]
+    pub alloc: Vec<String>,
+}
+
+/// Parses a lock source tag, rejecting what Cuebot would refuse after the confirmation prompt.
+/// Surrounding whitespace is dropped so `" night"` and `"night"` are the same tag.
+fn lock_source(value: &str) -> Result<String, String> {
+    let value = value.trim();
+    if value.is_empty() {
+        return Err("the lock source can't be empty".into());
+    }
+    if value.chars().count() > MAX_LOCK_SOURCE_LEN {
+        return Err(format!(
+            "the lock source must be at most {MAX_LOCK_SOURCE_LEN} characters"
+        ));
+    }
+    Ok(value.to_string())
 }
 
 #[derive(Debug, Subcommand)]
@@ -369,6 +418,9 @@ pub enum HostCommand {
         /// Only hosts in this lock state.
         #[arg(long)]
         lock_state: Option<LockState>,
+        /// Only hosts with nimby enabled (workstations).
+        #[arg(long)]
+        nimby: bool,
         /// Sort by most idle cores and memory first, instead of by name.
         #[arg(long)]
         sort_idle: bool,
@@ -378,10 +430,31 @@ pub enum HostCommand {
     },
 
     /// Lock hosts so they take no new frames.
-    Lock(HostSelection),
+    ///
+    /// With --nimby, Cuebot locks every matching host in one bulk request tagged
+    /// with --source. Hosts already locked by another source are skipped.
+    Lock {
+        #[command(flatten)]
+        selection: HostSelection,
+        #[command(flatten)]
+        bulk: BulkLockOptions,
+        /// With --nimby: kill the frames running on the locked hosts.
+        ///
+        /// They go back to waiting without spending a retry (best effort).
+        #[arg(long, requires = "nimby")]
+        kill_frames: bool,
+    },
 
     /// Unlock hosts.
-    Unlock(HostSelection),
+    ///
+    /// With --nimby, Cuebot unlocks every matching host locked by --source in one
+    /// bulk request. Hosts locked by another source, or not locked, are skipped.
+    Unlock {
+        #[command(flatten)]
+        selection: HostSelection,
+        #[command(flatten)]
+        bulk: BulkLockOptions,
+    },
 
     /// Move hosts into another allocation.
     Move {
@@ -623,7 +696,7 @@ mod tests {
         .unwrap();
         assert!(cli.force);
         assert_eq!(cli.server, ["a", "b:9"]);
-        let Command::Host(HostCommand::Lock(sel)) = cli.command else {
+        let Command::Host(HostCommand::Lock { selection: sel, .. }) = cli.command else {
             panic!("wrong command")
         };
         assert_eq!(sel.matches, ["vrack"]);
@@ -641,6 +714,55 @@ mod tests {
         };
         assert_eq!(alloc, "fac.alloc");
         assert_eq!(selection.hosts, ["h1", "h2"]);
+    }
+
+    #[test]
+    fn nimby_is_a_selection() {
+        let cli = parse(&["host", "lock", "--nimby", "-m", "lgt", "--kill-frames"]).unwrap();
+        let Command::Host(HostCommand::Lock {
+            selection,
+            bulk,
+            kill_frames,
+        }) = cli.command
+        else {
+            panic!("wrong command")
+        };
+        assert!(selection.nimby && kill_frames);
+        assert_eq!(selection.matches, ["lgt"]);
+        assert_eq!(bulk.source, DEFAULT_LOCK_SOURCE);
+
+        assert!(parse(&["host", "unlock", "--nimby", "--source", "night"]).is_ok());
+        assert!(parse(&["host", "delete", "--nimby"]).is_ok());
+        assert!(parse(&["host", "lock", "--nimby", "h1", "-m", "lgt"]).is_err());
+    }
+
+    #[test]
+    fn bulk_lock_options_need_nimby() {
+        for args in [
+            &["host", "lock", "h1", "--kill-frames"][..],
+            &["host", "lock", "h1", "--source", "night"],
+            &["host", "unlock", "-m", "lgt", "--source", "night"],
+            &["host", "unlock", "h1", "--alloc", "lax.desktop"],
+        ] {
+            assert!(parse(args).is_err(), "{args:?}");
+        }
+        assert!(parse(&["host", "unlock", "--nimby", "--kill-frames"]).is_err());
+    }
+
+    #[test]
+    fn lock_source_is_validated() {
+        let source = |value: &str| {
+            let cli = parse(&["host", "lock", "--nimby", "--source", value])?;
+            let Command::Host(HostCommand::Lock { bulk, .. }) = cli.command else {
+                panic!("wrong command")
+            };
+            Ok::<_, clap::Error>(bulk.source)
+        };
+        assert_eq!(source(" night ").unwrap(), "night");
+        assert!(source("").is_err());
+        assert!(source("  ").is_err());
+        assert!(source(&"x".repeat(MAX_LOCK_SOURCE_LEN)).is_ok());
+        assert!(source(&"x".repeat(MAX_LOCK_SOURCE_LEN + 1)).is_err());
     }
 
     #[test]

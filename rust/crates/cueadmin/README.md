@@ -43,6 +43,37 @@ so an alias that adds `--raw` can be overridden per call.
 cueadmin host list --raw | awk -F'\t' 'NR > 1 && $2 == "DOWN" { print $1 }'
 ```
 
+## Bulk lock of nimby hosts
+
+`--nimby` restricts a host command to hosts with nimby enabled (workstations). It counts as a
+selection on its own and narrows host names or `--match` when given with them. With `host lock` and
+`host unlock`, it sends one bulk request to Cuebot instead of one call per host:
+
+```bash
+cueadmin host lock --nimby --source night-render                      # Lock every workstation
+cueadmin host lock --nimby --kill-frames --source night-render -f     # ...and clear their frames
+cueadmin host unlock --nimby --source night-render -f                 # Unlock what night-render locked
+cueadmin host lock --nimby -m lighting --alloc lax.desktop --source lgt
+```
+
+`--source` defaults to `cueadmin`. A bulk lock skips hosts locked by another source, and a bulk
+unlock only releases hosts locked by the same source, so a scheduled run never lifts someone
+else's lock. `--kill-frames` sends the killed frames back to waiting without spending a retry
+(best effort). `--source`, `--alloc` and `--kill-frames` require `--nimby`.
+
+Both print a summary, or with `--raw` one `host`/`result` row per matched host (`locked`,
+`unlocked`, `unreachable` or `skipped`), with the summary on stderr:
+
+```
+Locked: 42, unreachable: 1, skipped: 3, frames killed: 17
+Unreachable hosts: ws-118
+Frames whose kill could not be confirmed (still running):
+  0042-comp
+```
+
+See the [night rendering guide](../../../docs/_docs/other-guides/night-rendering-on-workstations.md)
+for a scheduled setup.
+
 ## Migrating from the Python tool
 
 | Python                                        | Rust                                                 |
@@ -78,6 +109,9 @@ cueadmin host list --raw | awk -F'\t' 'NR > 1 && $2 == "DOWN" { print $1 }'
 | `-host H... -safe-reboot`                     | `host safe-reboot H...`                              |
 | `-host H... -repair` / `-fixed`               | `host repair H...` / `host up H...`                  |
 | `-host H... -thread MODE`                     | `host thread-mode MODE H...`                         |
+| `-lh -nimby`                                  | `host list --nimby`                                  |
+| `-lock -nimby [-kill-frames] [-source NAME]`  | `host lock --nimby [--kill-frames] [--source NAME]`  |
+| `-unlock -nimby [-source NAME] [-alloc A]`    | `host unlock --nimby [--source NAME] [--alloc A]`    |
 | `-lj [SUBSTR...]` / `-lji [SUBSTR...]`        | `job list [SUBSTR...]` / `job list -w [SUBSTR...]`   |
 | `-pause JOB...` / `-unpause JOB...`           | `job pause JOB...` / `job resume JOB...`             |
 | `-kill JOB...` / `-kill-all`                  | `job kill JOB...` / `job kill --all`                 |
@@ -104,7 +138,7 @@ cueadmin host list --raw | awk -F'\t' 'NR > 1 && $2 == "DOWN" { print $1 }'
 - `job retry` retries only dead frames, as documented. The Python tool sent no state filter.
 - An unknown `--facility` is an error instead of silently falling back to the default facility.
 - With `--server`, an unreadable config file is ignored with a warning instead of failing.
-- `host` commands take either host names or `--match`, not both.
+- `host` commands take either host names or `--match`, not both. `--nimby` combines with either.
 - `alloc rename` accepts the new name with or without the facility prefix.
 - `service list` shows minimum memory with a unit (`3.2G`) instead of the raw KB value labelled MB,
   and minimum cores in cores instead of core units.
