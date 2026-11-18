@@ -239,7 +239,7 @@ Displays all layers in the selected job with the following columns:
 | **Limits** | Applied resource limits | Comma-joined list |
 | **Range** | Frame range (e.g., 1-10) | With chunking info if applicable |
 | **Cores** | Core requirement | Shows "ALL" for 0, "ALL-n" for negative |
-| **Memory** | Memory reservation | Formatted as human-readable (e.g., 256M) |
+| **Memory** | Memory reservation | Formatted as human-readable (e.g., 256M). On Maestro, `6.2G (auto)` is the memory Maestro books per frame (see [Layer memory on Maestro](#layer-memory-on-maestro)) |
 | **Gpus** | GPU requirement | Integer count |
 | **Gpu Memory** | GPU memory reservation | Formatted as human-readable |
 | **MaxRss** | Peak memory usage | Historical maximum |
@@ -258,6 +258,29 @@ Displays all layers in the selected job with the following columns:
 | **Eligible** | Timestamp the layer became eligible to run. Defaults to layer creation time (`ts_eligible`) when no dependency transition is involved. | MM/DD HH:MM |
 | **Start Time** | Timestamp the first frame of the layer began running. Aggregated server-side from `MIN(frame.ts_started)`; blank until the first frame starts. | MM/DD HH:MM |
 | **Stop Time** | Timestamp the last frame of the layer finished. Aggregated server-side from `MAX(frame.ts_stopped)` and only populated once every frame has stopped, mirroring `Job.stopTime()` semantics. | MM/DD HH:MM |
+
+#### Layer memory on Maestro
+
+On Maestro, the **Layer Properties** dialog has two memory settings:
+
+- **Minimum Memory** is the layer's ask. Maestro never changes it. The
+  read-only **Booked** label beside it shows what Maestro actually reserves
+  per frame (`Booked: 6.2G (auto)`), a range when several layers are selected, or
+  `not sized yet` before Maestro has sized the layer.
+- **Auto memory** (on by default) replaces the Memory Optimizer row.
+  - **On**: Maestro sizes each frame from what finished frames actually used
+    (the 90th percentile plus 10%), up or down from Minimum Memory, so a few unusually
+    large frames don't inflate the rest. Until enough frames have finished, it books
+    the larger of Minimum Memory and the largest memory any frame has used.
+  - **Off**: the layer is pinned, and every frame books exactly Minimum Memory.
+
+  Either way, a frame killed for running out of memory retries with more memory, and
+  only that frame does.
+
+To stop a layer whose frames are booking too much memory from holding up the job,
+lower Minimum Memory and turn **Auto memory** off. Changing Minimum Memory alone
+doesn't pin the layer. Auto memory has its own enable box, so you can toggle it
+across many layers without touching their memory values.
 
 #### Bottom Section: Frame Monitor
 

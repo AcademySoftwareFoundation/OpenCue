@@ -57,5 +57,21 @@ public class HostSearch extends Criteria implements HostSearchInterface {
             lockStateItems.add(lockState.toString());
         }
         addPhrase("host.str_lock_state", lockStateItems);
+
+        switch (criteria.getNimby()) {
+            case NIMBY_ONLY:
+                addNimbyPhrase(true);
+                break;
+            case NIMBY_EXCLUDE:
+                addNimbyPhrase(false);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void addNimbyPhrase(boolean nimby) {
+        chunks.add(new StringBuilder("host.b_nimby = ?"));
+        values.add(nimby);
     }
 }

@@ -768,11 +768,14 @@ class Machine(object):
         # Connect to the Windows Management Instrumentation (WMI) interface
         wmiInstance = wmi.WMI()
 
+        # Proc ids are the keys releaseHT resolves back to a socket and core, so they
+        # must stay unique across sockets instead of restarting at 0 on each one.
+        procId = 0
+
         # Retrieve CPU information using WMI
         for physicalId, processor in enumerate(wmiInstance.Win32_Processor()):
 
             threadPerCore = processor.NumberOfLogicalProcessors // processor.NumberOfCores
-            procId = 0
 
             for coreId in range(processor.NumberOfCores):
                 for _ in range(threadPerCore):

@@ -101,4 +101,14 @@ public final class MaestroMode {
         }
         return showDao.isSchedulerManaged(showId);
     }
+
+    /**
+     * Whether Maestro sizes this show's frame memory, so Cuebot must leave the show's layer memory
+     * alone and only record facts. Unlike {@link #schedules}, this ignores whether Maestro runs on
+     * this Cuebot: during a rollout one Cuebot plans while the rest report, and every one of them
+     * must keep its hands off a managed show's memory.
+     */
+    public static boolean sizesMemory(Environment env, ShowDao showDao, String showId) {
+        return facility(env) || showDao.isSchedulerManaged(showId);
+    }
 }

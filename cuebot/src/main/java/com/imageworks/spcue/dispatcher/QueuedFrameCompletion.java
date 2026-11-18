@@ -40,12 +40,20 @@ public final class QueuedFrameCompletion {
     public final DispatchFrame frame;
     public final FrameState newFrameState;
     public final int exitStatus;
+    /** The memory floor (KB) of the frame's next attempt, written with the stop; 0 for none. */
+    public final long memRetryKb;
     /** Wall-clock ms when the completion entered the drain queue; stamped by the queue's offer. */
     volatile long enqueuedAtMs;
 
     public QueuedFrameCompletion(FrameCompleteReport report, VirtualProc proc, DispatchJob job,
             LayerDetail layer, FrameDetail frameDetail, DispatchFrame frame,
             FrameState newFrameState, int exitStatus) {
+        this(report, proc, job, layer, frameDetail, frame, newFrameState, exitStatus, 0);
+    }
+
+    public QueuedFrameCompletion(FrameCompleteReport report, VirtualProc proc, DispatchJob job,
+            LayerDetail layer, FrameDetail frameDetail, DispatchFrame frame,
+            FrameState newFrameState, int exitStatus, long memRetryKb) {
         this.report = report;
         this.proc = proc;
         this.job = job;
@@ -54,5 +62,6 @@ public final class QueuedFrameCompletion {
         this.frame = frame;
         this.newFrameState = newFrameState;
         this.exitStatus = exitStatus;
+        this.memRetryKb = memRetryKb;
     }
 }

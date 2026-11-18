@@ -43,6 +43,7 @@ import {
   submissionSchema,
   type LayerInput,
   type Submission,
+  type SubmissionInput,
 } from "./lib/schemas";
 
 import { Field } from "./components/field";
@@ -99,7 +100,7 @@ export default function CueSubmitPage() {
     return "";
   }, [session?.user]);
 
-  const form = useForm<Submission>({
+  const form = useForm<SubmissionInput, unknown, Submission>({
     resolver: zodResolver(submissionSchema),
     defaultValues: {
       job: { name: "", show: "", shot: "", facility: facility || "", user: "" },

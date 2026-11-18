@@ -30,7 +30,8 @@ OpenCueWeb is a web-based interface for OpenCue that provides job management, mo
 Before deploying OpenCueWeb, ensure you have:
 
 - **OpenCue REST Gateway** deployed and accessible
-- **Node.js** (version 18 or later) for building from source
+- **Node.js** 24 LTS, v24.22.1 or newer, for building from source. Node 18, 20 and 21
+  are end-of-life and no longer receive security patches.
 - **Docker** (recommended for production deployment)
 - **Web server** (Nginx, Apache) for reverse proxy (optional)
 - **SSL certificates** for HTTPS (recommended)
