@@ -204,7 +204,7 @@ async fn bulk_lock(
 ) -> Result<()> {
     let source = &bulk.source;
     let mut criteria = selection_criteria(selection)?;
-    criteria.allocs = non_blank(&bulk.alloc);
+    criteria.allocs = alloc_filter(&bulk.alloc)?;
     let prompt = match action {
         BulkAction::Lock { kill_frames } => format!(
             "Lock every nimby host matching the selection with source '{source}'{}",
@@ -333,6 +333,16 @@ fn selection_criteria(selection: &HostSelection) -> Result<HostSearchCriteria> {
         bail!("the host selection is empty; give host names, a non-empty --match or --nimby");
     }
     Ok(criteria)
+}
+
+/// Blank allocation names are dropped, but an --alloc that is all blank is an error, so it
+/// can't widen a bulk lock to every allocation.
+fn alloc_filter(values: &[String]) -> Result<Vec<String>> {
+    let allocs = non_blank(values);
+    if allocs.is_empty() && !values.is_empty() {
+        bail!("--alloc is blank; give an allocation name or leave it out");
+    }
+    Ok(allocs)
 }
 
 fn non_blank(values: &[String]) -> Vec<String> {
@@ -466,6 +476,18 @@ mod tests {
         // An empty --match, say from an unset variable, doesn't select every workstation.
         assert!(selection_criteria(&nimby(&[""])).is_err());
         assert!(selection_criteria(&nimby(&[" ", ""])).is_err());
+    }
+
+    #[test]
+    fn blank_alloc_is_an_error() {
+        let allocs = |v: &[&str]| v.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        assert!(alloc_filter(&[]).unwrap().is_empty());
+        assert_eq!(
+            alloc_filter(&allocs(&["lax.desk", " "])).unwrap(),
+            ["lax.desk"]
+        );
+        assert!(alloc_filter(&allocs(&[" "])).is_err());
+        assert!(alloc_filter(&allocs(&["", " "])).is_err());
     }
 
     #[test]
