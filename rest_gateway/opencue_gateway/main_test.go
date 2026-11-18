@@ -42,7 +42,10 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 // TestJwtMiddleware verifies JWT authentication middleware behavior.
@@ -63,15 +66,18 @@ import (
 //   - Expired Token: Should return 401 Unauthorized
 func TestJwtMiddleware(t *testing.T) {
 	jwtSecret := []byte("test_secret")
+	validApiKeys := map[string]bool{"valid-client-key": true}
 
 	// Set up a sample handler to use with the middleware
 	sampleHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		role, _ := r.Context().Value(authRoleContextKey).(authRole)
+		w.Header().Set("X-Test-Role", string(role))
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
 	})
 
 	// Create a test server with the middleware
-	ts := httptest.NewServer(jwtMiddleware(sampleHandler, jwtSecret))
+	ts := httptest.NewServer(authMiddleware(sampleHandler, jwtSecret, validApiKeys))
 	defer ts.Close()
 
 	t.Run("Valid Token", func(t *testing.T) {
@@ -92,6 +98,7 @@ func TestJwtMiddleware(t *testing.T) {
 		res, err := http.DefaultClient.Do(req)
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, string(roleFullAccess), res.Header.Get("X-Test-Role"))
 	})
 
 	t.Run("Missing Token", func(t *testing.T) {
@@ -136,6 +143,68 @@ func TestJwtMiddleware(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
 	})
+
+	t.Run("Valid API Key via X-Api-Key", func(t *testing.T) {
+		req, err := http.NewRequest("GET", ts.URL, nil)
+		assert.NoError(t, err)
+		req.Header.Set("X-Api-Key", "valid-client-key")
+
+		res, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, string(roleRestricted), res.Header.Get("X-Test-Role"))
+	})
+
+	t.Run("Valid API Key via Authorization ApiKey", func(t *testing.T) {
+		req, err := http.NewRequest("GET", ts.URL, nil)
+		assert.NoError(t, err)
+		req.Header.Set("Authorization", "ApiKey valid-client-key")
+
+		res, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusOK, res.StatusCode)
+		assert.Equal(t, string(roleRestricted), res.Header.Get("X-Test-Role"))
+	})
+
+	t.Run("Invalid API Key", func(t *testing.T) {
+		req, err := http.NewRequest("GET", ts.URL, nil)
+		assert.NoError(t, err)
+		req.Header.Set("X-Api-Key", "invalid-key")
+
+		res, err := http.DefaultClient.Do(req)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusUnauthorized, res.StatusCode)
+	})
+}
+
+// TestPermissionInterceptor verifies method-level restrictions for restricted callers.
+func TestPermissionInterceptor(t *testing.T) {
+	interceptor := permissionInterceptor()
+
+	invoker := func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, opts ...grpc.CallOption) error {
+		return nil
+	}
+
+	t.Run("Full Access Allows Any Method", func(t *testing.T) {
+		ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-auth-role", string(roleFullAccess)))
+		err := interceptor(ctx, "/host.HostInterface/Lock", nil, nil, nil, invoker)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Restricted Allows Allowed Method", func(t *testing.T) {
+		ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-auth-role", string(roleRestricted)))
+		err := interceptor(ctx, "/job.JobInterface/GetJobs", nil, nil, nil, invoker)
+		assert.NoError(t, err)
+	})
+
+	t.Run("Restricted Blocks Forbidden Method", func(t *testing.T) {
+		ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-auth-role", string(roleRestricted)))
+		err := interceptor(ctx, "/host.HostInterface/Lock", nil, nil, nil, invoker)
+		assert.Error(t, err)
+		st, ok := status.FromError(err)
+		assert.True(t, ok)
+		assert.Equal(t, codes.PermissionDenied, st.Code())
+	})
 }
 
 // createValidJWTToken generates a valid JWT token for testing.
@@ -177,6 +246,7 @@ func createValidJWTToken(secret []byte) (string, error) {
 //   - []byte: The JWT secret used by the server
 func createMockGatewayServer(t *testing.T) (*httptest.Server, []byte) {
 	jwtSecret := []byte("test_secret")
+	validApiKeys := map[string]bool{"test-client-key": true}
 
 	// Create a simple mock handler that responds with 200 for any gRPC endpoint
 	mockHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -192,7 +262,7 @@ func createMockGatewayServer(t *testing.T) (*httptest.Server, []byte) {
 	})
 
 	// Create test server with JWT middleware
-	ts := httptest.NewServer(jwtMiddleware(mockHandler, jwtSecret))
+	ts := httptest.NewServer(authMiddleware(mockHandler, jwtSecret, validApiKeys))
 	return ts, jwtSecret
 }
 

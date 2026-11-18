@@ -24,7 +24,9 @@ The REST Gateway is built with:
 - **Go 1.19+** - Primary programming language
 - **grpc-gateway** - Automatic REST endpoint generation from protobuf definitions
 - **Protocol Buffers** - Interface definitions and code generation
-- **JWT authentication** - HMAC SHA256 token-based security
+- **Dual Authentication**:
+  - **JWT authentication** - HMAC SHA256 token-based authentication (full administrative access)
+  - **API Key authentication** - Configurable static keys for direct client submission/monitoring access
 - **Docker** - Containerized deployment
 
 ### Project Structure
