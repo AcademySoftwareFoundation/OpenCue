@@ -33,6 +33,7 @@ jobs:
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
@@ -83,6 +84,7 @@ jobs:
           name: opencue_packages
           path: packages
 
+      # cuegui requires Python > 3.7, so its wheel is skipped on 3.7.
       - name: Install package
         run: |
           set -e
@@ -94,7 +96,7 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuecmd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
-              ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
+              ${{ matrix.python-version != '3.7' && needs.build_opencue_packages.outputs.opencue_cuegui_path || '' }} \
               ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}
           python -c "import opencue_proto"
@@ -253,18 +255,6 @@ jobs:
         with:
           name: opencue_packages
           path: packages
-
-      - name: Set package vars from parent action
-        run: |
-          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
-          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
-          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
-          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
-          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
-          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
-          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
-          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          export OPENCUE_CUENIMBY_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}"
 
       - name: Lint Python Code
         run: ci/run_python_lint.sh

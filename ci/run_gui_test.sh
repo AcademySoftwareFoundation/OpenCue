@@ -2,17 +2,10 @@
 
 # Wrapper script for CueGUI tests.
 #
-# xvfb-run sometimes crashes on exit, we haven't been able to figure out why yet.
-# This means that tests may pass but the xvfb-run crash will generate a non-zero exit code
-# and cause our CI pipeline to fail.
-#
-# We work around this by capturing unit test output and looking for the text that indicates
-# tests have passed:
-#
-# > Ran 209 tests in 4.394s
-# >
-# > OK
-#
+# xvfb-run sometimes crashes on exit, which gives a non-zero exit code even when the tests
+# pass. pytest's own exit code is recorded inside the xvfb session and decides the result.
+
+set -eo pipefail
 
 py="$(command -v python3)"
 if [[ -z "$py" ]]; then
@@ -20,7 +13,7 @@ if [[ -z "$py" ]]; then
 fi
 echo "Using Python binary ${py}"
 
-if [[ -v OPENCUE_CUEGUI_PACKAGE_PATH ]]
+if [[ -n "${OPENCUE_CUEGUI_PACKAGE_PATH:-}" ]]
 then
   echo "Installing pre-built opencue_cuegui package"
   pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
@@ -28,7 +21,7 @@ else
   pip install ./cuegui[test]
 fi
 
-test_log="/tmp/cuegui_result.log"
+pytest_status="$(mktemp)"
 
 # Fix for debian version of xvfb-run
 source /etc/os-release
@@ -38,13 +31,12 @@ then
   XVFB_RUN_ARG="-a"
 fi
 
-xvfb-run $XVFB_RUN_ARG "${py}" -m pytest cuegui| tee ${test_log}
+xvfb-run $XVFB_RUN_ARG bash -c '"$1" -m pytest cuegui; echo $? > "$2"' _ "${py}" "${pytest_status}" \
+  || echo "xvfb-run exited with status $?"
 
-grep -Pz '\d+ failed' ${test_log}
-if [ $? -eq 1 ]; then
-  echo "Detected passing tests"
-  exit 0
+status="$(cat "${pytest_status}")"
+if [[ "${status}" != 0 ]]; then
+  echo "CueGUI tests failed (pytest exit code: ${status:-none})"
+  exit 1
 fi
-
-echo "Detected test failure"
-exit 1
+echo "CueGUI tests passed"
