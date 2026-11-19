@@ -19,6 +19,8 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 
 #[cfg(unix)]
 use crate::frame::manager;
+#[cfg(target_os = "linux")]
+use crate::system::{cgroup, machine::Machine};
 use crate::{
     config::CONFIG,
     system::{capabilities, machine},
@@ -78,6 +80,11 @@ async fn async_main() -> miette::Result<()> {
     // instead of letting every frame fail later with an opaque error.
     capabilities::preflight(&CONFIG.runner)?;
 
+    // Lay out the service cgroup before the machine monitor starts and any frame is launched or
+    // recovered.
+    #[cfg(target_os = "linux")]
+    cgroup::init(CONFIG.runner.frame_cgroups);
+
     // Start a channel for communitating when machine_monitor fully started
     let (tx, rx) = oneshot::channel::<()>();
 
@@ -101,6 +108,14 @@ async fn async_main() -> miette::Result<()> {
     if let Err(err) = manager::instance().await?.recover_snapshots().await {
         warn!("Failed to recover frames from snapshot: {}", err);
     };
+
+    // Any frame cgroup not claimed by a recovered frame holds processes of a frame rqd lost
+    // track of.
+    #[cfg(target_os = "linux")]
+    if let Some(frame_cgroups) = cgroup::frame_cgroups() {
+        let recovered = machine::instance().await?.all_running_frame_ids();
+        frame_cgroups.reap_orphans(&recovered).await;
+    }
 
     // Initialize rqd grpc servant
     let machine_manager = machine::instance().await?;

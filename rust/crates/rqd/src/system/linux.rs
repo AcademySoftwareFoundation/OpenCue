@@ -36,7 +36,13 @@ use sysinfo::{MemoryRefreshKind, RefreshKind};
 use tracing::{debug, info, warn};
 use uuid::Uuid;
 
-use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
+use crate::{
+    config::MachineConfig,
+    system::{
+        cgroup::{self, FrameCgroup, FrameCgroups},
+        reservation::ProcessorStructure,
+    },
+};
 
 use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SystemManager};
 
@@ -52,6 +58,16 @@ pub struct LinuxSystem {
     session_processes: RwLock<HashMap<u32, Vec<u32>>>,
     monitored_sessions: DashSet<u32>,
     cached_processes: DashMap<u32, ProcessData>,
+    /// Set when frames are contained in cgroups (see `runner.frame_cgroups`).
+    frame_cgroups: Option<FrameCgroups>,
+}
+
+/// Where the processes of a frame are found.
+enum Membership {
+    /// The session led by the frame's wrapper process, the session id being its pid.
+    Session(u32),
+    /// The frame's cgroup.
+    Cgroup(FrameCgroup),
 }
 
 #[derive(Debug)]
@@ -127,6 +143,46 @@ struct SessionData {
     run_time: u64,
     /// Stats for all the processes on this session (leader procs only, tasks are excluded)
     lineage_stats: Vec<ProcStats>,
+}
+
+impl SessionData {
+    fn new() -> Self {
+        Self {
+            rss: 0,
+            pss: 0,
+            virtual_memory: 0,
+            gpu_memory: 0,
+            start_time: u64::MAX,
+            run_time: 0,
+            lineage_stats: Vec::new(),
+        }
+    }
+
+    fn add(&mut self, pid: u32, proc: &ProcessData) {
+        let start_time_str =
+            DateTime::<Local>::from(UNIX_EPOCH + Duration::from_secs(proc.start_time))
+                .format("%Y-%m-%d %H:%M:%S")
+                .to_string();
+        self.lineage_stats.push(ProcStats {
+            stat: Some(Stat {
+                rss: proc.rss as i64,
+                pss: proc.pss as i64,
+                vsize: proc.virtual_memory as i64,
+                state: proc.state.clone(),
+                name: proc.name.clone(),
+                pid: pid.to_string(),
+            }),
+            statm: None,
+            status: None,
+            cmdline: proc.cmd.clone(),
+            start_time: start_time_str,
+        });
+        self.rss += proc.rss;
+        self.pss += proc.pss;
+        self.virtual_memory += proc.virtual_memory;
+        self.start_time = self.start_time.min(proc.start_time);
+        self.run_time = self.run_time.max(proc.run_time);
+    }
 }
 
 impl LinuxSystem {
@@ -221,6 +277,7 @@ impl LinuxSystem {
             session_processes: RwLock::new(HashMap::new()),
             monitored_sessions: DashSet::new(),
             cached_processes: DashMap::new(),
+            frame_cgroups: cgroup::frame_cgroups().cloned(),
         })
     }
 
@@ -546,6 +603,13 @@ impl LinuxSystem {
     }
 
     fn refresh_procs_cache(&self) -> Result<()> {
+        // Frames contained in cgroups read their processes straight from /proc, so the walk is
+        // only needed while a frame is tracked by session.
+        if self.monitored_sessions.is_empty() {
+            self.write_session_processes().clear();
+            return Ok(());
+        }
+
         let proc_dir = std::fs::read_dir("/proc")
             .into_diagnostic()
             .wrap_err("Failed to read /proc")?;
@@ -620,6 +684,9 @@ impl LinuxSystem {
             }
         }
 
+        // Stop monitoring sessions with no live process left
+        self.monitored_sessions
+            .retain(|session_id| session_processes.contains_key(session_id));
         *self.write_session_processes() = session_processes;
         Ok(())
     }
@@ -805,89 +872,64 @@ impl LinuxSystem {
     }
 
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
-        let mut children = Vec::new();
         self.monitored_sessions.insert(*session_id);
 
-        let _session_leader = self
+        let leader_alive = self
             .cached_processes
             .get(session_id)
-            .and_then(|proc| match proc.is_dead() {
-                true => None,
-                false => Some(proc),
-            })?;
+            .is_some_and(|proc| !proc.is_dead());
+        if !leader_alive {
+            return None;
+        }
 
         // If session owner is still alive, iterate over the session and calculate memory
-        let session_processes = self.read_session_processes();
-        let (rss, pss, virtual_memory, gpu_memory, start_time, run_time) =
-            match session_processes.get(session_id) {
-                Some(lineage) => {
-                    // Process session data
-                    lineage
-                        .iter()
-                        .filter_map(|pid| {
-                            match self.cached_processes.get(pid) {
-                                Some(proc) if !proc.is_dead() => {
-                                    // Confirm this is a proc and not a thread
-                                    let start_time_str = DateTime::<Local>::from(
-                                        UNIX_EPOCH + Duration::from_secs(proc.start_time),
-                                    )
-                                    .format("%Y-%m-%d %H:%M:%S")
-                                    .to_string();
-                                    let proc_rss = proc.rss;
-                                    let proc_pss = proc.pss;
-                                    let proc_vmemory = proc.virtual_memory;
-                                    let cmdline = proc.cmd.clone();
-
-                                    // Check for potential duplicates
-                                    children.push(ProcStats {
-                                        stat: Some(Stat {
-                                            rss: proc_rss as i64,
-                                            pss: proc_pss as i64,
-                                            vsize: proc_vmemory as i64,
-                                            state: proc.state.clone(),
-                                            name: proc.name.clone(),
-                                            pid: pid.to_string(),
-                                        }),
-                                        statm: None,
-                                        status: None,
-                                        cmdline,
-                                        start_time: start_time_str,
-                                    });
-                                    Some((
-                                        proc_rss,
-                                        proc_pss,
-                                        proc_vmemory,
-                                        0,
-                                        proc.start_time,
-                                        proc.run_time,
-                                    ))
-                                }
-                                _ => None,
-                            }
-                        })
-                        .reduce(|a, b| {
-                            (
-                                a.0 + b.0,
-                                a.1 + b.1,
-                                a.2 + b.2,
-                                a.3 + b.3,
-                                std::cmp::min(a.4, b.4),
-                                std::cmp::max(a.5, b.5),
-                            )
-                        })
-                        .unwrap_or((0, 0, 0, 0, u64::MAX, 0))
+        let mut session_data = SessionData::new();
+        if let Some(lineage) = self.read_session_processes().get(session_id) {
+            for pid in lineage {
+                if let Some(proc) = self.cached_processes.get(pid) {
+                    if !proc.is_dead() {
+                        session_data.add(*pid, &proc);
+                    }
                 }
-                None => (0, 0, 0, 0, u64::MAX, 0),
-            };
-        Some(SessionData {
-            rss,
-            pss,
-            virtual_memory,
-            gpu_memory,
-            start_time,
-            run_time,
-            lineage_stats: children,
-        })
+            }
+        }
+        Some(session_data)
+    }
+
+    /// Aggregates the processes in a frame's cgroup, read straight from /proc. Like the session
+    /// path, returns `None` once the frame's wrapper process `leader` is gone.
+    fn calculate_cgroup_data(&self, leader: u32, cgroup: &FrameCgroup) -> Option<SessionData> {
+        let pids = cgroup
+            .pids()
+            .map_err(|err| debug!("Failed to list frame cgroup processes. {err}"))
+            .ok()?;
+        let procs: Vec<(u32, ProcessData)> = pids
+            .into_iter()
+            .filter_map(|pid| self.read_proc_data(pid).ok().map(|proc| (pid, proc)))
+            .filter(|(_, proc)| !proc.is_dead())
+            .collect();
+        if !procs.iter().any(|(pid, _)| *pid == leader) {
+            return None;
+        }
+
+        let mut data = SessionData::new();
+        for (pid, proc) in &procs {
+            data.add(*pid, proc);
+        }
+        Some(data)
+    }
+
+    fn frame_cgroup(&self, frame_id: &Uuid) -> Option<FrameCgroup> {
+        self.frame_cgroups.as_ref()?.open(frame_id)
+    }
+
+    /// Frames launched in a cgroup are tracked through it; every other frame (cgroups disabled
+    /// or unavailable, or recovered from before they were enabled) by its session.
+    fn membership(&self, frame_id: &Uuid, pid: u32) -> Membership {
+        match self.frame_cgroup(frame_id) {
+            Some(cgroup) => Membership::Cgroup(cgroup),
+            None => Membership::Session(pid),
+        }
     }
 }
 
@@ -968,7 +1010,12 @@ impl SystemManager for LinuxSystem {
         }
     }
 
-    fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>> {
+    fn collect_proc_stats(
+        &self,
+        frame_id: &Uuid,
+        pid: u32,
+        log_path: String,
+    ) -> Result<Option<ProcessStats>> {
         // Latest log modified time in epoch seconds. Defaults to zero if the metadata is not
         // accessible.
         let log_mtime = std::fs::metadata(Path::new(&log_path))
@@ -981,7 +1028,11 @@ impl SystemManager for LinuxSystem {
             .unwrap_or_default()
             .as_secs();
 
-        Ok(self.calculate_proc_session_data(&pid).map(|session_data| {
+        let frame_data = match self.membership(frame_id, pid) {
+            Membership::Session(session_id) => self.calculate_proc_session_data(&session_id),
+            Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup),
+        };
+        Ok(frame_data.map(|session_data| {
             debug!(
                 "Collect frame stats fo {}. rss: {}kb virtual: {}kb gpu: {}kb",
                 pid, session_data.rss, session_data.virtual_memory, session_data.gpu_memory
@@ -1012,20 +1063,27 @@ impl SystemManager for LinuxSystem {
         };
     }
 
-    fn kill_session(&self, session_pid: u32) -> Result<()> {
-        killpg(
-            nix::unistd::Pid::from_raw(session_pid as i32),
-            Signal::SIGTERM,
-        )
-        .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
+    fn kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()> {
+        match self.membership(frame_id, session_pid) {
+            Membership::Session(session_id) => killpg(
+                nix::unistd::Pid::from_raw(session_id as i32),
+                Signal::SIGTERM,
+            )
+            .map_err(|err| miette!("Failed to kill {session_id}. {err}")),
+            // Signal every member so the wrapper's traps run as they do for a session kill
+            Membership::Cgroup(cgroup) => cgroup.signal(Signal::SIGTERM).map(|_| ()),
+        }
     }
 
-    fn force_kill_session(&self, session_pid: u32) -> Result<()> {
-        killpg(
-            nix::unistd::Pid::from_raw(session_pid as i32),
-            Signal::SIGKILL,
-        )
-        .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
+    fn force_kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()> {
+        match self.membership(frame_id, session_pid) {
+            Membership::Session(session_id) => killpg(
+                nix::unistd::Pid::from_raw(session_id as i32),
+                Signal::SIGKILL,
+            )
+            .map_err(|err| miette!("Failed to kill {session_id}. {err}")),
+            Membership::Cgroup(cgroup) => cgroup.kill(),
+        }
     }
 
     fn force_kill(&self, pids: &[u32]) -> Result<()> {
@@ -1040,8 +1098,17 @@ impl SystemManager for LinuxSystem {
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))
     }
 
-    fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        self.read_session_processes().get(&pid).cloned()
+    fn get_proc_lineage(&self, frame_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
+        match self.membership(frame_id, pid) {
+            Membership::Session(session_id) => {
+                self.read_session_processes().get(&session_id).cloned()
+            }
+            Membership::Cgroup(cgroup) => cgroup.pids().ok().filter(|pids| !pids.is_empty()),
+        }
+    }
+
+    fn has_frame_cgroup(&self, frame_id: &Uuid) -> bool {
+        self.frame_cgroup(frame_id).is_some()
     }
 
     #[cfg(target_os = "linux")]
@@ -1353,7 +1420,7 @@ mod tests {
         system.refresh_procs();
 
         // Verify the cache is accessible after refresh
-        let lineage = system.get_proc_lineage(1);
+        let lineage = system.get_proc_lineage(&uuid::Uuid::nil(), 1);
         // May or may not have lineage for PID 1, but shouldn't panic
         assert!(lineage.is_some() || lineage.is_none());
     }
@@ -1560,6 +1627,156 @@ mod tests {
         assert!(run_time_2 - run_time_1 <= 1); // Should differ by at most 1 second
     }
 
+    mod frame_membership {
+        use std::{
+            fs,
+            os::unix::process::ExitStatusExt,
+            process::{Child, Command},
+        };
+
+        use tempfile::TempDir;
+        use uuid::Uuid;
+
+        use super::setup_test_system;
+        use crate::system::{
+            cgroup::FrameCgroups,
+            linux::{LinuxSystem, Membership},
+            manager::SystemManager,
+        };
+
+        /// A system whose frame cgroups live in a fake cgroupfs, plus the fake cgroup of
+        /// `frame_id` listing `pids` as members.
+        fn contained_frame(frame_id: &Uuid, pids: &[u32]) -> (TempDir, LinuxSystem) {
+            let frames = TempDir::new().unwrap();
+            let cgroup = frames.path().join(frame_id.to_string());
+            fs::create_dir(&cgroup).unwrap();
+            let procs: String = pids.iter().map(|pid| format!("{pid}\n")).collect();
+            fs::write(cgroup.join("cgroup.procs"), procs).unwrap();
+            fs::write(cgroup.join("cgroup.kill"), "").unwrap();
+
+            let mut system = setup_test_system(4, 2, 1);
+            system.frame_cgroups = Some(FrameCgroups::at(frames.path()));
+            (frames, system)
+        }
+
+        fn sleeper() -> Child {
+            Command::new("sleep").arg("30").spawn().unwrap()
+        }
+
+        #[test]
+        fn frames_without_cgroup_use_their_session() {
+            let frame_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&Uuid::new_v4(), &[]);
+
+            assert!(matches!(
+                system.membership(&frame_id, 42),
+                Membership::Session(42)
+            ));
+            assert!(!system.has_frame_cgroup(&frame_id));
+            // Frame cgroups disabled or unavailable
+            assert!(matches!(
+                setup_test_system(4, 2, 1).membership(&frame_id, 42),
+                Membership::Session(42)
+            ));
+        }
+
+        #[test]
+        fn frames_with_cgroup_use_it() {
+            let frame_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&frame_id, &[7, 8]);
+
+            assert!(matches!(
+                system.membership(&frame_id, 42),
+                Membership::Cgroup(_)
+            ));
+            assert!(system.has_frame_cgroup(&frame_id));
+            assert_eq!(system.get_proc_lineage(&frame_id, 42), Some(vec![7, 8]));
+        }
+
+        #[test]
+        fn empty_cgroup_has_no_lineage() {
+            let frame_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&frame_id, &[]);
+
+            assert_eq!(system.get_proc_lineage(&frame_id, 42), None);
+        }
+
+        #[test]
+        fn kill_signals_cgroup_members_outside_the_session() {
+            let mut child = sleeper();
+            let frame_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&frame_id, &[child.id()]);
+
+            // The child is not in the session of the frame pid, only in the cgroup
+            system.kill_session(&frame_id, u32::MAX >> 2).expect("kill");
+
+            assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGTERM));
+        }
+
+        #[test]
+        fn force_kill_uses_cgroup_kill() {
+            let frame_id = Uuid::new_v4();
+            let (frames, system) = contained_frame(&frame_id, &[]);
+
+            system
+                .force_kill_session(&frame_id, 42)
+                .expect("force kill");
+
+            let kill_file = frames.path().join(frame_id.to_string()).join("cgroup.kill");
+            assert_eq!(fs::read_to_string(kill_file).unwrap(), "1");
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn stats_come_from_cgroup_members_while_the_wrapper_lives() {
+            let mut wrapper = sleeper();
+            let mut leftover = sleeper();
+            let frame_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&frame_id, &[wrapper.id(), leftover.id()]);
+
+            let stats = system
+                .collect_proc_stats(&frame_id, wrapper.id(), "/nonexistent".to_string())
+                .unwrap()
+                .expect("stats while the wrapper is alive");
+            assert_eq!(stats.children.unwrap().children.len(), 2);
+            assert!(stats.rss > 0);
+
+            wrapper.kill().unwrap();
+            wrapper.wait().unwrap();
+            assert!(system
+                .collect_proc_stats(&frame_id, wrapper.id(), "/nonexistent".to_string())
+                .unwrap()
+                .is_none());
+            leftover.kill().unwrap();
+            leftover.wait().unwrap();
+        }
+
+        #[test]
+        fn proc_walk_is_skipped_without_session_frames() {
+            let system = setup_test_system(4, 2, 1);
+            system.write_session_processes().insert(1, vec![1]);
+
+            system.refresh_procs_cache().expect("refresh");
+
+            assert!(system.read_session_processes().is_empty());
+        }
+
+        #[cfg(target_os = "linux")]
+        #[test]
+        fn sessions_without_live_processes_stop_being_monitored() {
+            let system = setup_test_system(4, 2, 1);
+            let own_session = nix::unistd::getsid(None).unwrap().as_raw() as u32;
+            let dead_session = u32::MAX >> 2;
+            system.monitored_sessions.insert(own_session);
+            system.monitored_sessions.insert(dead_session);
+
+            system.refresh_procs_cache().expect("refresh");
+
+            assert!(system.monitored_sessions.contains(&own_session));
+            assert!(!system.monitored_sessions.contains(&dead_session));
+        }
+    }
+
     // Helper function to create a test system with specified configuration
     fn setup_test_system(
         total_cores: u32,
@@ -1608,6 +1825,7 @@ mod tests {
             session_processes: RwLock::new(HashMap::new()),
             monitored_sessions: DashSet::new(),
             cached_processes: DashMap::new(),
+            frame_cgroups: None,
         }
     }
 }

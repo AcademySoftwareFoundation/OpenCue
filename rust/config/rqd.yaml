@@ -224,6 +224,22 @@ runner:
   # Default: false
   # force_kill_after_timeout: false
 
+  # Contain each frame in its own cgroup (<service cgroup>/frames/<frame_id>), so
+  # every process a frame starts is accounted for and killed with it, including
+  # processes that leave its session or double fork, and whatever a frame leaves
+  # behind is killed when its wrapper exits. Linux only; needs cgroup v2 and the
+  # service cgroup delegated to RQD (Delegate=yes, as in the shipped
+  # openrqd.service). When unavailable, RQD logs a warning at startup and tracks
+  # frames by session. Read at startup.
+  # Default: false
+  # frame_cgroups: false
+
+  # How long a frame contained in a cgroup gets to exit after the SIGTERM of a
+  # kill request before everything left in its cgroup is SIGKILLed. Frames
+  # without a cgroup follow kill_monitor_timeout/force_kill_after_timeout.
+  # Default: 30s
+  # frame_cgroup_kill_grace_period: 30s
+
   # Default Docker image to use when run_on_docker is enabled
   # Default: ubuntu:latest
   # docker_default_image: "ubuntu:latest"

@@ -881,19 +881,23 @@ impl MachineMonitor {
 
         // Collect stats about the procs related to each frame. This reads /proc and stats the
         // frame log (possibly on a network filesystem), so it runs on the blocking pool.
-        let frame_procs: Vec<(u32, String)> = running_frames
+        let frame_procs: Vec<(Uuid, u32, String)> = running_frames
             .iter()
             .map(|(running_frame, running_state)| {
-                (running_state.pid, running_frame.log_path.clone())
+                (
+                    running_frame.frame_id,
+                    running_state.pid,
+                    running_frame.log_path.clone(),
+                )
             })
             .collect();
         let system_manager = Arc::clone(&self.system_manager);
         let all_proc_stats = tokio::task::spawn_blocking(move || {
             frame_procs
                 .into_iter()
-                .map(|(pid, log_path)| {
+                .map(|(frame_id, pid, log_path)| {
                     system_manager
-                        .collect_proc_stats(pid, log_path)
+                        .collect_proc_stats(&frame_id, pid, log_path)
                         .unwrap_or_else(|err| {
                             warn!("Failed to collect proc_stats. {}", err);
                             None
@@ -1778,19 +1782,23 @@ pub trait Machine {
     /// A value > 1 indicates hyperthreading is enabled.
     async fn get_hyperthreading_multiplier(&self) -> u32;
 
-    /// Send a signal to kill a process
+    /// Send a signal (SIGTERM, or SIGKILL when `force`) to the processes of frame `frame_id`:
+    /// every member of its cgroup when it has one, otherwise the session led by `pid`.
     ///
     /// # Returns Errors:
     ///  * [EINVAL] The value of the sig argument is an invalid or unsupported signal number.
     ///  * [EPERM] The process does not have permission to send the signal to any receiving process.
     ///  * [ESRCH] No process or process group can be found corresponding to that specified by pid.
-    async fn kill_session(&self, pid: u32, force: bool) -> Result<()>;
+    async fn kill_session(&self, frame_id: &Uuid, pid: u32, force: bool) -> Result<()>;
 
     async fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
-    /// Check if this pid and any of its children are still active
-    /// Returns the list of active children, and none if the pid itself is not active
-    async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>>;
+    /// Returns the processes of frame `frame_id` that are still active (members of its cgroup
+    /// when it has one, otherwise the session led by `pid`), or `None` once none is left.
+    async fn get_active_proc_lineage(&self, frame_id: &Uuid, pid: u32) -> Option<Vec<u32>>;
+
+    /// Whether frame `frame_id` is contained in a cgroup (see `runner.frame_cgroups`).
+    fn has_frame_cgroup(&self, frame_id: &Uuid) -> bool;
 
     async fn lock_cores(&self, count: u32) -> u32;
 
@@ -1912,15 +1920,16 @@ impl Machine for MachineMonitor {
         self.system_manager.hyperthreading_multiplier()
     }
 
-    async fn kill_session(&self, pid: u32, force: bool) -> Result<()> {
+    async fn kill_session(&self, frame_id: &Uuid, pid: u32, force: bool) -> Result<()> {
         // On Windows the kill scans the process table under the sysinfo mutex, so it runs on the
         // blocking pool like the other process-table work.
         let system_manager = Arc::clone(&self.system_manager);
+        let frame_id = *frame_id;
         tokio::task::spawn_blocking(move || {
             if force {
-                system_manager.force_kill_session(pid)
+                system_manager.force_kill_session(&frame_id, pid)
             } else {
-                system_manager.kill_session(pid)
+                system_manager.kill_session(&frame_id, pid)
             }
         })
         .await
@@ -1931,8 +1940,12 @@ impl Machine for MachineMonitor {
         self.system_manager.force_kill(pids)
     }
 
-    async fn get_active_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
-        self.system_manager.get_proc_lineage(pid)
+    async fn get_active_proc_lineage(&self, frame_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
+        self.system_manager.get_proc_lineage(frame_id, pid)
+    }
+
+    fn has_frame_cgroup(&self, frame_id: &Uuid) -> bool {
+        self.system_manager.has_frame_cgroup(frame_id)
     }
 
     async fn lock_cores(&self, count: u32) -> u32 {

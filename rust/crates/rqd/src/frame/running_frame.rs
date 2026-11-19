@@ -15,7 +15,7 @@ use std::cmp;
 #[cfg(unix)]
 use std::os::fd::IntoRawFd;
 #[cfg(unix)]
-use std::os::fd::{FromRawFd, RawFd};
+use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
 use std::process::Stdio;
@@ -39,6 +39,8 @@ use tokio::io::AsyncReadExt;
 use tokio::{io::AsyncBufReadExt, task::JoinHandle};
 use tracing::{error, info, trace, warn};
 
+#[cfg(unix)]
+use crate::system::cgroup;
 use crate::system::OOM_REASON_MSG;
 use crate::{
     frame::frame_cmd::FrameCmdBuilder,
@@ -129,6 +131,30 @@ async fn read_last_lines(path: &str, max_lines: usize) -> Result<Vec<String>> {
     let collected: Vec<String> = lines.map(|line| line.to_string()).collect();
     let begin = collected.len().saturating_sub(max_lines);
     Ok(collected[begin..].to_vec())
+}
+
+/// Switches the calling process to `uid`/`gid` the way `Command::uid`/`gid` do: set the gid,
+/// drop the supplementary groups (tolerating `EPERM`), then set the uid.
+///
+/// Safe to call from a `pre_exec` closure: it only issues async-signal-safe syscalls and doesn't
+/// allocate.
+#[cfg(unix)]
+fn become_user(uid: u32, gid: u32) -> std::io::Result<()> {
+    use std::io::Error;
+
+    if unsafe { libc::setgid(gid) } != 0 {
+        return Err(Error::last_os_error());
+    }
+    if unsafe { libc::setgroups(0, std::ptr::null()) } != 0 {
+        let err = Error::last_os_error();
+        if err.raw_os_error() != Some(libc::EPERM) {
+            return Err(err);
+        }
+    }
+    if unsafe { libc::setuid(uid) } != 0 {
+        return Err(Error::last_os_error());
+    }
+    Ok(())
 }
 
 /// Wrapper around protobuf message RunningFrameInfo
@@ -733,6 +759,11 @@ impl RunningFrame {
         } else {
             self.run_inner(Arc::clone(&logger)).await
         };
+        // The wrapper has exited, whatever it left behind in the frame's cgroup goes with it
+        #[cfg(unix)]
+        if let Some(leftover) = self.reap_cgroup().await {
+            logger.writeln(&format!("Reaped {leftover} leftover processes"));
+        }
         let was_spawned = match output {
             Ok((exit_code, exit_signal)) => {
                 // Reclassify known failures (e.g. license shortages) before persisting the
@@ -825,10 +856,6 @@ impl RunningFrame {
         unsafe {
             cmd.envs(&self.env_vars)
                 .current_dir(&self.config.temp_path)
-                .pre_exec(|| {
-                    libc::setsid();
-                    Ok(())
-                })
                 // An spawn job should be able to run independent of rqd.
                 // If this process dies, the process continues to write to its assigned file
                 // descriptor.
@@ -836,16 +863,47 @@ impl RunningFrame {
                 .stderr(Stdio::from_raw_fd(raw_stderr));
         }
 
-        if self.config.run_as_user {
-            cmd.uid(self.uid);
-            cmd.gid(self.gid);
+        let cgroup_procs = self.open_cgroup_for_launch()?;
+        match &cgroup_procs {
+            None => {
+                unsafe {
+                    cmd.pre_exec(|| {
+                        libc::setsid();
+                        Ok(())
+                    });
+                }
+                if self.config.run_as_user {
+                    cmd.uid(self.uid);
+                    cmd.gid(self.gid);
+                }
+            }
+            Some(procs) => {
+                // The child joins the frame's cgroup before exec, so no process of the frame
+                // ever runs outside it. std applies `uid`/`gid` before running pre_exec
+                // closures, so the user switch is done here instead, after joining while still
+                // privileged.
+                let procs_fd = procs.as_raw_fd();
+                let user = self.config.run_as_user.then_some((self.uid, self.gid));
+                unsafe {
+                    cmd.pre_exec(move || {
+                        libc::setsid();
+                        cgroup::join(procs_fd)?;
+                        match user {
+                            Some((uid, gid)) => become_user(uid, gid),
+                            None => Ok(()),
+                        }
+                    });
+                }
+            }
         }
 
         trace!("Running {}: {}", self.entrypoint_file_path, cmd_str);
         logger.writeln(format!("Running {}:", self.entrypoint_file_path).as_str());
 
         // Launch frame process
-        let mut child = cmd.spawn().into_diagnostic().map_err(|e| {
+        let spawned = cmd.spawn();
+        drop(cgroup_procs);
+        let mut child = spawned.into_diagnostic().map_err(|e| {
             miette!(
                 "Failed to spawn process for command '{}': {}",
                 self.request.command,
@@ -925,6 +983,51 @@ impl RunningFrame {
             exit_code = 1;
         }
         (exit_code, exit_signal)
+    }
+
+    /// Creates the frame's cgroup, when frame cgroups are enabled, and opens it for the frame
+    /// process to join (see [`cgroup::join`]).
+    ///
+    /// When that fails the frame runs without a cgroup, tracked by session. Fails only when a
+    /// cgroup is left behind, which would have rqd look for the frame's processes there.
+    #[cfg(unix)]
+    fn open_cgroup_for_launch(&self) -> Result<Option<std::fs::File>> {
+        let Some(frame_cgroups) = cgroup::frame_cgroups() else {
+            return Ok(None);
+        };
+        match frame_cgroups
+            .create(&self.frame_id)
+            .and_then(|frame_cgroup| frame_cgroup.open_procs())
+        {
+            Ok(procs) => Ok(Some(procs)),
+            Err(err) => {
+                if let Some(frame_cgroup) = frame_cgroups.open(&self.frame_id) {
+                    frame_cgroup.remove().map_err(|remove_err| {
+                        miette!("Failed to set up the cgroup of {self}: {err}. {remove_err}")
+                    })?;
+                }
+                warn!("Failed to set up the cgroup of {self}, tracking it by session. {err}");
+                Ok(None)
+            }
+        }
+    }
+
+    /// Kills whatever is left in the frame's cgroup, when it has one, and removes the cgroup.
+    /// Returns the number of processes killed, when there were any.
+    #[cfg(unix)]
+    async fn reap_cgroup(&self) -> Option<usize> {
+        let frame_cgroup = cgroup::frame_cgroups()?.open(&self.frame_id)?;
+        match frame_cgroup.reap().await {
+            Ok(0) => None,
+            Ok(leftover) => {
+                info!("Frame {self}: reaped {leftover} leftover processes");
+                Some(leftover)
+            }
+            Err(err) => {
+                warn!("Failed to reap the cgroup of {self}. {err}");
+                None
+            }
+        }
     }
 
     #[cfg(windows)]
