@@ -12,7 +12,8 @@
 
 use std::io::{BufRead, BufReader, Read};
 use std::path::Path;
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Once;
 use std::thread;
 use std::time::Duration;
@@ -151,114 +152,127 @@ fn wait_millis() -> u64 {
     }
 }
 
-/// Helper function to monitor server output for frame completion
+/// Reads a child's stdout and stderr on background threads and forwards each line over a
+/// channel. Draining both pipes keeps the child from blocking on a full pipe, and the channel
+/// lets callers wait with a deadline. Lines are still drained after the receiver is dropped.
+fn stream_output(child: &mut Child) -> Receiver<String> {
+    let (tx, rx) = mpsc::channel();
+    if let Some(stdout) = child.stdout.take() {
+        forward_lines(stdout, tx.clone());
+    }
+    if let Some(stderr) = child.stderr.take() {
+        forward_lines(stderr, tx);
+    }
+    rx
+}
+
+fn forward_lines<R: Read + Send + 'static>(pipe: R, tx: Sender<String>) {
+    thread::spawn(move || {
+        for line in BufReader::new(pipe).lines().map_while(Result::ok) {
+            let _ = tx.send(line);
+        }
+    });
+}
+
+/// Collects whatever a child has written, waiting at most a second for each further line.
+fn collect_output(output: &Receiver<String>) -> String {
+    let mut collected = String::new();
+    while let Ok(line) = output.recv_timeout(Duration::from_secs(1)) {
+        collected.push_str(&line);
+        collected.push('\n');
+    }
+    collected
+}
+
+/// Watches dummy-cuebot's output for frame completion reports until `expected_completions`
+/// arrive or `timeout_secs` pass, whichever comes first, then kills the server.
 fn monitor_server_output(
-    mut child: std::process::Child,
+    mut child: Child,
+    output: Receiver<String>,
     expected_completions: usize,
     timeout_secs: u64,
 ) -> (bool, String) {
-    let stdout = child.stdout.take().expect("Failed to capture stdout");
-    let reader = BufReader::new(stdout);
-
-    let start_time = std::time::Instant::now();
+    let deadline = Instant::now() + Duration::from_secs(timeout_secs);
     let mut all_output = String::new();
     let mut completion_count = 0;
     let mut saw_status_report = false;
     let mut line_count = 0;
 
-    for line in reader.lines() {
-        if let Ok(line) = line {
-            line_count += 1;
-            all_output.push_str(&line);
-            all_output.push('\n');
-
-            // Debug: Print interesting lines
-            if line.contains("RqdReport:") {
+    while completion_count < expected_completions {
+        let line = match output.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
+            Ok(line) => line,
+            Err(RecvTimeoutError::Timeout) => {
                 println!(
-                    "Report line {}: {}",
-                    line_count,
-                    if line.len() > 150 {
-                        &line[..150]
-                    } else {
-                        &line
-                    }
+                    "Timeout reached waiting for frame completions ({}s)",
+                    timeout_secs
                 );
-            }
-
-            // Check for frame completion reports - look for the key completion indicators
-            if line.contains("report_running_frame_completion") {
-                println!("Found completion report: checking exit status...");
-                // Count any completion, but note the exit status
-                completion_count += 1;
-                if line.contains("exit_status: 0") {
-                    println!(
-                        "Found successful frame completion {}/{}",
-                        completion_count, expected_completions
-                    );
-                } else if line.contains("exit_status:") {
-                    // Extract exit status for debugging
-                    if let Some(pos) = line.find("exit_status:") {
-                        let status_part = &line[pos..];
-                        if let Some(end) = status_part.find(',') {
-                            let status = &status_part[..end];
-                            println!(
-                                "Found frame completion {}/{} with {}",
-                                completion_count, expected_completions, status
-                            );
-                        }
-                    }
-                }
-            }
-
-            // Check for status reports showing running frames
-            if line.contains("report_status") && line.contains("frames: [") {
-                saw_status_report = true;
-                println!("Found status report with running frames");
-            }
-
-            // Exit if we've seen all expected completions
-            if completion_count >= expected_completions {
-                println!("All expected frame completions found!");
                 break;
+            }
+            Err(RecvTimeoutError::Disconnected) => {
+                println!("dummy-cuebot closed its output before all completions arrived");
+                break;
+            }
+        };
+
+        line_count += 1;
+        all_output.push_str(&line);
+        all_output.push('\n');
+
+        if line.contains("RqdReport:") {
+            println!(
+                "Report line {}: {}",
+                line_count,
+                if line.len() > 150 {
+                    &line[..150]
+                } else {
+                    &line
+                }
+            );
+        }
+
+        if line.contains("report_running_frame_completion") {
+            completion_count += 1;
+            if line.contains("exit_status: 0") {
+                println!(
+                    "Found successful frame completion {}/{}",
+                    completion_count, expected_completions
+                );
+            } else if let Some(pos) = line.find("exit_status:") {
+                let status_part = &line[pos..];
+                if let Some(end) = status_part.find(',') {
+                    println!(
+                        "Found frame completion {}/{} with {}",
+                        completion_count,
+                        expected_completions,
+                        &status_part[..end]
+                    );
+                }
             }
         }
 
-        // Timeout check
-        if start_time.elapsed().as_secs() > timeout_secs {
-            println!(
-                "Timeout reached waiting for frame completions ({}s)",
-                timeout_secs
-            );
-            println!(
-                "Stats: {} lines processed, {} completions found, status report: {}",
-                line_count, completion_count, saw_status_report
-            );
-            break;
+        if line.contains("report_status") && line.contains("frames: [") {
+            saw_status_report = true;
+            println!("Found status report with running frames");
         }
     }
 
     let _ = child.kill();
+    let _ = child.wait();
     let success = completion_count >= expected_completions;
     println!(
-        "Final results: {} completions out of {} expected, saw status report: {}",
-        completion_count, expected_completions, saw_status_report
+        "Final results: {} lines, {} completions out of {} expected, saw status report: {}",
+        line_count, completion_count, expected_completions, saw_status_report
     );
     (success, all_output)
 }
 
-fn collect_child_output(child: &mut std::process::Child) -> (String, String) {
-    let mut stdout = String::new();
-    let mut stderr = String::new();
-    if let Some(mut out) = child.stdout.take() {
-        let _ = out.read_to_string(&mut stdout);
-    }
-    if let Some(mut err) = child.stderr.take() {
-        let _ = err.read_to_string(&mut stderr);
-    }
-    (stdout, stderr)
-}
-
-fn wait_for_port_open(child: &mut std::process::Child, port: u16, label: &str, timeout_secs: u64) {
+fn wait_for_port_open(
+    child: &mut Child,
+    output: &Receiver<String>,
+    port: u16,
+    label: &str,
+    timeout_secs: u64,
+) {
     let start = Instant::now();
     loop {
         if TcpStream::connect(("127.0.0.1", port)).is_ok() {
@@ -266,20 +280,23 @@ fn wait_for_port_open(child: &mut std::process::Child, port: u16, label: &str, t
         }
 
         if let Ok(Some(status)) = child.try_wait() {
-            let (stdout, stderr) = collect_child_output(child);
             panic!(
-                "{} exited early with status {}.\nstdout:\n{}\nstderr:\n{}",
-                label, status, stdout, stderr
+                "{} exited early with status {}.\noutput:\n{}",
+                label,
+                status,
+                collect_output(output)
             );
         }
 
         if start.elapsed().as_secs() >= timeout_secs {
             let _ = child.kill();
             let _ = child.wait();
-            let (stdout, stderr) = collect_child_output(child);
             panic!(
-                "{} did not open port {} within {}s.\nstdout:\n{}\nstderr:\n{}",
-                label, port, timeout_secs, stdout, stderr
+                "{} did not open port {} within {}s.\noutput:\n{}",
+                label,
+                port,
+                timeout_secs,
+                collect_output(output)
             );
         }
 
@@ -312,8 +329,9 @@ fn integration_test_lock() -> std::sync::MutexGuard<'static, ()> {
 
 struct TestEnv {
     temp_dir: TempDir,
-    dummy_server: std::process::Child,
-    openrqd: std::process::Child,
+    dummy_server: Child,
+    dummy_output: Receiver<String>,
+    openrqd: Child,
     rqd_port: u16,
     config_path: std::path::PathBuf,
 }
@@ -394,29 +412,39 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
         .stderr(Stdio::piped())
         .spawn()
         .expect("Failed to start dummy-cuebot server");
+    let dummy_output = stream_output(&mut dummy_server);
 
-    wait_for_port_open(&mut dummy_server, cuebot_port, "dummy-cuebot", 10);
+    wait_for_port_open(
+        &mut dummy_server,
+        &dummy_output,
+        cuebot_port,
+        "dummy-cuebot",
+        10,
+    );
 
-    let mut openrqd = start_openrqd(&config_path);
-
-    wait_for_port_open(&mut openrqd, rqd_port, "openrqd", 20);
+    let openrqd = start_openrqd(&config_path, rqd_port, "openrqd");
 
     TestEnv {
         temp_dir,
         dummy_server,
+        dummy_output,
         openrqd,
         rqd_port,
         config_path,
     }
 }
 
-fn start_openrqd(config_path: &Path) -> std::process::Child {
-    Command::new(get_binary_path("openrqd"))
+/// Starts openrqd and waits for it to listen on `rqd_port`.
+fn start_openrqd(config_path: &Path, rqd_port: u16, label: &str) -> Child {
+    let mut openrqd = Command::new(get_binary_path("openrqd"))
         .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
-        .expect("Failed to start openrqd")
+        .expect("Failed to start openrqd");
+    let output = stream_output(&mut openrqd);
+    wait_for_port_open(&mut openrqd, &output, rqd_port, label, 20);
+    openrqd
 }
 
 /// Returns true when a frame entrypoint wrapper spawned from `temp_dir` is still running.
@@ -465,6 +493,7 @@ async fn test_openrqd_frame_execution_with_completion() {
     let env = setup_test_env("2s", 2);
     let TestEnv {
         dummy_server,
+        dummy_output,
         mut openrqd,
         rqd_port,
         ..
@@ -479,7 +508,7 @@ async fn test_openrqd_frame_execution_with_completion() {
     );
 
     let server_handle =
-        thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, timeout_secs()));
     sleep(Duration::from_millis(wait_millis())).await;
 
     let _ = openrqd.kill();
@@ -502,6 +531,7 @@ async fn test_frame_with_environment_variables_and_completion() {
     let env = setup_test_env("2s", 2);
     let TestEnv {
         dummy_server,
+        dummy_output,
         mut openrqd,
         rqd_port,
         ..
@@ -520,7 +550,7 @@ async fn test_frame_with_environment_variables_and_completion() {
     );
 
     let server_handle =
-        thread::spawn(move || monitor_server_output(dummy_server, 1, timeout_secs()));
+        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, timeout_secs()));
     sleep(Duration::from_millis(wait_millis())).await;
 
     let _ = openrqd.kill();
@@ -594,6 +624,36 @@ async fn test_memory_fork_script() {
     let _ = dummy_server.wait();
 }
 
+/// A server that stops writing must not stall the monitor past its deadline.
+#[test]
+fn test_monitor_times_out_on_silent_server() {
+    let mut silent = if cfg!(windows) {
+        Command::new("cmd")
+            .args(["/C", "ping -n 60 127.0.0.1 > NUL"])
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+    } else {
+        Command::new("sleep")
+            .arg("60")
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+    }
+    .expect("Failed to start silent child");
+    let output = stream_output(&mut silent);
+
+    let start = Instant::now();
+    let (success, _) = monitor_server_output(silent, output, 1, 2);
+
+    assert!(!success, "a silent server should not report completions");
+    assert!(
+        start.elapsed() < Duration::from_secs(10),
+        "monitor overran its 2s deadline: {:?}",
+        start.elapsed()
+    );
+}
+
 /// Test error handling when trying to connect to non-existent RQD
 #[tokio::test]
 async fn test_connection_error_handling() {
@@ -634,6 +694,7 @@ async fn test_multiple_frames_sequential_with_completion() {
     let env = setup_test_env("2s", 4);
     let TestEnv {
         dummy_server,
+        dummy_output,
         mut openrqd,
         rqd_port,
         ..
@@ -660,8 +721,9 @@ async fn test_multiple_frames_sequential_with_completion() {
     }
 
     let monitor_timeout = if cfg!(windows) { 25 } else { 20 };
-    let server_handle =
-        thread::spawn(move || monitor_server_output(dummy_server, NUM_FRAMES, monitor_timeout));
+    let server_handle = thread::spawn(move || {
+        monitor_server_output(dummy_server, dummy_output, NUM_FRAMES, monitor_timeout)
+    });
 
     let post_launch_wait = if cfg!(windows) { 12000 } else { 10000 };
     sleep(Duration::from_millis(post_launch_wait)).await;
@@ -717,11 +779,11 @@ async fn test_rqd_restart_recovers_running_frame() {
     );
 
     // Restart rqd with the same config; it must recover the frame from its snapshot.
-    let mut openrqd2 = start_openrqd(&env.config_path);
-    wait_for_port_open(&mut openrqd2, env.rqd_port, "openrqd (restarted)", 20);
+    let mut openrqd2 = start_openrqd(&env.config_path, env.rqd_port, "openrqd (restarted)");
 
-    let dummy_server = env.dummy_server;
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 40));
+    let (dummy_server, dummy_output) = (env.dummy_server, env.dummy_output);
+    let server_handle =
+        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, 40));
     let (success, output) = server_handle.join().unwrap();
 
     let _ = openrqd2.kill();
@@ -774,11 +836,11 @@ async fn test_rqd_restart_reports_frame_finished_while_down() {
         "frame should have finished while rqd was down"
     );
 
-    let mut openrqd2 = start_openrqd(&env.config_path);
-    wait_for_port_open(&mut openrqd2, env.rqd_port, "openrqd (restarted)", 20);
+    let mut openrqd2 = start_openrqd(&env.config_path, env.rqd_port, "openrqd (restarted)");
 
-    let dummy_server = env.dummy_server;
-    let server_handle = thread::spawn(move || monitor_server_output(dummy_server, 1, 40));
+    let (dummy_server, dummy_output) = (env.dummy_server, env.dummy_output);
+    let server_handle =
+        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, 40));
     let (success, output) = server_handle.join().unwrap();
 
     let _ = openrqd2.kill();
