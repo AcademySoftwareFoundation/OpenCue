@@ -15,6 +15,7 @@
 
 package com.imageworks.spcue;
 
+import java.sql.Timestamp;
 import java.util.Optional;
 
 import com.imageworks.spcue.dispatcher.Dispatcher;
@@ -24,6 +25,13 @@ public class DispatchFrame extends FrameEntity implements FrameInterface {
 
     public int retries;
     public FrameState state;
+
+    // ts_updated of the frame as read by the dispatch query, i.e. when it last
+    // entered WAITING. Used to compute time-to-book at booking. Every query
+    // feeding DISPATCH_FRAME_MAPPER MUST select ts_updated: the mapper reads the
+    // column unconditionally, so omitting it throws SQLException and breaks
+    // dispatch entirely (it does not silently leave this null).
+    public Timestamp dateUpdated;
 
     public String show;
     public String shot;
