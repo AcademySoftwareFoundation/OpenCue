@@ -1,0 +1,170 @@
+name: Maestro sim
+
+# The Maestro simulator scenarios. Called by maestro-sim-pipeline.yml (nightly and manual
+# runs) and pr.yml; see maestro-sim-pipeline.yml for what runs when, and why. The scenario
+# set and the timeout follow the caller's event.
+
+on:
+  workflow_call:
+
+jobs:
+  sim:
+    runs-on: ubuntu-24.04
+    # A scenario job takes 3-7 minutes including the cuebot build and a fresh
+    # database; the ceiling is for a hang, not for normal slowness. Manual runs
+    # can pick the full-farm scenarios and longer windows.
+    timeout-minutes: ${{ github.event_name == 'workflow_dispatch' && 60 || 25 }}
+
+    strategy:
+      # One scenario per job: the wall clock is then the slowest single scenario
+      # rather than the sum of all of them. fail-fast off so a single failure
+      # still leaves the others' verdicts (and logs) to compare against.
+      fail-fast: false
+      matrix:
+        # Pull requests run the small-farm binary set; the nightly schedule
+        # adds the heavier behavioural scenarios (see the header for why).
+        scenario: ${{ github.event_name == 'schedule'
+          && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM","SHOWTIER"]')
+          || fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE"]') }}
+
+    env:
+      # simulate.py runs its OWN Postgres cluster (it initdb's a fresh one per
+      # run so no state carries between runs), so this points at the server
+      # binaries, not at a service container.
+      SIM_PG_BIN: /usr/lib/postgresql/16/bin
+      # Keep Gradle's cache where actions/setup-java expects it, instead of the
+      # sim's default private gradle home, so dependencies are cached between
+      # runs.
+      SIM_GRADLE_HOME: /home/runner/.gradle
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          # The sim only reads the repo, so don't leave the token on disk.
+          persist-credentials: false
+
+      - name: Install Postgres server binaries
+        # initdb and pg_ctl live in the server package; the runner image ships
+        # only the client tools by default.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-16
+          "${SIM_PG_BIN}/initdb" --version
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4.7.1
+        with:
+          java-version: "17"
+          distribution: temurin
+          cache: gradle
+
+      - name: Set up the simulator
+        # Creates the venv with the gRPC deps and generates opencue_proto/ from
+        # the repo's own .proto sources.
+        working-directory: sandbox/maestro-sim
+        run: ./setup.sh
+
+      - name: Build cuebot
+        # Done as its own step so a compile break is reported as a build failure
+        # rather than surfacing later as "cuebot did not become ready".
+        working-directory: cuebot
+        run: ./gradlew assemble -g "${SIM_GRADLE_HOME}" --no-daemon --console=plain
+
+      - name: Run scenario ${{ matrix.scenario }}
+        id: run
+        working-directory: sandbox/maestro-sim
+        continue-on-error: ${{ contains(fromJSON('["COMPLETIONSTORM","SOLOFILL"]'), matrix.scenario) }}
+        env:
+          SIM_VERIFY_ONLY: ${{ github.event.inputs.scenarios || matrix.scenario }}
+          SIM_VERIFY_SECONDS: ${{ github.event.inputs.seconds || '180' }}
+        run: |
+          # pipefail so tee cannot mask a failing verdict: --verify exits
+          # non-zero when any scenario fails, and that exit code IS the gate.
+          set -o pipefail
+          ./venv/bin/python simulate.py --verify 2>&1 | tee /tmp/maestro-sim-run.log
+
+      - name: Summarise
+        if: ${{ always() }}
+        run: |
+          {
+            echo "### ${{ matrix.scenario }}"
+            if [[ "${{ steps.run.outcome }}" == failure && "${{ job.status }}" == success ]]; then
+              echo "Report-only scenario: this verdict does not gate the run."
+            fi
+            echo '```'
+            # The battery's own summary block: the verdict plus the throughput
+            # the scenario actually achieved, which is half of what it certifies.
+            sed -n '/=== SIM VERIFY ===/,$p' /tmp/maestro-sim-run.log 2>/dev/null \
+              || echo "no verdict recorded (the run died before reaching one)"
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Record scenario metrics
+        # One JSON file per run, so thresholds can be set from the observed
+        # distribution on the hosted runner rather than from real hardware.
+        if: ${{ always() }}
+        continue-on-error: true
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          python3 - <<'EOF' | tee /tmp/maestro-sim-metrics.json
+          import json, os, re
+          patterns = {
+              "frames_done": r"(\d+) frames done",
+              "frames_per_s": r"frames done \(([0-9.]+)/s\)",
+              "peak_avg_tick_ms": r"peak avgTick (\d+)ms",
+              "final_post_queue": r"final postQ (\d+)",
+              "lost_reports": r"lost (\d+)",
+              "fill_ratio_a_b": r"A/B ([0-9.]+)",
+          }
+          try:
+              log = open("/tmp/maestro-sim-run.log", errors="ignore").read()
+          except OSError:
+              log = ""
+          scenario = os.environ["SCENARIO"]
+          verdict = re.search(rf"(?m)^{re.escape(scenario)}\s*: (PASS|FAIL|INCONCLUSIVE)\s+(.*)$",
+                              log.split("=== SIM VERIFY ===")[-1])
+          detail = verdict.group(2) if verdict else ""
+          record = {
+              "scenario": scenario,
+              "verdict": verdict.group(1) if verdict else None,
+              "outcome": os.environ["OUTCOME"],
+              "detail": detail,
+              "sha": os.environ["GITHUB_SHA"],
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "runner_cpus": os.cpu_count(),
+          }
+          for key, pattern in patterns.items():
+              match = re.search(pattern, detail)
+              if match:
+                  record[key] = float(match.group(1))
+          print(json.dumps(record, indent=2))
+          EOF
+
+      - name: Upload scenario metrics
+        if: ${{ always() }}
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-sim-metrics-${{ matrix.scenario }}
+          path: /tmp/maestro-sim-metrics.json
+          retention-days: 90
+          if-no-files-found: warn
+
+      - name: Archive scenario logs and graphs
+        # Only on failure: the graphs and per-scenario logs are what make a
+        # behavioural failure diagnosable after the runner is gone.
+        if: ${{ failure() || steps.run.outcome == 'failure' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-sim-${{ matrix.scenario }}
+          path: |
+            /tmp/maestro-sim/verify/
+            /tmp/maestro-sim-run.log
+            /tmp/cuebot-new.log
+            sandbox/maestro-sim/*.log
+          retention-days: 7
+          if-no-files-found: warn

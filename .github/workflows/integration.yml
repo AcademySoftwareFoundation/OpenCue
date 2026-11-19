@@ -1,0 +1,28 @@
+name: Integration
+
+# Starts the sandbox with docker compose and runs a job through it.
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    name: Integration test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Run test
+        run: ci/run_integration_test.sh
+
+      - name: Archive log files
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: test-logs
+          path: /tmp/opencue-test/*.log
