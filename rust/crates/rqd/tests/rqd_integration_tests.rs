@@ -628,8 +628,8 @@ async fn test_memory_fork_script() {
 #[test]
 fn test_monitor_times_out_on_silent_server() {
     let mut silent = if cfg!(windows) {
-        Command::new("cmd")
-            .args(["/C", "ping -n 60 127.0.0.1 > NUL"])
+        Command::new("powershell")
+            .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 60"])
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
