@@ -34,6 +34,11 @@ name: OpenCue Maestro Sim Pipeline
 #   too: its farm is small, but its verdict is a mean tier gap over a
 #   throughput window, not a binary invariant.
 #
+#   COMPLETIONSTORM and SOLOFILL are report-only for now: their thresholds
+#   fail on the shared runner (COMPLETIONSTORM's peak tick most nights), so
+#   their verdicts are recorded but do not fail the run until the thresholds
+#   are recalibrated from the collected metrics.
+#
 #   Deliberately NOT gated anywhere:
 #     - the full-farm scenarios (PRODENV, OOM, DEPENDS, LOCALITY, TAGS_GPU,
 #       TAGMAX, FAILOVER): 1553 hosts is too much for a 2-vCPU runner, and their
@@ -143,7 +148,9 @@ jobs:
         run: ./gradlew assemble -g "${SIM_GRADLE_HOME}" --no-daemon --console=plain
 
       - name: Run scenario ${{ matrix.scenario }}
+        id: run
         working-directory: sandbox/maestro-sim
+        continue-on-error: ${{ contains(fromJSON('["COMPLETIONSTORM","SOLOFILL"]'), matrix.scenario) }}
         env:
           SIM_VERIFY_ONLY: ${{ github.event.inputs.scenarios || matrix.scenario }}
           SIM_VERIFY_SECONDS: ${{ github.event.inputs.seconds || '180' }}
@@ -158,6 +165,9 @@ jobs:
         run: |
           {
             echo "### ${{ matrix.scenario }}"
+            if [[ "${{ steps.run.outcome }}" == failure && "${{ job.status }}" == success ]]; then
+              echo "Report-only scenario: this verdict does not gate the run."
+            fi
             echo '```'
             # The battery's own summary block: the verdict plus the throughput
             # the scenario actually achieved, which is half of what it certifies.
@@ -166,10 +176,63 @@ jobs:
             echo '```'
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Record scenario metrics
+        # One JSON file per run, so thresholds can be set from the observed
+        # distribution on the hosted runner rather than from real hardware.
+        if: ${{ always() }}
+        env:
+          SCENARIO: ${{ matrix.scenario }}
+          OUTCOME: ${{ steps.run.outcome }}
+        run: |
+          python3 - <<'EOF' | tee /tmp/maestro-sim-metrics.json
+          import json, os, re
+          patterns = {
+              "frames_done": r"(\d+) frames done",
+              "frames_per_s": r"frames done \(([0-9.]+)/s\)",
+              "peak_avg_tick_ms": r"peak avgTick (\d+)ms",
+              "final_post_queue": r"final postQ (\d+)",
+              "lost_reports": r"lost (\d+)",
+              "fill_ratio_a_b": r"A/B ([0-9.]+)",
+          }
+          try:
+              log = open("/tmp/maestro-sim-run.log", errors="ignore").read()
+          except OSError:
+              log = ""
+          scenario = os.environ["SCENARIO"]
+          verdict = re.search(rf"(?m)^{re.escape(scenario)}\s*: (PASS|FAIL|INCONCLUSIVE)\s+(.*)$",
+                              log.split("=== SIM VERIFY ===")[-1])
+          detail = verdict.group(2) if verdict else ""
+          record = {
+              "scenario": scenario,
+              "verdict": verdict.group(1) if verdict else None,
+              "outcome": os.environ["OUTCOME"],
+              "detail": detail,
+              "sha": os.environ["GITHUB_SHA"],
+              "event": os.environ["GITHUB_EVENT_NAME"],
+              "run_id": os.environ["GITHUB_RUN_ID"],
+              "run_attempt": os.environ["GITHUB_RUN_ATTEMPT"],
+              "runner_cpus": os.cpu_count(),
+          }
+          for key, pattern in patterns.items():
+              match = re.search(pattern, detail)
+              if match:
+                  record[key] = float(match.group(1))
+          print(json.dumps(record, indent=2))
+          EOF
+
+      - name: Upload scenario metrics
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: maestro-sim-metrics-${{ matrix.scenario }}
+          path: /tmp/maestro-sim-metrics.json
+          retention-days: 90
+          if-no-files-found: warn
+
       - name: Archive scenario logs and graphs
         # Only on failure: the graphs and per-scenario logs are what make a
         # behavioural failure diagnosable after the runner is gone.
-        if: ${{ failure() }}
+        if: ${{ failure() || steps.run.outcome == 'failure' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: maestro-sim-${{ matrix.scenario }}
