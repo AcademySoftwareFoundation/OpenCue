@@ -116,7 +116,6 @@ services:
   # Flyway Database Migration
   # Applies database schema migrations to keep the database up to date
   flyway:
-    image: opencue/flyway
     build:
       context: ./
       dockerfile: ./sandbox/flyway.Dockerfile
@@ -134,12 +133,12 @@ services:
   # Cuebot Server
   # The main OpenCue server that manages jobs, frames, and render hosts
   cuebot:
-    # Built from source when the image is missing; run `docker compose build cuebot`
-    # (or `up --build`) to pick up code changes.
-    image: opencue/cuebot
+    # Use build to compile from source with latest code (recommended for development)
     build:
       context: ./
       dockerfile: ./cuebot/Dockerfile
+    # Use image for faster startup with pre-built image (uncomment to use)
+    # image: opencue/cuebot
     ports:
       - "8443:8443"
       # Uncomment for metrics endpoint (used with Prometheus monitoring)
@@ -189,7 +188,6 @@ services:
   # Runs on render hosts and executes frames assigned by Cuebot
   # Note: In a production environment, this should be disabled from the stack and only run on render hosts
   rqd:
-    image: opencue/rqd
     build:
       context: ./
       dockerfile: ./rust/Dockerfile.rqd

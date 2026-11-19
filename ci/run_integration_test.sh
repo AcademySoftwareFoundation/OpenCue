@@ -68,14 +68,13 @@ verify_no_containers() {
     fi
 }
 
-build_image() {
-    local image="$1"
-    local dockerfile="$2"
-    local build_log="${TEST_LOGS}/docker-build-${image#opencue/}.log"
-    log INFO "Building ${image} image..."
-    if ! docker build -t "${image}" -f "${dockerfile}" . &>"${build_log}"; then
-        log ERROR "${image} Docker build failed. Build log:"
-        cat "${build_log}"
+build_service() {
+    local service="$1"
+    local build_log="${TEST_LOGS}/docker-build-${service}.log"
+    log INFO "Building ${service} image..."
+    if ! docker compose build "${service}" &>"${build_log}"; then
+        log ERROR "${service} Docker build failed. Last 300 lines of ${build_log}:"
+        tail -n 300 "${build_log}"
         exit 1
     fi
 }
@@ -256,9 +255,9 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    build_image opencue/cuebot cuebot/Dockerfile
-    build_image opencue/rqd rust/Dockerfile.rqd
-    build_image opencue/flyway sandbox/flyway.Dockerfile
+    build_service cuebot
+    build_service rqd
+    build_service flyway
 
     # Pre-create bind-mount directories so Docker doesn't create them as root
     mkdir -p "${HOME}/.opencue/sessions"
