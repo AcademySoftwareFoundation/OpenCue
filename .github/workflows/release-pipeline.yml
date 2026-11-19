@@ -81,9 +81,9 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
           - target: x86_64-apple-darwin
-            os: macos-14
+            os: macos-15
           - target: aarch64-apple-darwin
-            os: macos-14
+            os: macos-15
           - target: x86_64-pc-windows-msvc
             os: windows-2022
     runs-on: ${{ matrix.os }}
@@ -126,7 +126,7 @@ jobs:
           fi
 
       - name: Install dependencies (macOS)
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-15'
         run: |
           brew install protobuf
 
@@ -155,7 +155,7 @@ jobs:
           cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
 
       - name: Copy binaries (macOS)
-        if: matrix.os == 'macos-14'
+        if: matrix.os == 'macos-15'
         run: |
           cp rust/target/${{ matrix.target }}/release/openrqd release/openrqd-${{ env.BUILD_ID }}-${{ matrix.target }}
 
