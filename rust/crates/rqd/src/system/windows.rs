@@ -112,7 +112,10 @@ impl WindowsSystem {
             );
         }
 
-        let identified_os = overrides.os.clone().unwrap_or_else(|| "windows".to_string());
+        let identified_os = overrides
+            .os
+            .clone()
+            .unwrap_or_else(|| "windows".to_string());
 
         // Initialize sysinfo collector
         let sysinfo = sysinfo::System::new_with_specifics(

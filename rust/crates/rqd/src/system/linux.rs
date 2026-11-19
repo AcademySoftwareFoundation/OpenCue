@@ -537,9 +537,7 @@ impl LinuxSystem {
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
         let stat = nix::sys::statvfs::statvfs(self.config.temp_path.as_str())
             .into_diagnostic()
-            .wrap_err_with(|| {
-                format!("statvfs failed for temp path {}", self.config.temp_path)
-            })?;
+            .wrap_err_with(|| format!("statvfs failed for temp path {}", self.config.temp_path))?;
         let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
         let available_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
         Ok((total_space, available_space))

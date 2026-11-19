@@ -22,7 +22,7 @@ mod error;
 
 use clap::Parser;
 use tracing::info;
-use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tracing_subscriber::{fmt, prelude::*, EnvFilter};
 
 use crate::config::Config;
 use crate::consumer::EventConsumer;

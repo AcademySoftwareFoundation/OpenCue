@@ -23,9 +23,9 @@ mod reservation;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
+pub mod manager;
 #[cfg(target_os = "windows")]
 pub mod windows;
-pub mod manager;
 
 pub type ResourceId = Uuid;
 pub type CoreId = u32;
