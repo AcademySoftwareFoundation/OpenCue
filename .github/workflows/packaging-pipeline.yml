@@ -9,6 +9,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -62,6 +63,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-2022
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     outputs:
       rust_binaries_artifact: rust-binaries-${{ github.sha }}
     steps:
@@ -138,6 +140,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -198,6 +201,7 @@ jobs:
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -312,6 +316,7 @@ jobs:
 
     name: Build ${{ matrix.NAME }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -366,6 +371,7 @@ jobs:
       - integration_test
       - build_opencue_packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.11
     name: "Upload python packages to testpypi repo"
     environment: testpypi
@@ -394,6 +400,7 @@ jobs:
       - build_opencue_packages
       - build_rust_binaries
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     continue-on-error: true
     steps:
       - name: Checkout

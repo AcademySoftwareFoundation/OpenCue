@@ -23,6 +23,11 @@ env:
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
   CARGO_PROFILE_TEST_DEBUG: line-tables-only
 
+# Superseded pushes to a pull request cancel the older run; master runs every commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
@@ -65,7 +70,7 @@ jobs:
 
   clippy:
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 15
 
     steps:
       - uses: actions/checkout@v7
@@ -86,7 +91,7 @@ jobs:
 
   windows-clippy:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v7

@@ -10,6 +10,7 @@ jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.9
     steps:
       - uses: actions/checkout@v7
@@ -24,6 +25,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -87,6 +89,7 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-2022
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -174,6 +177,7 @@ jobs:
   upload_python_packages_pypi:
     needs: build_opencue_packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.11
     name: "Upload python packages to pypi repo"
     environment: release
@@ -196,6 +200,7 @@ jobs:
   release_docker_images:
     # needs: preflight
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     environment: release
     # The rest-gateway and cueweb Docker Hub repositories do not exist yet and
     # CI cannot create them, so their release must not fail the pipeline.
@@ -275,6 +280,7 @@ jobs:
     name: Create Release
     environment: release
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout code
         uses: actions/checkout@v7

@@ -6,10 +6,16 @@ on:
   pull_request:
     branches: [master]
 
+# Superseded pushes to a pull request cancel the older run; master runs every commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.9
     steps:
       - uses: actions/checkout@v7
@@ -24,6 +30,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -72,6 +79,7 @@ jobs:
     needs: build_opencue_packages
     name: Test installing packages with python ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -107,6 +115,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v7
@@ -139,6 +148,7 @@ jobs:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -152,6 +162,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: aswf/ci-opencue:2024
     steps:
       - name: Checkout
@@ -186,6 +197,7 @@ jobs:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container:
       image: aswf/ci-opencue:2024
     steps:
@@ -199,6 +211,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -239,6 +252,7 @@ jobs:
     needs: build_opencue_packages
     name: Lint Python Code
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container: aswf/ci-opencue:2024.1
     steps:
       - name: Checkout
@@ -263,6 +277,7 @@ jobs:
     needs: build_opencue_packages
     name: Test Documentation Build
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -280,6 +295,7 @@ jobs:
   check_changed_files:
     name: Check Changed Files
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -296,6 +312,7 @@ jobs:
   check_migration_files:
     name: Check Database Migration Files
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - name: Check Migration Files
@@ -304,6 +321,7 @@ jobs:
   check_for_version_bump:
     name: Check for Version Bump
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -320,6 +338,7 @@ jobs:
   test_rest_gateway:
     name: Test REST Gateway
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -336,9 +355,11 @@ jobs:
           go-version: '1.21'
 
       - name: Install Protocol Buffers Compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Go tools
         run: |
@@ -399,6 +420,7 @@ jobs:
   build_cueweb:
     name: Build CueWeb Docker Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -423,6 +445,7 @@ jobs:
   build_rest_gateway:
     name: Build REST Gateway Docker Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
