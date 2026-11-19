@@ -68,6 +68,18 @@ verify_no_containers() {
     fi
 }
 
+build_image() {
+    local image="$1"
+    local dockerfile="$2"
+    local build_log="${TEST_LOGS}/docker-build-${image#opencue/}.log"
+    log INFO "Building ${image} image..."
+    if ! docker build -t "${image}" -f "${dockerfile}" . &>"${build_log}"; then
+        log ERROR "${image} Docker build failed. Build log:"
+        cat "${build_log}"
+        exit 1
+    fi
+}
+
 create_rqd_root() {
   if [ -e "$RQD_ROOT" ]; then
     log ERROR "log root ${RQD_ROOT} already exists"
@@ -83,7 +95,8 @@ wait_for_service_state() {
     while true; do
         current_time=$(date +%s)
         if [[ $current_time -gt $3 ]]; then
-            log ERROR "Timed out waiting for Docker compose to come up"
+            log ERROR "Timed out waiting for Docker compose to come up. Last compose log lines:"
+            tail -n 100 "${DOCKER_COMPOSE_LOG}"
             exit 1
         fi
         container=$(docker compose ps --all --format json | jq -s ".[] | select(.Service==\"$1\")")
@@ -243,21 +256,16 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    log INFO "Building Cuebot image..."
-    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
-    log INFO "Building RQD image..."
-    if ! docker build -t opencue/rqd -f rust/Dockerfile.rqd . &>"${TEST_LOGS}/docker-build-rqd.log"; then
-        log ERROR "RQD Docker build failed. Build log:"
-        cat "${TEST_LOGS}/docker-build-rqd.log"
-        exit 1
-    fi
+    build_image opencue/cuebot cuebot/Dockerfile
+    build_image opencue/rqd rust/Dockerfile.rqd
+    build_image opencue/flyway sandbox/flyway.Dockerfile
 
     # Pre-create bind-mount directories so Docker doesn't create them as root
     mkdir -p "${HOME}/.opencue/sessions"
     mkdir -p /tmp/opencue
 
     log INFO "Starting Docker compose (core services only)..."
-    docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
+    docker compose up --no-build db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
     if [[ "$(uname -s)" == "Darwin" ]]; then
         docker_timeout=$(date -v +5M +%s)
     else
