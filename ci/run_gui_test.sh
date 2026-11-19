@@ -16,9 +16,9 @@ echo "Using Python binary ${py}"
 if [[ -n "${OPENCUE_CUEGUI_PACKAGE_PATH:-}" ]]
 then
   echo "Installing pre-built opencue_cuegui package"
-  pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
+  "${py}" -m pip install "${OPENCUE_CUEGUI_PACKAGE_PATH}[test]"
 else
-  pip install ./cuegui[test]
+  "${py}" -m pip install ./cuegui[test]
 fi
 
 pytest_status="$(mktemp)"
