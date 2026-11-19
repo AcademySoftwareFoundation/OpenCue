@@ -318,10 +318,9 @@ The feature needs cgroup v2 and the unit's cgroup delegated to RQD. The shipped 
 [Service]
 KillMode=process
 Delegate=yes
-DelegateSubgroup=daemon
 ```
 
-At startup RQD moves itself into `<unit cgroup>/daemon`, creates `<unit cgroup>/frames` and enables the `memory`, `cpu` and `pids` controllers where available (no limit is set). Each frame then joins `frames/<frame_id>` before its command starts. When the host can't contain frames (no cgroup v2, or no delegation), RQD logs a warning once at startup and tracks frames by session.
+At startup RQD creates `<unit cgroup>/frames`. It enables no controllers and sets no limits, so frame cgroups are used for containment only. Each frame then joins `frames/<frame_id>` before its command starts. When the host can't contain frames (no cgroup v2, or no delegation), RQD logs a warning once at startup and tracks frames by session.
 
 Behavior notes:
 
@@ -330,7 +329,7 @@ Behavior notes:
 - **Restarts**: recovered frames are re-attached to their cgroups. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
 - **Mixed hosts**: frames launched without a cgroup (feature off, or recovered from before it was enabled) keep being tracked by session.
 - **Reported memory** still comes from per-process `/proc` data, as without cgroups.
-- **systemd older than 254** ignores `DelegateSubgroup=` and starts RQD in the unit cgroup itself, which the kernel refuses once controllers are handed down to frame cgroups that still hold processes. On those hosts, restarting RQD while frames are running is expected to fail until the frames finish.
+- **No controllers**: enabling a controller such as `memory` below the unit cgroup would make the kernel refuse new processes in the unit cgroup itself, and systemd older than 254 (e.g. RHEL/Rocky 9) starts a restarted RQD there. Per-frame accounting and limits therefore need the frame cgroups to live outside RQD's unit, which is future work.
 
 ### Log-Based Exit-Status Rules
 

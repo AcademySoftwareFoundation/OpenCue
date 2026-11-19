@@ -16,9 +16,15 @@
 //! cgroup (`Delegate=yes`), rqd lays out its service cgroup as:
 //!
 //! ```text
-//! <service>/daemon             rqd itself
+//! <service>                    rqd itself
 //! <service>/frames/<frame_id>  one cgroup per frame
 //! ```
+//!
+//! No controller is enabled below the service cgroup. Containment only needs the core interface
+//! files (`cgroup.procs`, `cgroup.events`, `cgroup.kill`, `cgroup.freeze`), and enabling a domain
+//! controller such as `memory` in `<service>/cgroup.subtree_control` would make the kernel refuse
+//! new processes in `<service>` itself. systemd older than 254 starts a restarted rqd exactly
+//! there, so the restart would fail.
 //!
 //! Every process a frame starts stays in the frame's cgroup whatever its session or process
 //! group, so rqd can account for, signal and kill all of them, and reap what is left behind when
@@ -50,10 +56,7 @@ use uuid::Uuid;
 
 const CGROUP_MOUNT: &str = "/sys/fs/cgroup";
 const SELF_CGROUP: &str = "/proc/self/cgroup";
-const DAEMON_CGROUP: &str = "daemon";
 const FRAMES_CGROUP: &str = "frames";
-/// Controllers handed down to frame cgroups when the service cgroup has them available.
-const FRAME_CONTROLLERS: [&str; 3] = ["memory", "cpu", "pids"];
 /// How long a killed cgroup gets to empty before rqd gives up on removing it.
 const REAP_TIMEOUT: Duration = Duration::from_secs(5);
 const REAP_POLL_INTERVAL: Duration = Duration::from_millis(50);
@@ -63,8 +66,7 @@ const SIGNAL_KILL_PASSES: usize = 10;
 
 static FRAME_CGROUPS: OnceLock<Option<FrameCgroups>> = OnceLock::new();
 
-/// Sets up frame cgroups for this rqd instance when `enabled`: moves rqd into
-/// `<service>/daemon` and creates `<service>/frames`.
+/// Sets up frame cgroups for this rqd instance when `enabled` by creating `<service>/frames`.
 ///
 /// When the host can't contain frames (no cgroup v2, or a service cgroup that isn't delegated)
 /// a warning is logged and frames are tracked by session, as when disabled. Must be called once
@@ -79,9 +81,7 @@ pub fn init(enabled: bool) {
 fn setup_from_host() -> Option<FrameCgroups> {
     let setup = fs::read_to_string(SELF_CGROUP)
         .map_err(|err| miette!("Failed to read {SELF_CGROUP}: {err}"))
-        .and_then(|own_cgroup| {
-            FrameCgroups::setup(Path::new(CGROUP_MOUNT), &own_cgroup, std::process::id())
-        });
+        .and_then(|own_cgroup| FrameCgroups::setup(Path::new(CGROUP_MOUNT), &own_cgroup));
     match setup {
         Ok(frame_cgroups) => {
             info!(
@@ -127,33 +127,20 @@ pub struct FrameCgroups {
 }
 
 impl FrameCgroups {
-    /// Lays out the delegated service cgroup rqd runs in, `own_cgroup` being the content of
-    /// rqd's `/proc/self/cgroup` and `mount` the cgroup v2 mount point. Moves `pid` (rqd) into
-    /// `<service>/daemon`, as cgroup v2 doesn't let a cgroup hold processes and hand controllers
-    /// down to its children at the same time, creates `<service>/frames` and enables the
-    /// available [`FRAME_CONTROLLERS`] on the way down. No resource limit is set.
-    fn setup(mount: &Path, own_cgroup: &str, pid: u32) -> Result<Self> {
+    /// Creates `<service>/frames` in the delegated service cgroup rqd runs in, `own_cgroup` being
+    /// the content of rqd's `/proc/self/cgroup` and `mount` the cgroup v2 mount point. rqd stays
+    /// in the service cgroup and no controller is enabled (see the module docs).
+    fn setup(mount: &Path, own_cgroup: &str) -> Result<Self> {
         if !mount.join("cgroup.controllers").exists() {
             return Err(miette!("cgroup v2 is not mounted at {}", mount.display()));
         }
-        let service = service_cgroup(mount, own_cgroup)?;
-
-        let daemon = service.join(DAEMON_CGROUP);
-        create_cgroup_dir(&daemon).map_err(|err| {
+        let frames = service_cgroup(mount, own_cgroup)?.join(FRAMES_CGROUP);
+        create_cgroup_dir(&frames).map_err(|err| {
             miette!(
                 "Failed to create {}: {err}. Is the service cgroup delegated (Delegate=yes)?",
-                daemon.display()
+                frames.display()
             )
         })?;
-        write_cgroup_file(&daemon.join("cgroup.procs"), &pid.to_string())
-            .map_err(|err| miette!("Failed to move rqd into {}: {err}", daemon.display()))?;
-
-        let frames = service.join(FRAMES_CGROUP);
-        create_cgroup_dir(&frames)
-            .map_err(|err| miette!("Failed to create {}: {err}", frames.display()))?;
-
-        enable_controllers(&service);
-        enable_controllers(&frames);
         Ok(Self { path: frames })
     }
 
@@ -241,11 +228,6 @@ pub struct FrameCgroup {
 }
 
 impl FrameCgroup {
-    /// Path of the cgroup directory.
-    pub fn path(&self) -> &Path {
-        &self.path
-    }
-
     /// Opens `cgroup.procs` so a child can join the cgroup before exec (see [`join`]). The file
     /// is close-on-exec, so it doesn't leak into the frame.
     pub fn open_procs(&self) -> Result<File> {
@@ -376,51 +358,19 @@ impl FrameCgroup {
     }
 }
 
-/// Resolves the service cgroup from rqd's own `/proc/self/cgroup` entry. rqd may already sit in
-/// the daemon cgroup, when systemd placed it there through `DelegateSubgroup=`.
+/// Resolves the service cgroup from rqd's own `/proc/self/cgroup` entry.
 fn service_cgroup(mount: &Path, own_cgroup: &str) -> Result<PathBuf> {
     let relative = own_cgroup
         .lines()
         .find_map(|line| line.strip_prefix("0::"))
         .ok_or_else(|| miette!("No cgroup v2 entry in {SELF_CGROUP}"))?;
-    let mut service = mount.join(relative.trim().trim_start_matches('/'));
-    if service
-        .file_name()
-        .is_some_and(|name| name == DAEMON_CGROUP)
-    {
-        service.pop();
-    }
+    let service = mount.join(relative.trim().trim_start_matches('/'));
     if service == mount {
         return Err(miette!(
             "rqd runs in the root cgroup, frame cgroups need a delegated service cgroup"
         ));
     }
     Ok(service)
-}
-
-/// Enables the available [`FRAME_CONTROLLERS`] for the children of `cgroup` and returns the ones
-/// enabled. Best effort: a controller the kernel refuses (e.g. `EBUSY` while processes still live
-/// in `cgroup` itself) is logged and skipped, frames are contained either way.
-fn enable_controllers(cgroup: &Path) -> Vec<&'static str> {
-    let available = fs::read_to_string(cgroup.join("cgroup.controllers")).unwrap_or_default();
-    let available: HashSet<&str> = available.split_whitespace().collect();
-    let subtree_control = cgroup.join("cgroup.subtree_control");
-    FRAME_CONTROLLERS
-        .into_iter()
-        .filter(|controller| available.contains(controller))
-        .filter(
-            |controller| match write_cgroup_file(&subtree_control, &format!("+{controller}")) {
-                Ok(()) => true,
-                Err(err) => {
-                    warn!(
-                        "Failed to enable the {controller} controller in {}: {err}",
-                        cgroup.display()
-                    );
-                    false
-                }
-            },
-        )
-        .collect()
 }
 
 fn create_cgroup_dir(path: &Path) -> io::Result<()> {
@@ -489,10 +439,10 @@ mod tests {
             "cpuset cpu io memory pids",
         );
         let service = mount.path().join("system.slice/openrqd.service");
-        fs::create_dir_all(service.join(DAEMON_CGROUP)).expect("create service cgroup");
+        fs::create_dir_all(&service).expect("create service cgroup");
         write(&service.join("cgroup.controllers"), "cpu io memory pids");
         write(&service.join("cgroup.subtree_control"), "");
-        write(&service.join(DAEMON_CGROUP).join("cgroup.procs"), "");
+        write(&service.join("cgroup.procs"), "");
         (mount, service)
     }
 
@@ -528,15 +478,6 @@ mod tests {
     }
 
     #[test]
-    fn resolves_service_cgroup_when_already_in_daemon() {
-        let mount = Path::new("/sys/fs/cgroup");
-        assert_eq!(
-            service_cgroup(mount, "0::/system.slice/openrqd.service/daemon\n").unwrap(),
-            mount.join("system.slice/openrqd.service")
-        );
-    }
-
-    #[test]
     fn refuses_root_or_v1_only_cgroups() {
         let mount = Path::new("/sys/fs/cgroup");
         assert!(service_cgroup(mount, "0::/\n").is_err());
@@ -544,16 +485,18 @@ mod tests {
     }
 
     #[test]
-    fn setup_moves_rqd_to_daemon_and_creates_frames() {
+    fn setup_creates_frames_without_enabling_controllers() {
         let (mount, service) = fake_cgroupfs();
 
         let frame_cgroups =
-            FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n", 4242)
-                .expect("setup");
+            FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n").expect("setup");
 
         assert_eq!(frame_cgroups.path, service.join(FRAMES_CGROUP));
         assert!(frame_cgroups.path.is_dir());
-        assert_eq!(read(&service.join("daemon/cgroup.procs")), "4242");
+        // rqd stays in the service cgroup, which must not hand controllers down: that would keep
+        // systemd from starting a restarted rqd there.
+        assert_eq!(read(&service.join("cgroup.subtree_control")), "");
+        assert_eq!(read(&service.join("cgroup.procs")), "");
     }
 
     #[test]
@@ -561,9 +504,7 @@ mod tests {
         let (mount, _) = fake_cgroupfs();
         fs::remove_file(mount.path().join("cgroup.controllers")).unwrap();
 
-        assert!(
-            FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n", 1).is_err()
-        );
+        assert!(FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n").is_err());
     }
 
     #[test]
@@ -574,29 +515,12 @@ mod tests {
         }
         use std::os::unix::fs::PermissionsExt;
         let (mount, service) = fake_cgroupfs();
-        fs::remove_dir_all(service.join(DAEMON_CGROUP)).unwrap();
         fs::set_permissions(&service, fs::Permissions::from_mode(0o555)).unwrap();
 
-        let result = FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n", 1);
+        let result = FrameCgroups::setup(mount.path(), "0::/system.slice/openrqd.service\n");
 
         fs::set_permissions(&service, fs::Permissions::from_mode(0o755)).unwrap();
         assert!(result.is_err());
-    }
-
-    #[test]
-    fn enables_only_available_controllers() {
-        let (_mount, service) = fake_cgroupfs();
-        write(&service.join("cgroup.controllers"), "io pids memory");
-
-        assert_eq!(enable_controllers(&service), vec!["memory", "pids"]);
-    }
-
-    #[test]
-    fn enabling_controllers_is_best_effort() {
-        let (_mount, service) = fake_cgroupfs();
-        fs::remove_file(service.join("cgroup.subtree_control")).unwrap();
-
-        assert!(enable_controllers(&service).is_empty());
     }
 
     #[test]
@@ -608,7 +532,7 @@ mod tests {
         assert!(frame_cgroups.open(&frame_id).is_none());
         let cgroup = frame_cgroups.create(&frame_id).expect("create");
 
-        assert_eq!(cgroup.path(), dir.path().join(frame_id.to_string()));
+        assert_eq!(cgroup.path, dir.path().join(frame_id.to_string()));
         assert!(frame_cgroups.open(&frame_id).is_some());
         assert!(frame_cgroups.open(&Uuid::new_v4()).is_none());
     }
@@ -639,7 +563,7 @@ mod tests {
         let orphans = frame_cgroups.orphans(&[recovered]).unwrap();
 
         assert_eq!(orphans.len(), 1);
-        assert_eq!(orphans[0].path(), dir.path().join(orphan.to_string()));
+        assert_eq!(orphans[0].path, dir.path().join(orphan.to_string()));
     }
 
     #[test]
@@ -817,7 +741,7 @@ mod tests {
         assert_eq!(wait_for_members(&cgroup, 2).await.len(), 2);
 
         assert_eq!(cgroup.reap().await.expect("reap"), 2);
-        assert!(!cgroup.path().exists());
+        assert!(!cgroup.path.exists());
         assert!(frame_cgroups.open(&frame_id).is_none());
 
         fs::remove_dir(&frame_cgroups.path).unwrap();
