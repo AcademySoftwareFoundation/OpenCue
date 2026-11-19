@@ -2,9 +2,8 @@
 
 # Wrapper script for CueGUI tests.
 #
-# Python (in Qt teardown) and xvfb-run sometimes crash on exit after the tests have passed.
-# pytest's own exit code decides the result: the interpreter leaves through os._exit right
-# after pytest returns, and the code is recorded inside the xvfb session.
+# pytest's own exit code decides the result, recorded inside the xvfb session because
+# xvfb-run sometimes crashes on exit after the tests have passed.
 
 set -eo pipefail
 
@@ -32,6 +31,8 @@ then
   XVFB_RUN_ARG="-a"
 fi
 
+# os._exit skips interpreter teardown, which can segfault in Qt after a passing run. It can go
+# once the test suite owns its QApplication lifecycle.
 run_pytest='import os, sys, pytest
 rc = int(pytest.main(["cuegui"]))
 sys.stdout.flush()
