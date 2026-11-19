@@ -80,7 +80,12 @@ public class HostManagerService implements HostManager {
     private AllocationDao allocationDao;
     private JobManagerSupport jobManagerSupport;
 
-    public HostManagerService() {}
+    private Environment env;
+
+    @Autowired
+    public HostManagerService(Environment env) {
+        this.env = env;
+    }
 
     /**
      * Builds the lock source recorded by bulk host locks for the given source tag.
@@ -387,7 +392,8 @@ public class HostManagerService implements HostManager {
     @Transactional(propagation = Propagation.REQUIRED)
     public DispatchHost createHost(RenderHost rhost, AllocationEntity alloc) {
 
-        hostDao.insertRenderHost(rhost, alloc, false);
+        hostDao.insertRenderHost(rhost, alloc,
+                env.getProperty("host.use_long_names", Boolean.class, false));
         DispatchHost host = hostDao.findDispatchHost(rhost.getName());
 
         hostDao.tagHost(host, alloc.tag, HostTagType.ALLOC);
