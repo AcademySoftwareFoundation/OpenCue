@@ -3,8 +3,6 @@ name: OpenCue Rust Build Pipeline
 on:
   push:
     branches: ["master"]
-  pull_request:
-    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,11 +20,6 @@ env:
   # set both explicitly so the override sticks regardless of inheritance.
   CARGO_PROFILE_DEV_DEBUG: line-tables-only
   CARGO_PROFILE_TEST_DEBUG: line-tables-only
-
-# Superseded pushes to a pull request cancel the older run; master runs every commit.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
 
 jobs:
   build:

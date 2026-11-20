@@ -70,6 +70,7 @@ describe('fetchObjectFromRestGateway', () => {
         'Authorization': 'Bearer mockJwtToken',
       },
       body: JSON.stringify({ key: 'value' }),
+      signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ data: { data: 'mockData' } });
@@ -100,6 +101,7 @@ describe('fetchObjectFromRestGateway', () => {
         'Authorization': 'Bearer mockJwtToken',
       },
       body: JSON.stringify({ key: 'value' }),
+      signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Unauthorized request: Unauthorized error' });
@@ -130,6 +132,7 @@ describe('fetchObjectFromRestGateway', () => {
         'Authorization': 'Bearer mockJwtToken',
       },
       body: JSON.stringify({ key: 'value' }),
+      signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Resource not found: Resource not found' });
@@ -160,6 +163,7 @@ describe('fetchObjectFromRestGateway', () => {
         'Authorization': 'Bearer mockJwtToken',
       },
       body: JSON.stringify({ key: 'value' }),
+      signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Unexpected API error: Unexpected error' });
@@ -186,6 +190,7 @@ describe('fetchObjectFromRestGateway', () => {
         'Authorization': 'Bearer mockJwtToken',
       },
       body: JSON.stringify({ key: 'value' }),
+      signal: expect.any(AbortSignal),
     });
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: 'Fetch error' });

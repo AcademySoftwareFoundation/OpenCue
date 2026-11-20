@@ -54,7 +54,6 @@ const RESOLVED_VERSION = (() => {
   const rootVersion = firstValueLine("../VERSION.in");
   if (rootVersion) return rootVersion;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     return require("./package.json").version || "";
   } catch (_) {
     return "";

@@ -1,6 +1,58 @@
 #!/bin/bash
 
+# Lints OpenCue's Python packages.
+#
+# With no arguments, installs pylint and every package, then lints them all. With package
+# names (e.g. `ci/run_python_lint.sh cueadmin`), lints only those, which must already be
+# installed along with pylint.
+
 set -ex
+
+lint_package() {
+  local package="$1"
+  echo "Running lint for ${package}/..."
+  pushd "${package}"
+  case "${package}" in
+    pycue)
+      python -m pylint --rcfile=../ci/pylintrc_main FileSequence
+      python -m pylint --rcfile=../ci/pylintrc_main opencue
+      python -m pylint --rcfile=../ci/pylintrc_test tests
+      ;;
+    pyoutline)
+      python -m pylint --rcfile=../ci/pylintrc_main outline
+      python -m pylint --rcfile=../ci/pylintrc_test tests
+      ;;
+    cuegui)
+      python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
+      python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
+      ;;
+    cuesubmit)
+      python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
+      python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
+      ;;
+    rqd)
+      python -m pylint --rcfile=../ci/pylintrc_main rqd
+      python -m pylint --rcfile=../ci/pylintrc_test tests
+      python -m pylint --rcfile=../ci/pylintrc_test pytests
+      ;;
+    cueadmin|cueman|cuecmd|cuenimby)
+      python -m pylint --rcfile=../ci/pylintrc_main "${package}"
+      python -m pylint --rcfile=../ci/pylintrc_test tests
+      ;;
+    *)
+      echo "Unknown package ${package}"
+      exit 1
+      ;;
+  esac
+  popd
+}
+
+if [[ $# -gt 0 ]]; then
+  for package in "$@"; do
+    lint_package "${package}"
+  done
+  exit 0
+fi
 
 if [[ -v VIRTUAL_ENV ]]
 then
@@ -24,67 +76,7 @@ else
   pip install ./proto ${PIP_OPT}
 fi
 
-echo "Running lint for pycue/..."
-pip install ./pycue[test] ${PIP_OPT}
-cd pycue
-python -m pylint --rcfile=../ci/pylintrc_main FileSequence
-python -m pylint --rcfile=../ci/pylintrc_main opencue
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for pyoutline/..."
-pip install ./pyoutline[test] ${PIP_OPT}
-cd pyoutline
-python -m pylint --rcfile=../ci/pylintrc_main outline
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for cueadmin/..."
-pip install ./cueadmin[test] ${PIP_OPT}
-cd cueadmin
-python -m pylint --rcfile=../ci/pylintrc_main cueadmin
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for cueman/..."
-pip install ./cueman[test] ${PIP_OPT}
-cd cueman
-python -m pylint --rcfile=../ci/pylintrc_main cueman
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for cuecmd/..."
-pip install ./cuecmd[test] ${PIP_OPT}
-cd cuecmd
-python -m pylint --rcfile=../ci/pylintrc_main cuecmd
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for cuegui/..."
-pip install ./cuegui[test] ${PIP_OPT}
-cd cuegui
-python -m pylint --rcfile=../ci/pylintrc_main cuegui --ignore=cuegui/images,cuegui/images/crystal --disable=no-member
-python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
-cd ..
-
-echo "Running lint for cuesubmit/..."
-pip install ./cuesubmit[test] ${PIP_OPT}
-cd cuesubmit
-python -m pylint --rcfile=../ci/pylintrc_main cuesubmit --disable=no-member
-python -m pylint --rcfile=../ci/pylintrc_test tests --disable=no-member
-cd ..
-
-echo "Running lint for cuenimby/..."
-pip install ./cuenimby[test] ${PIP_OPT}
-cd cuenimby
-python -m pylint --rcfile=../ci/pylintrc_main cuenimby
-python -m pylint --rcfile=../ci/pylintrc_test tests
-cd ..
-
-echo "Running lint for rqd/..."
-pip install ./rqd[test] ${PIP_OPT}
-cd rqd
-python -m pylint --rcfile=../ci/pylintrc_main rqd
-python -m pylint --rcfile=../ci/pylintrc_test tests
-python -m pylint --rcfile=../ci/pylintrc_test pytests
-cd ..
+for package in pycue pyoutline cueadmin cueman cuecmd cuegui cuesubmit cuenimby rqd; do
+  pip install "./${package}[test]" ${PIP_OPT}
+  lint_package "${package}"
+done

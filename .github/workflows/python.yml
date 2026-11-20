@@ -1,0 +1,97 @@
+name: Python
+
+# Lints and tests Python packages, one job per package.
+
+on:
+  workflow_call:
+    inputs:
+      packages:
+        description: JSON list of package directories to test on Python 3.11, without a container.
+        type: string
+        default: "[]"
+      qt-packages:
+        description: JSON list of Qt package directories to test in the aswf/ci-opencue container.
+        type: string
+        default: "[]"
+
+jobs:
+  package:
+    name: ${{ matrix.package }}
+    if: inputs.packages != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(inputs.packages) }}
+    env:
+      PACKAGE: ${{ matrix.package }}
+    steps:
+      # Package versions come from ci/generate_version_number.py, which needs the history.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.11"
+          activate-environment: true
+          enable-cache: true
+          cache-dependency-glob: "**/pyproject.toml"
+
+      # Every package builds on proto and pycue; the others are dependencies of some package.
+      # setuptools<81 still ships pkg_resources, which some packages fall back to.
+      - name: Install
+        run: |
+          uv pip install pylint==2.15.10 "setuptools<81" \
+            ./proto ./pycue ./pyoutline ./cueadmin "./${PACKAGE}[test]"
+
+      - name: Lint
+        run: ci/run_python_lint.sh "${PACKAGE}"
+
+      - name: Test
+        run: python -m pytest "${PACKAGE}"
+
+  qt-package:
+    name: ${{ matrix.package }}
+    if: inputs.qt-packages != '[]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    container: aswf/ci-opencue:2024
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        package: ${{ fromJSON(inputs.qt-packages) }}
+    env:
+      PACKAGE: ${{ matrix.package }}
+    steps:
+      # Package versions come from ci/generate_version_number.py, which needs the history.
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Install
+        run: |
+          python -m pip install --user pylint==2.15.10 \
+            ./proto ./pycue ./pyoutline "./${PACKAGE}[test]"
+
+      - name: Lint
+        run: ci/run_python_lint.sh "${PACKAGE}"
+
+      - name: Test
+        run: |
+          if [[ "${PACKAGE}" == cuegui ]]; then
+            ci/run_gui_test.sh
+          else
+            python -m pytest "${PACKAGE}"
+          fi
