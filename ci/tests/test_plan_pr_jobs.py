@@ -93,8 +93,8 @@ class PathFiltersTests(unittest.TestCase):
 
     def test_every_tracked_file_is_mapped(self):
         try:
-            tracked = subprocess.run(["git", "ls-files"], cwd=REPO, check=True,
-                                     capture_output=True, text=True).stdout.splitlines()
+            tracked = subprocess.run(["git", "ls-files", "-z"], cwd=REPO, check=True,
+                                     capture_output=True, text=True).stdout.split("\0")[:-1]
         except (OSError, subprocess.CalledProcessError):
             self.skipTest("not a git checkout")
         mapped = [patterns for name, patterns in FILTERS.items() if name != "all"]
