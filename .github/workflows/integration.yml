@@ -85,6 +85,10 @@ jobs:
           target: packages
           build-args: BUILD_ID=${{ inputs.build-id }}
           outputs: type=local,dest=cuebot-packages
+          # The local exporter would write the attestations into cuebot-packages, and so
+          # into the release bundle.
+          provenance: false
+          sbom: false
 
       - name: Export images and check the jar
         if: inputs.build-id != ''
