@@ -15,7 +15,9 @@ jobs:
     name: Build
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    container: python:3.11
+    # The oldest Python installed below: grpcio-tools generates proto code that needs a
+    # protobuf runtime at least as new as itself.
+    container: python:3.9
     steps:
       - uses: actions/checkout@v7
         with:
