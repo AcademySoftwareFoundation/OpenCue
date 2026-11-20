@@ -40,8 +40,8 @@ RUST_TARGETS = [
 ]
 WINDOWS_TARGET = "x86_64-pc-windows-msvc"
 
-# Image name to whether it is optional. The Docker Hub repositories of the optional ones do
-# not exist yet, so a failure to retag them is a warning. Drop the flag once they exist.
+# Image name to whether it is optional: failing to retag an optional image is a warning, as
+# master.yml's failure to stage it is.
 IMAGES = {"cuebot": False, "rqd": False, "rest-gateway": True, "cueweb": True}
 
 NOTES = """\
