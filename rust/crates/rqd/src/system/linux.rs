@@ -610,8 +610,11 @@ impl LinuxSystem {
                         live_pids.insert(pid);
                         if let Ok(process_data) = self.read_proc_data(pid) {
                             self.cached_processes.insert(pid, process_data);
+                        }
+                        // A process whose read failed counts with its last sample, if any.
+                        if self.cached_processes.contains_key(&pid) {
                             session_processes.entry(session_id).or_default().push(pid);
-                        } // Skip processes that failed to be read
+                        }
                     }
                 }
                 _ => {
@@ -1401,9 +1404,11 @@ mod tests {
 
         system.refresh_procs();
         let cached = system.cached_processes.contains_key(&session);
+        let counted = system.read_session_processes()[&session].contains(&session);
         unsafe { libc::kill(-(session as i32), libc::SIGKILL) };
         child.wait().unwrap();
         assert!(cached, "a live session leader should keep its cache entry");
+        assert!(counted, "a live session leader should stay in its session");
     }
 
     #[cfg(target_os = "linux")]
