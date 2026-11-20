@@ -1,152 +1,79 @@
 name: OpenCue PR
 
-# Tests the components a pull request touches. `changes` maps the diff to jobs through
-# .github/path-filters.yml and ci/plan_pr_jobs.py; `pr-gate` is the only check branch
-# protection needs, and it passes when the jobs that ran passed and the rest were skipped.
-#
-# Changes under .github/ or ci/, an unmapped path, or the ci:full label run every job.
+# TEMPORARY, DO NOT MERGE: runs master.yml with publishing off, plus a probe of the release
+# pipeline's Python 3.7 wheel build after M5.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
-  changes:
-    name: changes
+  master:
+    name: Master
+    uses: ./.github/workflows/master.yml
+    with:
+      publish: false
+
+  m5-probe:
+    name: M5 probe (release-style build on Python 3.7)
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      python: ${{ steps.plan.outputs.python }}
-      python_qt: ${{ steps.plan.outputs.python_qt }}
-      wheels: ${{ steps.plan.outputs.wheels }}
-      licenses: ${{ steps.plan.outputs.licenses }}
-      api_docs: ${{ steps.plan.outputs.api_docs }}
-      cuebot: ${{ steps.plan.outputs.cuebot }}
-      maestro: ${{ steps.plan.outputs.maestro }}
-      rust: ${{ steps.plan.outputs.rust }}
-      rust_windows: ${{ steps.plan.outputs.rust_windows }}
-      cueweb: ${{ steps.plan.outputs.cueweb }}
-      gateway: ${{ steps.plan.outputs.gateway }}
-      integration: ${{ steps.plan.outputs.integration }}
+    timeout-minutes: 10
+    container: python:3.7
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
-
-      - name: Match changed paths
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: .github/path-filters.yml
-          list-files: json
-          predicate-quantifier: some-with-excludes
-
-      - name: Plan jobs
-        id: plan
-        env:
-          FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
-        run: python3 ci/plan_pr_jobs.py
-
-  checks:
-    name: Checks
-    needs: changes
-    uses: ./.github/workflows/checks.yml
-    with:
-      licenses: ${{ needs.changes.outputs.licenses == 'true' }}
-
-  python:
-    name: Python
-    needs: changes
-    if: needs.changes.outputs.python != '[]' || needs.changes.outputs.python_qt != '[]'
-    uses: ./.github/workflows/python.yml
-    with:
-      packages: ${{ needs.changes.outputs.python }}
-      qt-packages: ${{ needs.changes.outputs.python_qt }}
-
-  wheels:
-    name: Python packages
-    needs: changes
-    if: needs.changes.outputs.wheels == 'true'
-    uses: ./.github/workflows/python-packages.yml
-
-  api-docs:
-    name: API docs
-    needs: changes
-    if: needs.changes.outputs.api_docs == 'true'
-    uses: ./.github/workflows/api-docs.yml
-
-  cuebot:
-    name: Cuebot
-    needs: changes
-    if: needs.changes.outputs.cuebot == 'true'
-    uses: ./.github/workflows/cuebot.yml
-
-  maestro:
-    name: Maestro sim
-    needs: changes
-    if: needs.changes.outputs.maestro == 'true'
-    uses: ./.github/workflows/maestro-sim.yml
-
-  rust:
-    name: Rust
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/rust.yml
-    with:
-      windows: ${{ needs.changes.outputs.rust_windows == 'true' }}
-
-  cueweb:
-    name: CueWeb
-    needs: changes
-    if: needs.changes.outputs.cueweb == 'true'
-    uses: ./.github/workflows/cueweb.yml
-
-  rest-gateway:
-    name: REST gateway
-    needs: changes
-    if: needs.changes.outputs.gateway == 'true'
-    uses: ./.github/workflows/rest-gateway.yml
-
-  integration:
-    name: Integration
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    uses: ./.github/workflows/integration.yml
-
-  pr-gate:
-    name: pr-gate
-    if: always()
-    needs:
-      - changes
-      - checks
-      - python
-      - wheels
-      - api-docs
-      - cuebot
-      - maestro
-      - rust
-      - cueweb
-      - rest-gateway
-      - integration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check job results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
+      - run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+      - name: Build like release-pipeline.yml does
         run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
-          if jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' <<< "${NEEDS}" > /dev/null; then
-            echo "A job failed or was cancelled."
-            exit 1
-          fi
+          set -e
+          pip install build==1.1.1
+          for p in proto pycue pyoutline cueadmin cueman cuecmd cuesubmit cuegui rqd cuenimby; do
+            python -m build --outdir packages -s "./${p}"
+            python -m build --outdir packages -w "./${p}"
+          done
+          ls packages
+      - name: Python 3.7 pip refuses the wheels
+        run: |
+          for whl in packages/*.whl; do
+            if pip install --no-deps "${whl}"; then
+              echo "::error::${whl} installed on Python 3.7"
+              exit 1
+            fi
+          done
+          echo "pip refused every wheel on Python 3.7"
+
+  stage-probe:
+    name: Stage probe (load the image artifacts, compare IDs, no push)
+    needs: master
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [cuebot, rqd, rest-gateway, cueweb]
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: image-${{ matrix.image }}
+          path: ${{ runner.temp }}
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle
+          path: bundle
+      - name: Load and compare
+        env:
+          NAME: ${{ matrix.image }}
+        run: |
+          docker load -i "${RUNNER_TEMP}/${NAME}.tar"
+          tag=$(jq -r --arg n "${NAME}" '.images[$n].tag' bundle/build_metadata.json)
+          want=$(jq -r --arg n "${NAME}" '.images[$n].id' bundle/build_metadata.json)
+          got=$(docker image inspect --format '{{.Id}}' "${tag}")
+          echo "${tag}: metadata ${want}, loaded ${got}"
+          [[ "${want}" == "${got}" ]]
