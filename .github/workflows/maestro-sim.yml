@@ -12,6 +12,22 @@ on:
         default: false
 
 jobs:
+  pick:
+    name: Pick scenarios
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      requested: ${{ steps.pick.outputs.requested }}
+    steps:
+      - name: Split the manual run's scenarios
+        id: pick
+        env:
+          REQUESTED: ${{ github.event.inputs.scenarios }}
+        run: |
+          jq -cn --arg s "${REQUESTED}" \
+            '[$s | ascii_upcase | split(",")[] | gsub("\\s"; "") | select(. != "")] | unique' \
+            | sed 's/^/requested=/' | tee -a "${GITHUB_OUTPUT}"
+
   build:
     name: Build Cuebot
     runs-on: ubuntu-24.04
@@ -42,7 +58,7 @@ jobs:
           overwrite: true
 
   sim:
-    needs: build
+    needs: [pick, build]
     runs-on: ubuntu-24.04
     # A scenario job takes 3-7 minutes including a fresh database; the ceiling
     # is for a hang, not for normal slowness. Manual runs can pick the full-farm
@@ -55,9 +71,11 @@ jobs:
       # still leaves the others' verdicts (and logs) to compare against.
       fail-fast: false
       matrix:
-        # Pull requests run the small-farm binary set; master and the weekly
-        # schedule add the heavier behavioural scenarios (see the header for why).
-        scenario: ${{ inputs.full
+        # A manual run picks its own scenarios. Otherwise pull requests run the
+        # small-farm binary set; master and the weekly schedule add the heavier
+        # behavioural scenarios (see the header for why).
+        scenario: ${{ github.event.inputs.scenarios && fromJSON(needs.pick.outputs.requested)
+          || inputs.full
           && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM","SHOWTIER"]')
           || fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE"]') }}
 
@@ -106,7 +124,7 @@ jobs:
         working-directory: sandbox/maestro-sim
         continue-on-error: ${{ contains(fromJSON('["COMPLETIONSTORM","SOLOFILL"]'), matrix.scenario) }}
         env:
-          SIM_VERIFY_ONLY: ${{ github.event.inputs.scenarios || matrix.scenario }}
+          SIM_VERIFY_ONLY: ${{ matrix.scenario }}
           SIM_VERIFY_SECONDS: ${{ github.event.inputs.seconds || '180' }}
         run: |
           # pipefail so tee cannot mask a failing verdict: --verify exits

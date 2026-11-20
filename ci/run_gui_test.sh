@@ -7,10 +7,7 @@
 
 set -eo pipefail
 
-py="$(command -v python3)"
-if [[ -z "$py" ]]; then
-  py="$(command -v python)"
-fi
+py="$(command -v python3 || command -v python)"
 echo "Using Python binary ${py}"
 
 if [[ -n "${OPENCUE_CUEGUI_PACKAGE_PATH:-}" ]]

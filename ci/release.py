@@ -332,7 +332,8 @@ def pinned_source(image, docker):
     inspect = ("buildx", "imagetools", "inspect")
     repository = image["tag"].rsplit(":", 1)[0]
     digest = json.loads(docker(*inspect, "--format", "{{json .Manifest}}", image["tag"]))["digest"]
-    raw = json.loads(docker(*inspect, "--raw", image["tag"]))
+    # By digest, so the tag moving between the two reads can't pass another image's check.
+    raw = json.loads(docker(*inspect, "--raw", f"{repository}@{digest}"))
     known = [digest]
     if "manifests" in raw:
         images = [

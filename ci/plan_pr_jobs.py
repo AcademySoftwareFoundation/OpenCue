@@ -2,18 +2,17 @@
 
 """Decides which pull request jobs run, from the filters in .github/path-filters.yml.
 
-Run by the `changes` job in .github/workflows/pr.yml after dorny/paths-filter. It reads from
-the environment:
+Run by the `changes` job in .github/workflows/pr.yml after dorny/paths-filter. It reads the
+filter step's outputs as JSON (with list-files: json) from stdin, and from the environment:
 
-  FILTER_OUTPUTS  the filter step's outputs as JSON (with list-files: json)
   LABELS          the pull request's label names as a JSON array
   CHANGED_FILES   the pull request's changed file count, to detect a truncated file list
 
 and writes one output per job to GITHUB_OUTPUT and a summary to GITHUB_STEP_SUMMARY.
 
 A change matched by the `ci` filter, the ci:full label, a changed file that no filter
-matches, or a file list shorter than the pull request (the files API stops at 3000) turns
-every job on.
+matches, or a file list that may be truncated (the files API stops at 3000) turns every
+job on.
 """
 
 import json
@@ -26,6 +25,9 @@ import tomllib
 REPO = pathlib.Path(__file__).resolve().parent.parent
 
 FULL_LABEL = "ci:full"
+
+# The most files the pull request files API lists.
+FILES_API_LIMIT = 3000
 
 PYTHON_PACKAGES = [
     "pycue", "pyoutline", "cueadmin", "cueman", "cuecmd", "cuesubmit", "cuegui", "cuenimby",
@@ -76,8 +78,7 @@ def python_packages(changed):
 def plan(filter_outputs, labels, changed_count=0):
     """Returns (job outputs, unmapped files, full) for a set of dorny/paths-filter outputs.
 
-    `changed_count` is the pull request's changed file count; more than the filter saw means
-    its file list was truncated.
+    `changed_count` is the pull request's changed file count, to detect a truncated file list.
     """
     matched = set(json.loads(filter_outputs["changes"]))
     files = {
@@ -87,8 +88,10 @@ def plan(filter_outputs, labels, changed_count=0):
     }
     changed = files.pop("all")
     unmapped = sorted(changed - set().union(*files.values()))
-    truncated = changed_count > len(changed)
-    full = "ci" in matched or FULL_LABEL in labels or bool(unmapped) or truncated
+    full = (
+        "ci" in matched or FULL_LABEL in labels or bool(unmapped)
+        or truncated(changed, changed_count)
+    )
 
     if full:
         packages = PYTHON_PACKAGES
@@ -107,6 +110,14 @@ def plan(filter_outputs, labels, changed_count=0):
     return jobs, unmapped, full
 
 
+def truncated(changed, changed_count):
+    """Says whether the filter may have missed files.
+
+    A rename is listed under both its paths, so only the count shows a list over the limit.
+    """
+    return changed_count > len(changed) or changed_count > FILES_API_LIMIT
+
+
 def escape_command(value):
     return value.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
 
@@ -114,13 +125,12 @@ def escape_command(value):
 def main():
     labels = json.loads(os.environ.get("LABELS") or "[]")
     changed_count = int(os.environ.get("CHANGED_FILES") or 0)
-    filter_outputs = json.loads(os.environ["FILTER_OUTPUTS"])
+    filter_outputs = json.load(sys.stdin)
     jobs, unmapped, full = plan(filter_outputs, labels, changed_count)
 
-    received = len(json.loads(filter_outputs["all_files"]))
-    if changed_count > received:
-        print(f"::warning::The pull request changes {changed_count} files but only {received} "
-              "were listed, so every job runs.")
+    if truncated(set(json.loads(filter_outputs["all_files"])), changed_count):
+        print(f"::warning::The pull request changes {changed_count} files and its file list "
+              "may be truncated, so every job runs.")
 
     for path in unmapped:
         print(escape_command(
