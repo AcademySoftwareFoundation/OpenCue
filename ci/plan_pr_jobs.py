@@ -47,7 +47,9 @@ JOB_FILTERS = {
     "rust_windows": {"rqd", "proto"},
     "cueweb": {"cueweb"},
     "gateway": {"gateway", "proto"},
-    "integration": {"integration", "proto"},
+    "integration": {"integration", "proto", "cuebot-packages"},
+    # Builds the Cuebot jar and RPM in the integration job.
+    "cuebot_packages": {"cuebot-packages"},
 }
 
 

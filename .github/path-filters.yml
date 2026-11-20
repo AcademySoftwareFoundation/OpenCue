@@ -21,6 +21,12 @@ proto:
 cuebot:
   - "cuebot/**"
 
+# What the Cuebot RPM is built from, in the Dockerfile's packages target.
+cuebot-packages:
+  - "cuebot/Dockerfile"
+  - "cuebot/packaging/**"
+  - "cuebot/deploy/**"
+
 # What the Maestro scheduler depends on, not only what is named after it: its dispatch SQL
 # lives in dao/postgres.
 scheduler:

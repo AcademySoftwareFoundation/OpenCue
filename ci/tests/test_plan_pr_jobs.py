@@ -159,6 +159,12 @@ class PlanTests(unittest.TestCase):
     def test_rqd_dockerfile_runs_integration(self):
         self.assertEqual({"rust", "integration"}, jobs_for("rust/Dockerfile.rqd")[0])
 
+    def test_cuebot_packaging_builds_the_rpm(self):
+        for path in ("cuebot/packaging/rpm/cuebot.spec", "cuebot/deploy/opencue-cuebot"):
+            self.assertEqual({"cuebot", "integration", "cuebot_packages"}, jobs_for(path)[0])
+        self.assertIn("cuebot_packages", jobs_for("cuebot/Dockerfile")[0])
+        self.assertNotIn("cuebot_packages", jobs_for("cuebot/src/main/java/A.java")[0])
+
     def test_single_python_package(self):
         names, jobs = jobs_for("cueadmin/cueadmin/common.py")
         self.assertEqual({"python"}, names)
@@ -194,7 +200,7 @@ class PlanTests(unittest.TestCase):
 
     def test_proto(self):
         names, jobs = jobs_for("proto/src/job.proto")
-        self.assertEqual(ALL_JOBS - {"licenses", "maestro", "cueweb"}, names)
+        self.assertEqual(ALL_JOBS - {"licenses", "maestro", "cueweb", "cuebot_packages"}, names)
         self.assertEqual(len(plan_pr_jobs.PYTHON_PACKAGES),
                          len(json.loads(jobs["python"]) + json.loads(jobs["python_qt"])))
 
