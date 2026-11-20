@@ -26,7 +26,7 @@ The sandbox environment provides a quick way to test OpenCue locally using Docke
 Ensure you have the following software installed:
 
 **Required software:**
-- Python 3.7 or later
+- Python 3.9 or later
 - pip (Python package installer)
   - On some systems, this may be `pip3`
 - Python development headers:

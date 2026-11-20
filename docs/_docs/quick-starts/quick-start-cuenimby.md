@@ -175,7 +175,7 @@ Edit `~/.opencue/cuenimby.json`:
 
 ### CueNIMBY won't start
 
-* Check that Python 3.7+ is installed: `python --version` or `python3 --version`
+* Check that Python 3.9+ is installed: `python --version` or `python3 --version`
 * Verify OpenCue client libraries are installed: `pip list | grep pycue`
 * Check the logs for errors: Run with `cuenimby --verbose`
 

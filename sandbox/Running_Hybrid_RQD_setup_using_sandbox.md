@@ -13,7 +13,7 @@ This hybrid setup consists of:
 ## Prerequisites
 
 - Docker Desktop installed and running
-- Python 3.7+ installed on your local machine
+- Python 3.9+ installed on your local machine
 - Git (to clone OpenCue repository)
 - At least 6GB of RAM allocated to Docker Desktop (on macOS/Windows)
 
