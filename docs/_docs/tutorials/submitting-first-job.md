@@ -26,7 +26,7 @@ This tutorial provides a comprehensive guide to job submission in OpenCue, cover
 
 - Completed [Getting Started with OpenCue](/docs/tutorials/getting-started-tutorial/)
 - OpenCue environment running with at least one RQD host
-- Python 3.6+ with OpenCue libraries installed
+- Python 3.9+ with OpenCue libraries installed
 
 ## Understanding Job Structure
 

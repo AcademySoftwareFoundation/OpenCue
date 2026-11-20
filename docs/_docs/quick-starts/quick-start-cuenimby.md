@@ -21,7 +21,7 @@ CueNIMBY is a Qt-based cross-platform system tray application that provides user
 
 You must have the following software installed on your machine:
 
-* Python version 3.7 or greater
+* Python version 3.9 or greater
 * The Python [`pip` command](https://pypi.org/project/pip/)
   * On some systems this command may be installed as `pip3`
 * Qt for Python (PyQt6 or PySide6) - automatically installed with CueNIMBY
