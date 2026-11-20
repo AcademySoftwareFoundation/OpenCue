@@ -75,17 +75,31 @@ jobs:
           name: test-logs
           path: /tmp/opencue-test/*.log
 
-      - name: Export images and Cuebot packages
+      # Reuses the build stage of the tested image from the builder's cache.
+      - name: Build Cuebot jar and RPM
+        if: inputs.build-id != ''
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: cuebot/Dockerfile
+          target: packages
+          build-args: BUILD_ID=${{ inputs.build-id }}
+          outputs: type=local,dest=cuebot-packages
+
+      - name: Export images and check the jar
         if: inputs.build-id != ''
         env:
-          BUILD_ID: ${{ inputs.build-id }}
+          JAR: cuebot-${{ inputs.build-id }}-all.jar
         run: |
-          mkdir -p cuebot-packages images
+          mkdir -p images
           container_id=$(docker create "${CUEBOT_IMAGE}")
-          for file in "cuebot-${BUILD_ID}-all.jar" "opencue-cuebot-${BUILD_ID}-1.noarch.rpm"; do
-            docker cp "${container_id}:/opt/opencue/${file}" cuebot-packages/
-          done
+          docker cp "${container_id}:/opt/opencue/${JAR}" "${RUNNER_TEMP}/"
           docker rm "${container_id}"
+          if ! cmp "${RUNNER_TEMP}/${JAR}" "cuebot-packages/${JAR}"; then
+            echo "::error::The packaged jar differs from the jar in the tested image."
+            exit 1
+          fi
+          ls -l cuebot-packages
           docker save -o images/cuebot.tar "${CUEBOT_IMAGE}"
           docker save -o images/rqd.tar "${RQD_IMAGE}"
 
