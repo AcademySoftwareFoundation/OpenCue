@@ -176,7 +176,8 @@ jobs:
       # A published release is left as it is: publishing it is the release manager's call.
       - name: Create or update the draft release
         run: |
-          mapfile -t assets < <(ci/release.py files github --tag "${TAG}")
+          list="$(ci/release.py files github --tag "${TAG}")"
+          mapfile -t assets <<< "${list}"
           assets=("${assets[@]/#/bundle/}")
           if ! draft="$(gh release view "${TAG}" --json isDraft --jq .isDraft)"; then
             gh release create "${TAG}" --draft --verify-tag --title "${TAG}" \
@@ -239,5 +240,6 @@ jobs:
           TWINE_USERNAME: "__token__"
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          mapfile -t files < <(ci/release.py files pypi --tag "${TAG}")
+          list="$(ci/release.py files pypi --tag "${TAG}")"
+          mapfile -t files <<< "${list}"
           pipx run --spec twine==7.0.0 twine upload --verbose --skip-existing "${files[@]/#/bundle/}"
