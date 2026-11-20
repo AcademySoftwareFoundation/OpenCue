@@ -32,7 +32,8 @@ jobs:
     timeout-minutes: 5
     outputs:
       build-id: ${{ steps.version.outputs.build-id }}
-      maestro: ${{ steps.filter.outputs.scheduler == 'true' || steps.filter.outputs.ci == 'true' }}
+      # DO NOT MERGE: dry run forces Maestro off.
+      maestro: 'false'
       publish: >-
         ${{ (github.event_name == 'push' && github.ref == 'refs/heads/master'
           && github.repository == 'AcademySoftwareFoundation/OpenCue')
@@ -237,34 +238,10 @@ jobs:
             optional: true
           - image: cueweb
             optional: true
-    env:
-      IMAGE: opencuebuild/${{ matrix.image }}:${{ needs.plan.outputs.build-id }}
-      OPTIONAL: ${{ matrix.optional }}
+
     steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: image-${{ matrix.image }}
-          path: ${{ runner.temp }}
-
-      - name: Load image
-        run: docker load -i "${RUNNER_TEMP}/${{ matrix.image }}.tar"
-
-      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
-        with:
-          username: ${{ secrets.DOCKER_USER }}
-          password: ${{ secrets.DOCKER_PASS }}
-
-      - name: Push image
-        run: |
-          if docker push "${IMAGE}"; then
-            docker image inspect --format '{{.Id}} {{json .RepoDigests}}' "${IMAGE}" \
-              | tee -a "${GITHUB_STEP_SUMMARY}"
-          elif [[ "${OPTIONAL}" == true ]]; then
-            echo "::warning::Could not push ${IMAGE}; this image is not released yet."
-          else
-            exit 1
-          fi
-
+      - name: Stub (DO NOT MERGE)
+        run: echo "stage-images ran; real publishing is stubbed out in this dry run"
   stage-s3:
     name: Mirror the bundle to S3
     needs: [plan, bundle]
@@ -273,37 +250,10 @@ jobs:
       !cancelled() && needs.bundle.result == 'success' && needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    env:
-      BUILD_ID: ${{ needs.plan.outputs.build-id }}
-      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+
     steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: release-bundle
-          path: bundle
-
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.S3_REGION }}
-          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
-          role-duration-seconds: 1800
-
-      # The release pipeline reads s3://<bucket>/opencue/<build id>/.
-      - name: Upload the bundle
-        run: |
-          aws s3 cp --recursive bundle/ "s3://${S3_BUCKET}/opencue/${BUILD_ID}/"
-          aws s3 ls "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" | tee listing.txt
-          missing=0
-          for file in bundle/*; do
-            if ! grep -qF " ${file#bundle/}" listing.txt; then
-              echo "::error::${file#bundle/} is missing from S3"
-              missing=1
-            fi
-          done
-          exit "${missing}"
-
+      - name: Stub (DO NOT MERGE)
+        run: echo "stage-s3 ran; real publishing is stubbed out in this dry run"
   stage-testpypi:
     name: Upload Python packages to TestPyPI
     needs: [plan, bundle]
@@ -312,22 +262,9 @@ jobs:
       !cancelled() && needs.bundle.result == 'success' && needs.plan.outputs.publish == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    container: python:3.11
-    environment: testpypi
     # TestPyPI is a staging copy that nothing reads, so a failed upload shows as a failed job
     # but does not fail the run.
-    continue-on-error: true
-    env:
-      TWINE_USERNAME: "__token__"
-      TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
-      TWINE_REPOSITORY: testpypi
-    steps:
-      - uses: actions/download-artifact@v8
-        with:
-          name: opencue_packages
-          path: packages
 
-      - name: Upload packages
-        run: |
-          python3 -m pip install --upgrade twine
-          python3 -m twine upload --verbose --skip-existing packages/opencue_*
+    steps:
+      - name: Stub (DO NOT MERGE)
+        run: echo "stage-testpypi ran; real publishing is stubbed out in this dry run"
