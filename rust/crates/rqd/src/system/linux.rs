@@ -919,14 +919,14 @@ impl LinuxSystem {
         Some(data)
     }
 
-    fn frame_cgroup(&self, frame_id: &Uuid) -> Option<FrameCgroup> {
-        self.frame_cgroups.as_ref()?.open(frame_id)
+    fn frame_cgroup(&self, launch_id: &Uuid) -> Option<FrameCgroup> {
+        self.frame_cgroups.as_ref()?.open(launch_id)
     }
 
     /// Frames launched in a cgroup are tracked through it; every other frame (cgroups disabled
     /// or unavailable, or recovered from before they were enabled) by its session.
-    fn membership(&self, frame_id: &Uuid, pid: u32) -> Membership {
-        match self.frame_cgroup(frame_id) {
+    fn membership(&self, launch_id: &Uuid, pid: u32) -> Membership {
+        match self.frame_cgroup(launch_id) {
             Some(cgroup) => Membership::Cgroup(cgroup),
             None => Membership::Session(pid),
         }
@@ -1012,7 +1012,7 @@ impl SystemManager for LinuxSystem {
 
     fn collect_proc_stats(
         &self,
-        frame_id: &Uuid,
+        launch_id: &Uuid,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>> {
@@ -1028,7 +1028,7 @@ impl SystemManager for LinuxSystem {
             .unwrap_or_default()
             .as_secs();
 
-        let frame_data = match self.membership(frame_id, pid) {
+        let frame_data = match self.membership(launch_id, pid) {
             Membership::Session(session_id) => self.calculate_proc_session_data(&session_id),
             Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup),
         };
@@ -1063,8 +1063,8 @@ impl SystemManager for LinuxSystem {
         };
     }
 
-    fn kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()> {
-        match self.membership(frame_id, session_pid) {
+    fn kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()> {
+        match self.membership(launch_id, session_pid) {
             Membership::Session(session_id) => killpg(
                 nix::unistd::Pid::from_raw(session_id as i32),
                 Signal::SIGTERM,
@@ -1075,8 +1075,8 @@ impl SystemManager for LinuxSystem {
         }
     }
 
-    fn force_kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()> {
-        match self.membership(frame_id, session_pid) {
+    fn force_kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()> {
+        match self.membership(launch_id, session_pid) {
             Membership::Session(session_id) => killpg(
                 nix::unistd::Pid::from_raw(session_id as i32),
                 Signal::SIGKILL,
@@ -1098,8 +1098,8 @@ impl SystemManager for LinuxSystem {
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))
     }
 
-    fn get_proc_lineage(&self, frame_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
-        match self.membership(frame_id, pid) {
+    fn get_proc_lineage(&self, launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
+        match self.membership(launch_id, pid) {
             Membership::Session(session_id) => {
                 self.read_session_processes().get(&session_id).cloned()
             }
@@ -1107,8 +1107,8 @@ impl SystemManager for LinuxSystem {
         }
     }
 
-    fn has_frame_cgroup(&self, frame_id: &Uuid) -> bool {
-        self.frame_cgroup(frame_id).is_some()
+    fn has_frame_cgroup(&self, launch_id: &Uuid) -> bool {
+        self.frame_cgroup(launch_id).is_some()
     }
 
     #[cfg(target_os = "linux")]
@@ -1645,10 +1645,10 @@ mod tests {
         };
 
         /// A system whose frame cgroups live in a fake cgroupfs, plus the fake cgroup of
-        /// `frame_id` listing `pids` as members.
-        fn contained_frame(frame_id: &Uuid, pids: &[u32]) -> (TempDir, LinuxSystem) {
+        /// `launch_id` listing `pids` as members.
+        fn contained_frame(launch_id: &Uuid, pids: &[u32]) -> (TempDir, LinuxSystem) {
             let frames = TempDir::new().unwrap();
-            let cgroup = frames.path().join(frame_id.to_string());
+            let cgroup = frames.path().join(launch_id.to_string());
             fs::create_dir(&cgroup).unwrap();
             let procs: String = pids.iter().map(|pid| format!("{pid}\n")).collect();
             fs::write(cgroup.join("cgroup.procs"), procs).unwrap();
@@ -1665,65 +1665,92 @@ mod tests {
 
         #[test]
         fn frames_without_cgroup_use_their_session() {
-            let frame_id = Uuid::new_v4();
+            let launch_id = Uuid::new_v4();
             let (_frames, system) = contained_frame(&Uuid::new_v4(), &[]);
 
             assert!(matches!(
-                system.membership(&frame_id, 42),
+                system.membership(&launch_id, 42),
                 Membership::Session(42)
             ));
-            assert!(!system.has_frame_cgroup(&frame_id));
+            assert!(!system.has_frame_cgroup(&launch_id));
             // Frame cgroups disabled or unavailable
             assert!(matches!(
-                setup_test_system(4, 2, 1).membership(&frame_id, 42),
+                setup_test_system(4, 2, 1).membership(&launch_id, 42),
                 Membership::Session(42)
             ));
         }
 
         #[test]
         fn frames_with_cgroup_use_it() {
-            let frame_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&frame_id, &[7, 8]);
+            let launch_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&launch_id, &[7, 8]);
 
             assert!(matches!(
-                system.membership(&frame_id, 42),
+                system.membership(&launch_id, 42),
                 Membership::Cgroup(_)
             ));
-            assert!(system.has_frame_cgroup(&frame_id));
-            assert_eq!(system.get_proc_lineage(&frame_id, 42), Some(vec![7, 8]));
+            assert!(system.has_frame_cgroup(&launch_id));
+            assert_eq!(system.get_proc_lineage(&launch_id, 42), Some(vec![7, 8]));
         }
 
         #[test]
         fn empty_cgroup_has_no_lineage() {
-            let frame_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&frame_id, &[]);
+            let launch_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&launch_id, &[]);
 
-            assert_eq!(system.get_proc_lineage(&frame_id, 42), None);
+            assert_eq!(system.get_proc_lineage(&launch_id, 42), None);
         }
 
         #[test]
         fn kill_signals_cgroup_members_outside_the_session() {
             let mut child = sleeper();
-            let frame_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&frame_id, &[child.id()]);
+            let launch_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&launch_id, &[child.id()]);
 
             // The child is not in the session of the frame pid, only in the cgroup
-            system.kill_session(&frame_id, u32::MAX >> 2).expect("kill");
+            system
+                .kill_session(&launch_id, u32::MAX >> 2)
+                .expect("kill");
 
             assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGTERM));
         }
 
         #[test]
         fn force_kill_uses_cgroup_kill() {
-            let frame_id = Uuid::new_v4();
-            let (frames, system) = contained_frame(&frame_id, &[]);
+            let launch_id = Uuid::new_v4();
+            let (frames, system) = contained_frame(&launch_id, &[]);
 
             system
-                .force_kill_session(&frame_id, 42)
+                .force_kill_session(&launch_id, 42)
                 .expect("force kill");
 
-            let kill_file = frames.path().join(frame_id.to_string()).join("cgroup.kill");
+            let kill_file = frames
+                .path()
+                .join(launch_id.to_string())
+                .join("cgroup.kill");
             assert_eq!(fs::read_to_string(kill_file).unwrap(), "1");
+        }
+
+        #[test]
+        fn killing_an_earlier_run_spares_the_retry() {
+            // A frame killed and retried on this host before its kill monitor gave up: the
+            // monitor of the first run keeps killing by its own launch id, the retry runs in a
+            // cgroup of its own.
+            let mut retry_process = sleeper();
+            let (first_run, retry) = (Uuid::new_v4(), Uuid::new_v4());
+            let (frames, system) = contained_frame(&retry, &[retry_process.id()]);
+            let first_run_pid = u32::MAX >> 2;
+
+            assert!(!system.has_frame_cgroup(&first_run));
+            assert_eq!(system.get_proc_lineage(&first_run, first_run_pid), None);
+            let _ = system.kill_session(&first_run, first_run_pid);
+            let _ = system.force_kill_session(&first_run, first_run_pid);
+
+            let kill_file = frames.path().join(retry.to_string()).join("cgroup.kill");
+            assert_eq!(fs::read_to_string(kill_file).unwrap(), "");
+            assert!(retry_process.try_wait().unwrap().is_none());
+            retry_process.kill().unwrap();
+            retry_process.wait().unwrap();
         }
 
         #[cfg(target_os = "linux")]
@@ -1731,11 +1758,11 @@ mod tests {
         fn stats_come_from_cgroup_members_while_the_wrapper_lives() {
             let mut wrapper = sleeper();
             let mut leftover = sleeper();
-            let frame_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&frame_id, &[wrapper.id(), leftover.id()]);
+            let launch_id = Uuid::new_v4();
+            let (_frames, system) = contained_frame(&launch_id, &[wrapper.id(), leftover.id()]);
 
             let stats = system
-                .collect_proc_stats(&frame_id, wrapper.id(), "/nonexistent".to_string())
+                .collect_proc_stats(&launch_id, wrapper.id(), "/nonexistent".to_string())
                 .unwrap()
                 .expect("stats while the wrapper is alive");
             assert_eq!(stats.children.unwrap().children.len(), 2);
@@ -1744,7 +1771,7 @@ mod tests {
             wrapper.kill().unwrap();
             wrapper.wait().unwrap();
             assert!(system
-                .collect_proc_stats(&frame_id, wrapper.id(), "/nonexistent".to_string())
+                .collect_proc_stats(&launch_id, wrapper.id(), "/nonexistent".to_string())
                 .unwrap()
                 .is_none());
             leftover.kill().unwrap();

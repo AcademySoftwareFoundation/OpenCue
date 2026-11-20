@@ -16,9 +16,13 @@
 //! cgroup (`Delegate=yes`), rqd lays out its service cgroup as:
 //!
 //! ```text
-//! <service>                    rqd itself
-//! <service>/frames/<frame_id>  one cgroup per frame
+//! <service>                     rqd itself
+//! <service>/frames/<launch_id>  one cgroup per frame launch
 //! ```
+//!
+//! A cgroup is named after the launch of a frame (`RunningFrame::launch_id`), not the frame id:
+//! a frame retried on this host gets a cgroup of its own, so a kill still in progress for an
+//! earlier run never reaches the retry.
 //!
 //! No controller is enabled below the service cgroup. Containment only needs the core interface
 //! files (`cgroup.procs`, `cgroup.events`, `cgroup.kill`, `cgroup.freeze`), and enabling a domain
@@ -149,44 +153,44 @@ impl FrameCgroups {
         Self { path: path.into() }
     }
 
-    fn frame_path(&self, frame_id: &Uuid) -> PathBuf {
-        self.path.join(frame_id.to_string())
+    fn frame_path(&self, launch_id: &Uuid) -> PathBuf {
+        self.path.join(launch_id.to_string())
     }
 
-    /// Creates the cgroup of a frame about to be launched.
-    ///
-    /// A leftover cgroup with the same frame id, from an earlier run of the frame whose
-    /// processes couldn't be reaped, is reused after killing its processes.
-    pub fn create(&self, frame_id: &Uuid) -> Result<FrameCgroup> {
-        let cgroup = FrameCgroup {
-            path: self.frame_path(frame_id),
-        };
-        match fs::create_dir(&cgroup.path) {
-            Ok(()) => Ok(cgroup),
-            Err(err) if err.kind() == io::ErrorKind::AlreadyExists => {
-                warn!(
-                    "Reusing leftover cgroup {}, killing its processes",
-                    cgroup.path.display()
-                );
-                cgroup.kill()?;
-                Ok(cgroup)
-            }
-            Err(err) => Err(miette!(
-                "Failed to create cgroup {}: {err}",
-                cgroup.path.display()
-            )),
-        }
+    /// Creates the cgroup of the frame launch `launch_id`.
+    pub fn create(&self, launch_id: &Uuid) -> Result<FrameCgroup> {
+        let path = self.frame_path(launch_id);
+        fs::create_dir(&path)
+            .map_err(|err| miette!("Failed to create cgroup {}: {err}", path.display()))?;
+        Ok(FrameCgroup { path })
     }
 
-    /// Opens the cgroup of a frame, or returns `None` when the frame wasn't launched in one.
-    pub fn open(&self, frame_id: &Uuid) -> Option<FrameCgroup> {
-        let path = self.frame_path(frame_id);
+    /// Opens the cgroup of the frame launch `launch_id`, or returns `None` when the launch
+    /// didn't get one or it has been removed.
+    pub fn open(&self, launch_id: &Uuid) -> Option<FrameCgroup> {
+        let path = self.frame_path(launch_id);
         path.is_dir().then_some(FrameCgroup { path })
     }
 
-    /// Frame cgroups that don't belong to any of `frame_ids`.
-    fn orphans(&self, frame_ids: &[Uuid]) -> Result<Vec<FrameCgroup>> {
-        let known: HashSet<String> = frame_ids.iter().map(Uuid::to_string).collect();
+    /// The launch id of the frame cgroup process `pid` runs in, read from `/proc/<pid>/cgroup`.
+    /// `None` when the process is gone or isn't in a frame cgroup.
+    pub fn launch_of(&self, pid: u32) -> Option<Uuid> {
+        let proc_cgroup = fs::read_to_string(format!("/proc/{pid}/cgroup")).ok()?;
+        self.launch_in(&proc_cgroup)
+    }
+
+    /// The launch id of the frame cgroup named by a `/proc/<pid>/cgroup` content.
+    fn launch_in(&self, proc_cgroup: &str) -> Option<Uuid> {
+        let cgroup = proc_cgroup
+            .lines()
+            .find_map(|line| line.strip_prefix("0::"))?;
+        let launch_id = Uuid::parse_str(Path::new(cgroup.trim()).file_name()?.to_str()?).ok()?;
+        self.open(&launch_id).map(|_| launch_id)
+    }
+
+    /// Frame cgroups that don't belong to any of `launch_ids`.
+    fn orphans(&self, launch_ids: &[Uuid]) -> Result<Vec<FrameCgroup>> {
+        let known: HashSet<String> = launch_ids.iter().map(Uuid::to_string).collect();
         let entries = fs::read_dir(&self.path)
             .map_err(|err| miette!("Failed to list {}: {err}", self.path.display()))?;
         Ok(entries
@@ -197,12 +201,12 @@ impl FrameCgroups {
             .collect())
     }
 
-    /// Kills and removes every frame cgroup that doesn't belong to one of `frame_ids`.
+    /// Kills and removes every frame cgroup that doesn't belong to one of `launch_ids`.
     ///
-    /// Meant for startup, after snapshot recovery, with the ids of the recovered frames: any
-    /// other frame cgroup holds processes of a frame rqd has lost track of.
-    pub async fn reap_orphans(&self, frame_ids: &[Uuid]) {
-        let orphans = match self.orphans(frame_ids) {
+    /// Meant for startup, after snapshot recovery, with the launch ids of the recovered frames:
+    /// any other frame cgroup holds processes of a frame rqd has lost track of.
+    pub async fn reap_orphans(&self, launch_ids: &[Uuid]) {
+        let orphans = match self.orphans(launch_ids) {
             Ok(orphans) => orphans,
             Err(err) => {
                 warn!("Failed to look for orphan frame cgroups. {err}");
@@ -221,7 +225,7 @@ impl FrameCgroups {
     }
 }
 
-/// The cgroup of a single frame (`<service>/frames/<frame_id>`).
+/// The cgroup of a single frame launch (`<service>/frames/<launch_id>`).
 #[derive(Debug, Clone)]
 pub struct FrameCgroup {
     path: PathBuf,
@@ -527,27 +531,60 @@ mod tests {
     fn creates_and_opens_frame_cgroups() {
         let dir = TempDir::new().unwrap();
         let frame_cgroups = FrameCgroups::at(dir.path());
-        let frame_id = Uuid::new_v4();
+        let launch_id = Uuid::new_v4();
 
-        assert!(frame_cgroups.open(&frame_id).is_none());
-        let cgroup = frame_cgroups.create(&frame_id).expect("create");
+        assert!(frame_cgroups.open(&launch_id).is_none());
+        let cgroup = frame_cgroups.create(&launch_id).expect("create");
 
-        assert_eq!(cgroup.path, dir.path().join(frame_id.to_string()));
-        assert!(frame_cgroups.open(&frame_id).is_some());
+        assert_eq!(cgroup.path, dir.path().join(launch_id.to_string()));
+        assert!(frame_cgroups.open(&launch_id).is_some());
         assert!(frame_cgroups.open(&Uuid::new_v4()).is_none());
     }
 
     #[test]
-    fn create_reuses_a_leftover_cgroup_after_killing_it() {
+    fn a_retry_never_resolves_to_the_cgroup_of_an_earlier_run() {
+        // Kill monitors and stats look a frame's cgroup up again on every tick. A frame killed
+        // and retried on this host must not have the earlier run's lookups reach the retry.
         let dir = TempDir::new().unwrap();
         let frame_cgroups = FrameCgroups::at(dir.path());
-        let frame_id = Uuid::new_v4();
-        let cgroup = frame_cgroups.create(&frame_id).unwrap();
-        write(&cgroup.path.join("cgroup.kill"), "");
+        let (first_run, retry) = (Uuid::new_v4(), Uuid::new_v4());
+        frame_cgroups.create(&first_run).unwrap().remove().unwrap();
 
-        frame_cgroups.create(&frame_id).expect("reuse leftover");
+        let retry_cgroup = frame_cgroups.create(&retry).expect("create retry cgroup");
 
-        assert_eq!(read(&cgroup.path.join("cgroup.kill")), "1");
+        assert!(frame_cgroups.open(&first_run).is_none());
+        assert_eq!(frame_cgroups.open(&retry).unwrap().path, retry_cgroup.path);
+    }
+
+    #[test]
+    fn create_refuses_an_existing_cgroup() {
+        let dir = TempDir::new().unwrap();
+        let frame_cgroups = FrameCgroups::at(dir.path());
+        let launch_id = Uuid::new_v4();
+        frame_cgroups.create(&launch_id).unwrap();
+
+        assert!(frame_cgroups.create(&launch_id).is_err());
+    }
+
+    #[test]
+    fn finds_the_launch_of_a_process_in_a_frame_cgroup() {
+        let dir = TempDir::new().unwrap();
+        let frame_cgroups = FrameCgroups::at(dir.path());
+        let launch_id = Uuid::new_v4();
+        frame_cgroups.create(&launch_id).unwrap();
+        let in_frame = format!("0::/system.slice/openrqd.service/frames/{launch_id}\n");
+        let removed = format!(
+            "0::/system.slice/openrqd.service/frames/{}\n",
+            Uuid::new_v4()
+        );
+
+        assert_eq!(frame_cgroups.launch_in(&in_frame), Some(launch_id));
+        assert_eq!(frame_cgroups.launch_in(&removed), None);
+        assert_eq!(
+            frame_cgroups.launch_in("0::/system.slice/openrqd.service\n"),
+            None
+        );
+        assert_eq!(frame_cgroups.launch_in(""), None);
     }
 
     #[test]
@@ -724,8 +761,8 @@ mod tests {
             eprintln!("Skipping: needs cgroup v2 and a writable (delegated) cgroup");
             return;
         };
-        let frame_id = Uuid::new_v4();
-        let cgroup = frame_cgroups.create(&frame_id).unwrap();
+        let launch_id = Uuid::new_v4();
+        let cgroup = frame_cgroups.create(&launch_id).unwrap();
         let procs = cgroup.open_procs().unwrap();
         let procs_fd = procs.as_raw_fd();
 
@@ -744,6 +781,8 @@ mod tests {
         assert!(pids.contains(&wrapper.id()), "{pids:?}");
         assert_eq!(pids.len(), 3, "{pids:?}");
         assert!(cgroup.is_populated().unwrap());
+        assert_eq!(frame_cgroups.launch_of(wrapper.id()), Some(launch_id));
+        assert_eq!(frame_cgroups.launch_of(std::process::id()), None);
 
         // The wrapper exits, leaving both sleeps behind in the cgroup
         wrapper.kill().unwrap();
@@ -752,7 +791,7 @@ mod tests {
 
         assert_eq!(cgroup.reap().await.expect("reap"), 2);
         assert!(!cgroup.path.exists());
-        assert!(frame_cgroups.open(&frame_id).is_none());
+        assert!(frame_cgroups.open(&launch_id).is_none());
 
         fs::remove_dir(&frame_cgroups.path).unwrap();
     }

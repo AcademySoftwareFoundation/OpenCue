@@ -621,7 +621,7 @@ impl SystemManager for WindowsSystem {
 
     fn collect_proc_stats(
         &self,
-        _frame_id: &Uuid,
+        _launch_id: &Uuid,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>> {
@@ -663,11 +663,11 @@ impl SystemManager for WindowsSystem {
         self.refresh_procs_cache()
     }
 
-    fn kill_session(&self, _frame_id: &Uuid, session_pid: u32) -> Result<()> {
+    fn kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         self.kill_session_internal(session_pid)
     }
 
-    fn force_kill_session(&self, _frame_id: &Uuid, session_pid: u32) -> Result<()> {
+    fn force_kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         // There's no such thing in Windows. Fallback to a regular kill cmd
         self.kill_session_internal(session_pid)
     }
@@ -700,7 +700,7 @@ impl SystemManager for WindowsSystem {
         }
     }
 
-    fn get_proc_lineage(&self, _frame_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
+    fn get_proc_lineage(&self, _launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
         let lineage = self.collect_lineage(pid);
         if lineage.is_empty() {
             None

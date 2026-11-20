@@ -43,15 +43,15 @@ pub trait SystemManager {
     /// Creates an user if it doesn't already exist
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
 
-    /// Collects stats of the processes of frame `frame_id`, whose wrapper process `pid` leads
-    /// its session.
+    /// Collects stats of the processes of the frame launch `launch_id` (see
+    /// `RunningFrame::launch_id`), whose wrapper process `pid` leads its session.
     ///
     /// The processes are the members of the frame's cgroup when it has one (see
     /// [`Self::has_frame_cgroup`]), otherwise the processes in the session of `pid`. Either way
     /// the stats come from per-process data. Returns `None` once `pid` is no longer active.
     fn collect_proc_stats(
         &self,
-        frame_id: &Uuid,
+        launch_id: &Uuid,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>>;
@@ -59,23 +59,24 @@ pub trait SystemManager {
     /// Update info about procs currently active
     fn refresh_procs(&self);
 
-    /// Sends SIGTERM to the processes of frame `frame_id`: every member of its cgroup when it
-    /// has one, otherwise the process group of `session_pid`.
-    fn kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()>;
+    /// Sends SIGTERM to the processes of the frame launch `launch_id`: every member of its cgroup
+    /// when it has one, otherwise the process group of `session_pid`.
+    fn kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()>;
 
-    /// Sends SIGKILL to the processes of frame `frame_id`, picked as in [`Self::kill_session`].
-    fn force_kill_session(&self, frame_id: &Uuid, session_pid: u32) -> Result<()>;
+    /// Sends SIGKILL to the processes of the frame launch `launch_id`, picked as in
+    /// [`Self::kill_session`].
+    fn force_kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()>;
 
     /// Force kill a list of pids
     fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
-    /// Returns the active processes of frame `frame_id`, picked as in
+    /// Returns the active processes of the frame launch `launch_id`, picked as in
     /// [`Self::collect_proc_stats`], or `None` once none is left.
-    fn get_proc_lineage(&self, frame_id: &Uuid, pid: u32) -> Option<Vec<u32>>;
+    fn get_proc_lineage(&self, launch_id: &Uuid, pid: u32) -> Option<Vec<u32>>;
 
-    /// Whether frame `frame_id` is contained in a cgroup, in which case its processes are
-    /// tracked and killed through the cgroup instead of its session.
-    fn has_frame_cgroup(&self, _frame_id: &Uuid) -> bool {
+    /// Whether the frame launch `launch_id` is contained in a cgroup, in which case its processes
+    /// are tracked and killed through the cgroup instead of its session.
+    fn has_frame_cgroup(&self, _launch_id: &Uuid) -> bool {
         false
     }
 

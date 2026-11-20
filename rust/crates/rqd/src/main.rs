@@ -113,7 +113,13 @@ async fn async_main() -> miette::Result<()> {
     // track of.
     #[cfg(target_os = "linux")]
     if let Some(frame_cgroups) = cgroup::frame_cgroups() {
-        let recovered = machine::instance().await?.all_running_frame_ids();
+        let machine_manager = machine::instance().await?;
+        let recovered: Vec<_> = machine_manager
+            .all_running_frame_ids()
+            .iter()
+            .filter_map(|frame_id| machine_manager.get_running_frame(frame_id))
+            .map(|running_frame| running_frame.launch_id)
+            .collect();
         frame_cgroups.reap_orphans(&recovered).await;
     }
 

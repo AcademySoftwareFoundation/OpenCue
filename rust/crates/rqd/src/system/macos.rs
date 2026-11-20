@@ -763,7 +763,7 @@ impl SystemManager for MacOsSystem {
 
     fn collect_proc_stats(
         &self,
-        _frame_id: &Uuid,
+        _launch_id: &Uuid,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>> {
@@ -808,7 +808,7 @@ impl SystemManager for MacOsSystem {
         self.refresh_procs_cache()
     }
 
-    fn kill_session(&self, _frame_id: &Uuid, session_pid: u32) -> Result<()> {
+    fn kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         killpg(
             nix::unistd::Pid::from_raw(session_pid as i32),
             Signal::SIGTERM,
@@ -816,7 +816,7 @@ impl SystemManager for MacOsSystem {
         .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
     }
 
-    fn force_kill_session(&self, _frame_id: &Uuid, session_pid: u32) -> Result<()> {
+    fn force_kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         killpg(
             nix::unistd::Pid::from_raw(session_pid as i32),
             Signal::SIGKILL,
@@ -836,7 +836,7 @@ impl SystemManager for MacOsSystem {
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))
     }
 
-    fn get_proc_lineage(&self, _frame_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
+    fn get_proc_lineage(&self, _launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
         self.read_session_processes().get(&pid).cloned()
     }
 

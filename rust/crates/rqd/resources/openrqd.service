@@ -25,7 +25,7 @@ RestartSec=30
 # instance through their on-disk snapshots.
 KillMode=process
 # Hand the unit's cgroup subtree over to rqd. With runner.frame_cgroups enabled,
-# rqd contains every frame in <unit cgroup>/frames/<frame_id>, so all the
+# rqd contains every frame in <unit cgroup>/frames/<launch_id>, so all the
 # processes a frame starts are tracked and killed with it. rqd enables no
 # controllers below the unit cgroup, so systemd can always start a restarted
 # rqd in it. Harmless while runner.frame_cgroups is off.

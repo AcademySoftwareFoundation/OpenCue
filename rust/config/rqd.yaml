@@ -224,7 +224,7 @@ runner:
   # Default: false
   # force_kill_after_timeout: false
 
-  # Contain each frame in its own cgroup (<service cgroup>/frames/<frame_id>), so
+  # Contain each frame in its own cgroup (<service cgroup>/frames/<launch_id>), so
   # every process a frame starts is accounted for and killed with it, including
   # processes that leave its session or double fork, and whatever a frame leaves
   # behind is killed when its wrapper exits. Linux only; needs cgroup v2 and the

@@ -163,6 +163,11 @@ pub struct RunningFrame {
     pub request: RunFrame,
     pub job_id: Uuid,
     pub frame_id: Uuid,
+    /// Identifies this launch of the frame: a retry of the frame on this host gets a new one.
+    /// Names the frame's cgroup, so whatever tracks this launch (stats, kill monitor) never
+    /// reaches a retry. Not persisted, recovery reads it back from the frame process's cgroup.
+    #[serde(skip)]
+    pub launch_id: Uuid,
     pub layer_id: Uuid,
     frame_stats: RwLock<ProcessStats>,
     pub log_path: String,
@@ -319,6 +324,7 @@ impl RunningFrame {
             request,
             job_id,
             frame_id,
+            launch_id: Uuid::new_v4(),
             layer_id,
             frame_stats: RwLock::new(ProcessStats::default()),
             log_path,
@@ -996,12 +1002,12 @@ impl RunningFrame {
             return Ok(None);
         };
         match frame_cgroups
-            .create(&self.frame_id)
+            .create(&self.launch_id)
             .and_then(|frame_cgroup| frame_cgroup.open_procs())
         {
             Ok(procs) => Ok(Some(procs)),
             Err(err) => {
-                if let Some(frame_cgroup) = frame_cgroups.open(&self.frame_id) {
+                if let Some(frame_cgroup) = frame_cgroups.open(&self.launch_id) {
                     frame_cgroup.remove().map_err(|remove_err| {
                         miette!("Failed to set up the cgroup of {self}: {err}. {remove_err}")
                     })?;
@@ -1016,7 +1022,7 @@ impl RunningFrame {
     /// Returns the number of processes killed, when there were any.
     #[cfg(unix)]
     async fn reap_cgroup(&self) -> Option<usize> {
-        let frame_cgroup = cgroup::frame_cgroups()?.open(&self.frame_id)?;
+        let frame_cgroup = cgroup::frame_cgroups()?.open(&self.launch_id)?;
         match frame_cgroup.reap().await {
             Ok(0) => None,
             Ok(leftover) => {
@@ -1647,6 +1653,8 @@ impl RunningFrame {
         frame.stats_frozen = AtomicBool::new(false);
         // Initialize host mem snapshot (skipped during deserialization)
         frame.latest_host_mem_snapshot = RwLock::new(None);
+        // A launch id of its own until the frame's cgroup, if any, is found
+        frame.launch_id = Uuid::new_v4();
 
         let pid = frame
             .pid()
@@ -1654,6 +1662,13 @@ impl RunningFrame {
 
         if Self::process_matches(pid, frame.recorded_proc_start_epoch()) {
             info!("Snapshot {}: process {} is still running", frame, pid);
+            // Pick the frame's cgroup back up. Without one the frame is tracked by session.
+            #[cfg(unix)]
+            if let Some(launch_id) =
+                cgroup::frame_cgroups().and_then(|frame_cgroups| frame_cgroups.launch_of(pid))
+            {
+                frame.launch_id = launch_id;
+            }
         } else if Path::new(&frame.exit_file_path).exists() {
             info!(
                 "Snapshot {}: process {} finished while RQD was down, recovering its exit \
@@ -2114,6 +2129,23 @@ mod tests {
             "localhost".to_string(),
             1,
         )
+    }
+
+    #[test]
+    fn each_launch_of_a_frame_has_its_own_launch_id() {
+        let first_run = create_running_frame("true", 1, 1, HashMap::new());
+        let retry = RunningFrame::init(
+            first_run.request.clone(),
+            1,
+            first_run.config.clone(),
+            None,
+            None,
+            "localhost".to_string(),
+            1,
+        );
+
+        assert_eq!(first_run.frame_id, retry.frame_id);
+        assert_ne!(first_run.launch_id, retry.launch_id);
     }
 
     /// Builds a frame whose runner config has a single license-error rule (exit status 330) and

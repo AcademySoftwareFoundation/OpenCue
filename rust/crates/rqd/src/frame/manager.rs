@@ -412,7 +412,7 @@ impl FrameManager {
                         Reason: {reason}"
                     );
                     self.machine
-                        .kill_session(&running_frame.frame_id, frame_pid, false)
+                        .kill_session(&running_frame.launch_id, frame_pid, false)
                         .await?;
                     self.monitor_killed_frame(frame_pid, &running_frame);
 
@@ -453,7 +453,7 @@ impl FrameManager {
                         Reason: {reason}"
                     );
                     self.machine
-                        .kill_session(&running_frame.frame_id, frame_pid, false)
+                        .kill_session(&running_frame.launch_id, frame_pid, false)
                         .await?;
                     self.monitor_killed_frame(frame_pid, &running_frame);
                     count += 1;
@@ -480,9 +480,10 @@ impl FrameManager {
     /// * `frame_pid` - The process ID of the killed frame
     /// * `running_frame` - Reference to the RunningFrame object that was killed
     fn monitor_killed_frame(&self, frame_pid: u32, running_frame: &RunningFrame) {
-        let frame_id = running_frame.frame_id;
+        // Tracked by launch, so a retry of the frame on this host is out of reach.
+        let launch_id = running_frame.launch_id;
         let escalation =
-            KillEscalation::for_frame(self.machine.has_frame_cgroup(&frame_id), &CONFIG.runner);
+            KillEscalation::for_frame(self.machine.has_frame_cgroup(&launch_id), &CONFIG.runner);
         let interval_seconds = escalation.interval.as_secs();
         let mut monitor_limit_seconds = escalation.timeout.as_secs();
         let force_kill = escalation.force;
@@ -500,7 +501,7 @@ impl FrameManager {
             loop {
                 interval.tick().await;
 
-                let active_lineage = machine.get_active_proc_lineage(&frame_id, frame_pid).await;
+                let active_lineage = machine.get_active_proc_lineage(&launch_id, frame_pid).await;
                 if let Some(mut lineage) = active_lineage {
                     if !lineage.contains(&frame_pid) {
                         lineage.push(frame_pid);
@@ -521,7 +522,7 @@ impl FrameManager {
                         if !tried_to_force_kill_session {
                             tried_to_force_kill_session = true;
                             // First try to force kill the session
-                            match machine.kill_session(&frame_id, frame_pid, true).await {
+                            match machine.kill_session(&launch_id, frame_pid, true).await {
                                 Ok(()) => {
                                     info!(
                                         "Kill timeout for {}. Used force_kill on the processes \

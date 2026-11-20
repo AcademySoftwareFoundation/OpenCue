@@ -320,13 +320,13 @@ KillMode=process
 Delegate=yes
 ```
 
-At startup RQD creates `<unit cgroup>/frames`. It enables no controllers and sets no limits, so frame cgroups are used for containment only. Each frame then joins `frames/<frame_id>` before its command starts. When the host can't contain frames (no cgroup v2, or no delegation), RQD logs a warning once at startup and tracks frames by session.
+At startup RQD creates `<unit cgroup>/frames`. It enables no controllers and sets no limits, so frame cgroups are used for containment only. Each frame launch then joins a cgroup of its own, `frames/<launch_id>`, before its command starts. The launch id is new on every launch, so a frame killed and retried on the same host gets a fresh cgroup, and the kill of the earlier run can't reach the retry. When the host can't contain frames (no cgroup v2, or no delegation), RQD logs a warning once at startup and tracks frames by session.
 
 Behavior notes:
 
 - **Kill requests**: every process in the frame's cgroup gets `SIGTERM`, so the wrapper's traps still run, and whatever is left after `frame_cgroup_kill_grace_period` is `SIGKILL`ed. `kill_monitor_timeout`/`force_kill_after_timeout` only apply to frames without a cgroup.
 - **Frame completion**: when a frame's wrapper exits, anything left in its cgroup is killed and the cgroup removed. The frame log records `Reaped N leftover processes`.
-- **Restarts**: recovered frames are re-attached to their cgroups. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
+- **Restarts**: recovered frames that are still running are re-attached to their cgroups, found from the frame process's `/proc/<pid>/cgroup`. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
 - **Mixed hosts**: frames launched without a cgroup (feature off, or recovered from before it was enabled) keep being tracked by session.
 - **Containerized frames**: frames run in Docker (`run_on_docker`) are not contained in a cgroup and keep being tracked as today.
 - **Reported memory** still comes from per-process `/proc` data, as without cgroups.
