@@ -1387,7 +1387,7 @@ mod tests {
         system.collect_proc_stats(session, String::new()).unwrap();
         system.cached_processes.insert(
             session,
-            ProcessData {
+            super::ProcessData {
                 rss: 0,
                 pss: 0,
                 virtual_memory: 0,
