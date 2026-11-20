@@ -93,6 +93,7 @@ jobs:
         with:
           name: cuebot-packages
           path: cuebot-packages/
+          retention-days: 7
           if-no-files-found: error
           overwrite: true
 
