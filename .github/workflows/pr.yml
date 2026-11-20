@@ -1,152 +1,111 @@
 name: OpenCue PR
 
-# Tests the components a pull request touches. `changes` maps the diff to jobs through
-# .github/path-filters.yml and ci/plan_pr_jobs.py; `pr-gate` is the only check branch
-# protection needs, and it passes when the jobs that ran passed and the rest were skipped.
-#
-# Changes under .github/ or ci/, an unmapped path, or the ci:full label run every job.
+# TEMPORARY, DO NOT MERGE: runs master.yml with publishing off, then builds each image again
+# from the Phase 3 Dockerfiles at the same commit and compares it with the image master built.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
   pull-requests: read
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
-  changes:
-    name: changes
+  master:
+    name: Master
+    uses: ./.github/workflows/master.yml
+    with:
+      publish: false
+
+  equivalence:
+    name: Equivalence probe (${{ matrix.image }})
+    needs: master
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      python: ${{ steps.plan.outputs.python }}
-      python_qt: ${{ steps.plan.outputs.python_qt }}
-      wheels: ${{ steps.plan.outputs.wheels }}
-      licenses: ${{ steps.plan.outputs.licenses }}
-      api_docs: ${{ steps.plan.outputs.api_docs }}
-      cuebot: ${{ steps.plan.outputs.cuebot }}
-      maestro: ${{ steps.plan.outputs.maestro }}
-      rust: ${{ steps.plan.outputs.rust }}
-      rust_windows: ${{ steps.plan.outputs.rust_windows }}
-      cueweb: ${{ steps.plan.outputs.cueweb }}
-      gateway: ${{ steps.plan.outputs.gateway }}
-      integration: ${{ steps.plan.outputs.integration }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: cuebot
+            context: .
+          - image: rqd
+            context: .
+          - image: rest-gateway
+            context: .
+          - image: cueweb
+            context: cueweb
+    env:
+      IMAGE: ${{ matrix.image }}
     steps:
       - uses: actions/checkout@v7
         with:
+          fetch-depth: 0
+          fetch-tags: true
           persist-credentials: false
 
-      - name: Match changed paths
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - uses: actions/download-artifact@v8
         with:
-          filters: .github/path-filters.yml
-          list-files: json
-          predicate-quantifier: some-with-excludes
+          name: image-${{ matrix.image }}
+          path: ${{ runner.temp }}
 
-      - name: Plan jobs
-        id: plan
-        env:
-          FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
-        run: python3 ci/plan_pr_jobs.py
-
-  checks:
-    name: Checks
-    needs: changes
-    uses: ./.github/workflows/checks.yml
-    with:
-      licenses: ${{ needs.changes.outputs.licenses == 'true' }}
-
-  python:
-    name: Python
-    needs: changes
-    if: needs.changes.outputs.python != '[]' || needs.changes.outputs.python_qt != '[]'
-    uses: ./.github/workflows/python.yml
-    with:
-      packages: ${{ needs.changes.outputs.python }}
-      qt-packages: ${{ needs.changes.outputs.python_qt }}
-
-  wheels:
-    name: Python packages
-    needs: changes
-    if: needs.changes.outputs.wheels == 'true'
-    uses: ./.github/workflows/python-packages.yml
-
-  api-docs:
-    name: API docs
-    needs: changes
-    if: needs.changes.outputs.api_docs == 'true'
-    uses: ./.github/workflows/api-docs.yml
-
-  cuebot:
-    name: Cuebot
-    needs: changes
-    if: needs.changes.outputs.cuebot == 'true'
-    uses: ./.github/workflows/cuebot.yml
-
-  maestro:
-    name: Maestro sim
-    needs: changes
-    if: needs.changes.outputs.maestro == 'true'
-    uses: ./.github/workflows/maestro-sim.yml
-
-  rust:
-    name: Rust
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/rust.yml
-    with:
-      windows: ${{ needs.changes.outputs.rust_windows == 'true' }}
-
-  cueweb:
-    name: CueWeb
-    needs: changes
-    if: needs.changes.outputs.cueweb == 'true'
-    uses: ./.github/workflows/cueweb.yml
-
-  rest-gateway:
-    name: REST gateway
-    needs: changes
-    if: needs.changes.outputs.gateway == 'true'
-    uses: ./.github/workflows/rest-gateway.yml
-
-  integration:
-    name: Integration
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    uses: ./.github/workflows/integration.yml
-
-  pr-gate:
-    name: pr-gate
-    if: always()
-    needs:
-      - changes
-      - checks
-      - python
-      - wheels
-      - api-docs
-      - cuebot
-      - maestro
-      - rust
-      - cueweb
-      - rest-gateway
-      - integration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check job results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
+      - name: Load the image master built
+        id: new
         run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
-          if jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' <<< "${NEEDS}" > /dev/null; then
-            echo "A job failed or was cancelled."
-            exit 1
-          fi
+          build_id=$(ci/generate_version_number.py)
+          echo "build-id=${build_id}" >> "${GITHUB_OUTPUT}"
+          docker load -i "${RUNNER_TEMP}/${IMAGE}.tar"
+          docker image inspect "opencuebuild/${IMAGE}:${build_id}" --format '{{.Id}}'
+
+      - name: Build the same commit with the Phase 3 Dockerfile
+        run: |
+          args=(--load -t "old/${IMAGE}:probe" -f ".github/dry-run/${IMAGE}.Dockerfile")
+          case "${IMAGE}" in
+            cuebot) args+=(--build-arg "BUILD_ID=${{ steps.new.outputs.build-id }}") ;;
+            cueweb) args+=(--build-context project_root=. --build-arg "NEXT_PUBLIC_GIT_SHA=${GITHUB_SHA::7}") ;;
+          esac
+          time docker buildx build "${args[@]}" "${{ matrix.context }}"
+
+      - name: Compare
+        run: |
+          python3 .github/dry-run/compare_images.py "old/${IMAGE}:probe" \
+            "opencuebuild/${IMAGE}:${{ steps.new.outputs.build-id }}" | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/download-artifact@v8
+        if: matrix.image == 'cuebot'
+        with:
+          name: cuebot-packages
+          path: new-packages
+
+      - name: Compare the jar and RPM with the ones the old image carries
+        if: matrix.image == 'cuebot'
+        env:
+          BUILD_ID: ${{ steps.new.outputs.build-id }}
+        run: |
+          mkdir -p old-packages
+          cid=$(docker create "old/cuebot:probe")
+          docker cp "${cid}:/opt/opencue/cuebot-${BUILD_ID}-all.jar" old-packages/
+          docker cp "${cid}:/opt/opencue/opencue-cuebot-${BUILD_ID}-1.noarch.rpm" old-packages/
+          docker rm "${cid}"
+          {
+            echo '### Jar and RPM'
+            echo '```'
+            ls -l old-packages new-packages
+            sha256sum old-packages/* new-packages/*
+            echo '```'
+            echo 'RPM headers and file manifests (path size sha256 mode owner group):'
+            echo '```'
+            docker run --rm -v "${PWD}:/w:ro" jc21/rpmbuild-centos7:latest bash -c '
+              for r in /w/old-packages/*.rpm /w/new-packages/*.rpm; do
+                echo "== ${r}"
+                rpm -qp --qf "%{NAME} %{VERSION} %{RELEASE} %{ARCH} requires=[%{REQUIRES},]\n" "${r}"
+                rpm -qp --dump "${r}" | awk "{print \$1, \$2, \$4, \$5, \$6, \$7}"
+                rpm -qp --scripts "${r}" | sha256sum
+              done'
+            echo '```'
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
+          old_jar=$(sha256sum < "old-packages/cuebot-${BUILD_ID}-all.jar")
+          new_jar=$(sha256sum < "new-packages/cuebot-${BUILD_ID}-all.jar")
+          [[ "${old_jar}" == "${new_jar}" ]] && echo "The jars are byte-identical."
