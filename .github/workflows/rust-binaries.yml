@@ -55,18 +55,17 @@ jobs:
           TARGET: ${{ matrix.target }}
         run: |
           sudo apt-get update
-          sudo apt-get install -y libx11-dev protobuf-compiler
+          sudo apt-get install -y libx11-dev
           if [[ "${TARGET}" == *-musl ]]; then
             sudo apt-get install -y musl-tools
           fi
 
-      - name: Install dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: brew install protobuf
-
-      - name: Install dependencies (Windows)
-        if: runner.os == 'Windows'
-        run: choco install protoc -y
+      - name: Install protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ github.token }}
 
       - name: Build openrqd
         working-directory: rust
