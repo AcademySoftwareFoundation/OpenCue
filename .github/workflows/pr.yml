@@ -1,152 +1,107 @@
 name: OpenCue PR
 
-# Tests the components a pull request touches. `changes` maps the diff to jobs through
-# .github/path-filters.yml and ci/plan_pr_jobs.py; `pr-gate` is the only check branch
-# protection needs, and it passes when the jobs that ran passed and the rest were skipped.
-#
-# Changes under .github/ or ci/, an unmapped path, or the ci:full label run every job.
+# TEMPORARY (DO NOT MERGE): calls release.yml in dry-run mode against the release-bundle of
+# run 44663836822 (Phase 2's dry run), and checks the preflight refusals against the real API.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
-  pull-requests: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
-  changes:
-    name: changes
+  release:
+    name: Release
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      actions: read
+    with:
+      tag: v1.39.1-cd7663ea
+      sha: cd7663ea349a0737512c343fdf5d1764f18b8251
+      run-id: "44663836822"
+      dry-run: true
+
+  refusals:
+    name: Preflight refusals
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      BUNDLE_SHA: cd7663ea349a0737512c343fdf5d1764f18b8251
+      MASTER_SHA: 3e3bc915c155ff8a077c38a7d14d88fef9c1dfd8
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Expect each refusal
+        run: |
+          expect() {
+            local pattern="$1" out
+            shift
+            echo "::group::$*"
+            if out="$("$@" 2>&1)"; then
+              echo "${out}"
+              echo "::error::Expected a refusal: $*"
+              exit 1
+            fi
+            echo "${out}"
+            grep -q -- "${pattern}" <<< "${out}" || { echo "::error::No '${pattern}'"; exit 1; }
+            echo "::endgroup::"
+          }
+          # Tag not on master: the PR head of Phase 2's dry run.
+          expect "is not on master" ci/release.py preflight --repo "${REPO}" --tag v1.39.1-x \
+            --sha b1a5386b0c35a09d0f682dd01d448d7db681450c --dry-run
+          # A master commit with no OpenCue Master run (master.yml isn't on master yet).
+          expect "No OpenCue Master run exists" ci/release.py preflight --repo "${REPO}" \
+            --tag v1.39.0 --sha "${MASTER_SHA}" --dry-run
+          # A real release tag, looked up the way a tag push is.
+          expect "No OpenCue Master run exists" ci/release.py preflight --repo "${REPO}" \
+            --tag v1.37.0 --dry-run
+          # A failed run (Phase 2's gating run B).
+          expect "concluded failure" ci/release.py preflight --repo "${REPO}" --tag v1.39.1-x \
+            --sha "${BUNDLE_SHA}" --run-id 44663925068 --dry-run
+          # A green run without a bundle (a pr.yml run of Phase 2).
+          expect "has no release-bundle artifact" ci/release.py preflight --repo "${REPO}" \
+            --tag v1.39.1-x --sha "${BUNDLE_SHA}" --run-id 44688496868 --dry-run
+          # Untagged commit or a given run when publishing.
+          expect "only a dry run" ci/release.py preflight --repo "${REPO}" --tag v9.9.9 \
+            --sha "${BUNDLE_SHA}" --run-id 44663836822
+
+          gh run download 44663836822 --repo "${REPO}" --name release-bundle --dir bundle
+          expect "was built from ${BUNDLE_SHA}, not ${MASTER_SHA}" ci/release.py verify \
+            --tag v1.39.1-cd7663ea --sha "${MASTER_SHA}" --run-id 44663836822 bundle
+          expect "names run 44663836822, not 44658887747" ci/release.py verify \
+            --tag v1.39.1-cd7663ea --sha "${BUNDLE_SHA}" --run-id 44658887747 bundle
+          expect "Tag v1.39.2 does not match build ID 1.39.1-cd7663ea" ci/release.py verify \
+            --tag v1.39.2 --sha "${BUNDLE_SHA}" --run-id 44663836822 bundle
+          rm bundle/opencue_cuegui-*.tar.gz
+          expect "Missing: opencue_cuegui-1.39.1+cd7663ea.tar.gz" ci/release.py verify \
+            --tag v1.39.1-cd7663ea --sha "${BUNDLE_SHA}" --run-id 44663836822 bundle
+
+  imagetools:
+    name: Image retag probe
     runs-on: ubuntu-24.04
     timeout-minutes: 5
-    outputs:
-      python: ${{ steps.plan.outputs.python }}
-      python_qt: ${{ steps.plan.outputs.python_qt }}
-      wheels: ${{ steps.plan.outputs.wheels }}
-      licenses: ${{ steps.plan.outputs.licenses }}
-      api_docs: ${{ steps.plan.outputs.api_docs }}
-      cuebot: ${{ steps.plan.outputs.cuebot }}
-      maestro: ${{ steps.plan.outputs.maestro }}
-      rust: ${{ steps.plan.outputs.rust }}
-      rust_windows: ${{ steps.plan.outputs.rust_windows }}
-      cueweb: ${{ steps.plan.outputs.cueweb }}
-      gateway: ${{ steps.plan.outputs.gateway }}
-      integration: ${{ steps.plan.outputs.integration }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Match changed paths
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: .github/path-filters.yml
-          list-files: json
-          predicate-quantifier: some-with-excludes
-
-      - name: Plan jobs
-        id: plan
-        env:
-          FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
-        run: python3 ci/plan_pr_jobs.py
-
-  checks:
-    name: Checks
-    needs: changes
-    uses: ./.github/workflows/checks.yml
-    with:
-      licenses: ${{ needs.changes.outputs.licenses == 'true' }}
-
-  python:
-    name: Python
-    needs: changes
-    if: needs.changes.outputs.python != '[]' || needs.changes.outputs.python_qt != '[]'
-    uses: ./.github/workflows/python.yml
-    with:
-      packages: ${{ needs.changes.outputs.python }}
-      qt-packages: ${{ needs.changes.outputs.python_qt }}
-
-  wheels:
-    name: Python packages
-    needs: changes
-    if: needs.changes.outputs.wheels == 'true'
-    uses: ./.github/workflows/python-packages.yml
-
-  api-docs:
-    name: API docs
-    needs: changes
-    if: needs.changes.outputs.api_docs == 'true'
-    uses: ./.github/workflows/api-docs.yml
-
-  cuebot:
-    name: Cuebot
-    needs: changes
-    if: needs.changes.outputs.cuebot == 'true'
-    uses: ./.github/workflows/cuebot.yml
-
-  maestro:
-    name: Maestro sim
-    needs: changes
-    if: needs.changes.outputs.maestro == 'true'
-    uses: ./.github/workflows/maestro-sim.yml
-
-  rust:
-    name: Rust
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/rust.yml
-    with:
-      windows: ${{ needs.changes.outputs.rust_windows == 'true' }}
-
-  cueweb:
-    name: CueWeb
-    needs: changes
-    if: needs.changes.outputs.cueweb == 'true'
-    uses: ./.github/workflows/cueweb.yml
-
-  rest-gateway:
-    name: REST gateway
-    needs: changes
-    if: needs.changes.outputs.gateway == 'true'
-    uses: ./.github/workflows/rest-gateway.yml
-
-  integration:
-    name: Integration
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    uses: ./.github/workflows/integration.yml
-
-  pr-gate:
-    name: pr-gate
-    if: always()
-    needs:
-      - changes
-      - checks
-      - python
-      - wheels
-      - api-docs
-      - cuebot
-      - maestro
-      - rust
-      - cueweb
-      - rest-gateway
-      - integration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check job results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
+      # A staged image that exists on Docker Hub (opencuebuild/cuebot:1.39.0).
+      - name: Check and pin a staged image, then dry-run the retag
         run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
-          if jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' <<< "${NEEDS}" > /dev/null; then
-            echo "A job failed or was cancelled."
-            exit 1
-          fi
+          docker buildx version
+          source="$(cd ci && python3 -c 'import release; print(release.pinned_source({"tag": "opencuebuild/cuebot:1.39.0", "id": "sha256:8e235dec03b5b40d0013ca0877ecf87a592835029e8c7c17d672d7bfe64e5d5e"}, release.docker_cli))')"
+          echo "${source}"
+          docker buildx imagetools create --dry-run --prefer-index=false \
+            --tag=opencue/cuebot:dry-run --tag=opencue/cuebot:latest "${source}" | tee manifest.json
+          jq -e '.mediaType == "application/vnd.docker.distribution.manifest.v2+json"' manifest.json
