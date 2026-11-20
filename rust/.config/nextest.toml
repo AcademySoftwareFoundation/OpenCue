@@ -9,9 +9,3 @@ rqd-integration = { max-threads = 1 }
 [[profile.default.overrides]]
 filter = "binary(rqd_integration_tests)"
 test-group = "rqd-integration"
-
-# rqd sometimes fails to report completion of a frame recovered after a restart. Retry these
-# tests until that is fixed; a pass on retry is still reported as FLAKY.
-[[profile.default.overrides]]
-filter = "binary(rqd_integration_tests) & test(/^test_rqd_restart_/)"
-retries = 2
