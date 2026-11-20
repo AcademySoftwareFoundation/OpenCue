@@ -1,7 +1,9 @@
 # Multi-stage Dockerfile for OpenCue Rust RQD
 
 # Build stage, with cargo-chef to build the dependencies in their own layer
-FROM lukemathwalker/cargo-chef:0.1.72-rust-1.88-bookworm AS chef
+FROM rust:1.88-bookworm AS chef
+
+RUN cargo install cargo-chef --locked --version 0.1.72
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
