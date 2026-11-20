@@ -40,6 +40,7 @@ def _makeHost(free_mcp, total_mcp, name='host01'):
             id='host-id', name=name, free_mcp=free_mcp, total_mcp=total_mcp))
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class TempCellHelpersTests(unittest.TestCase):
 
     def test_freeAmountIsHumanReadable(self):

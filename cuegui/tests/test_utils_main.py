@@ -83,6 +83,7 @@ class UtilsTests(unittest.TestCase):
             'redirect_wasted_cores_threshold': 100,
         }, result)
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class UtilsViewerTests(unittest.TestCase):
     def test_shouldLaunchViewerUsingEmptyPaths(self):
         # Test launching without empty paths

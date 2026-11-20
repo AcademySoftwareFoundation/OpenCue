@@ -83,7 +83,7 @@ runs:
       run: chmod uog+rwX packages/*.*
 
     - name: Upload opencue packages
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: opencue_packages
         path: packages

@@ -34,6 +34,7 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
       matrix:
         include:
@@ -184,6 +185,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     needs: build
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
     steps:
