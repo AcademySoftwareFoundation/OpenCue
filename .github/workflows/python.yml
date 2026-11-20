@@ -40,6 +40,7 @@ jobs:
           activate-environment: true
           enable-cache: true
           cache-dependency-glob: "**/pyproject.toml"
+          cache-suffix: ${{ matrix.package }}
 
       # Every package builds on proto and pycue; the others are dependencies of some package.
       # setuptools<81 still ships pkg_resources, which some packages fall back to.
