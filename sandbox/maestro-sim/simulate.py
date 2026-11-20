@@ -2201,6 +2201,10 @@ def run_verify():
     # split a long battery across interrupted sessions).
     only = {s.strip().upper() for s in
             os.environ.get("SIM_VERIFY_ONLY", "").split(",") if s.strip()}
+    unknown = only - {entry[0].upper() for entry in scenarios}
+    if unknown:
+        print(f"SIM_VERIFY_ONLY names unknown scenarios: {', '.join(sorted(unknown))}")
+        return 1
     for entry in scenarios:
         name, flags = entry[0], entry[1]
         if only and name.upper() not in only:
