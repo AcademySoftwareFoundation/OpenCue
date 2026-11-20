@@ -227,6 +227,7 @@ script's own location:
 | `SIM_VENV_PY` | the interpreter running `simulate.py` | Python used for the helper scripts |
 | `SIM_JDK_HOME` | `/tmp/jdk-17.0.2` | JDK for gradle; if the dir is absent, the ambient `JAVA_HOME` is used |
 | `SIM_GRADLE_HOME` | `/tmp/ghome-<user>` | gradle user home (`-g`) |
+| `SIM_SKIP_BUILD` | unset | when set, run the jar already in `cuebot/build/libs/` instead of building cuebot |
 | `SIM_PG_BIN` | `/usr/lib/postgresql/16/bin` | dir with `psql`/`pg_ctl` |
 | `SIM_PGDATA` | `/tmp/pgdata` | Postgres data dir |
 | `SIM_PG_PORT` | `5433` | Postgres port |
