@@ -1,0 +1,323 @@
+name: OpenCue Master
+
+# Proves a master commit is ready for production, then stages it for release:
+#
+#   verify  every component's lint and tests, on the same reusable workflows as pull requests
+#   build   wheels and sdists, openrqd for five targets, the four images (each built once)
+#   prove   the integration test on the Cuebot and RQD images, the Maestro scenarios
+#   stage   the release-bundle artifact, then the images, the S3 mirror and TestPyPI
+#
+# Nothing is staged unless verify, build and prove passed. The publishing jobs run only on a
+# push; another workflow can call this one (publish defaults to false) to run the rest.
+
+on:
+  push:
+    branches: [master]
+  workflow_call:
+    inputs:
+      publish:
+        description: Push the images, mirror the bundle to S3 and upload to TestPyPI.
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build-id: ${{ steps.version.outputs.build-id }}
+      maestro: ${{ steps.filter.outputs.scheduler == 'true' || steps.filter.outputs.ci == 'true' }}
+      publish: ${{ github.event_name == 'push' || inputs.publish }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Set build ID
+        id: version
+        run: echo "build-id=$(ci/generate_version_number.py)" | tee -a "${GITHUB_OUTPUT}"
+
+      # On a push this compares against the commit before the push.
+      - name: Match changed paths
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/path-filters.yml
+          predicate-quantifier: some-with-excludes
+
+  # verify
+
+  checks:
+    name: Checks
+    uses: ./.github/workflows/checks.yml
+    with:
+      licenses: true
+
+  python:
+    name: Python
+    uses: ./.github/workflows/python.yml
+    with:
+      packages: '["pycue", "pyoutline", "cueadmin", "cueman", "cuecmd", "cuenimby", "rqd"]'
+      qt-packages: '["cuesubmit", "cuegui"]'
+
+  api-docs:
+    name: API docs
+    uses: ./.github/workflows/api-docs.yml
+
+  cuebot:
+    name: Cuebot
+    uses: ./.github/workflows/cuebot.yml
+    with:
+      coverage: true
+
+  rust:
+    name: Rust
+    uses: ./.github/workflows/rust.yml
+    with:
+      windows: true
+
+  # build (the CueWeb and REST gateway workflows test and build their images)
+
+  wheels:
+    name: Python packages
+    uses: ./.github/workflows/python-packages.yml
+
+  cueweb:
+    name: CueWeb
+    needs: plan
+    uses: ./.github/workflows/cueweb.yml
+    with:
+      build-id: ${{ needs.plan.outputs.build-id }}
+
+  rest-gateway:
+    name: REST gateway
+    needs: plan
+    uses: ./.github/workflows/rest-gateway.yml
+    with:
+      build-id: ${{ needs.plan.outputs.build-id }}
+
+  rust-binaries:
+    name: Rust binaries
+    needs: plan
+    uses: ./.github/workflows/rust-binaries.yml
+    with:
+      build-id: ${{ needs.plan.outputs.build-id }}
+
+  # prove
+
+  integration:
+    name: Integration
+    needs: plan
+    uses: ./.github/workflows/integration.yml
+    with:
+      build-id: ${{ needs.plan.outputs.build-id }}
+
+  maestro:
+    name: Maestro sim
+    needs: plan
+    if: needs.plan.outputs.maestro == 'true'
+    uses: ./.github/workflows/maestro-sim.yml
+    with:
+      full: true
+
+  # stage
+
+  bundle:
+    name: Release bundle
+    needs:
+      - plan
+      - checks
+      - python
+      - api-docs
+      - cuebot
+      - rust
+      - wheels
+      - cueweb
+      - rest-gateway
+      - rust-binaries
+      - integration
+      - maestro
+    # Maestro is skipped when the push doesn't touch the scheduler; anything else not passing
+    # withholds the bundle.
+    if: >-
+      !cancelled()
+      && !contains(needs.*.result, 'failure')
+      && !contains(needs.*.result, 'cancelled')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BUILD_ID: ${{ needs.plan.outputs.build-id }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: opencue_packages
+          path: bundle
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: cuebot-packages
+          path: bundle
+
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: rust-binaries-*
+          path: bundle
+          merge-multiple: true
+
+      - name: Extract database schema
+        run: ci/extract_schema.sh "${BUILD_ID}" bundle
+
+      - name: Add license, version and build metadata
+        env:
+          IMAGES: >-
+            {
+              "cuebot": "${{ needs.integration.outputs.cuebot-image-id }}",
+              "rqd": "${{ needs.integration.outputs.rqd-image-id }}",
+              "rest-gateway": "${{ needs.rest-gateway.outputs.image-id }}",
+              "cueweb": "${{ needs.cueweb.outputs.image-id }}"
+            }
+        run: |
+          cp LICENSE bundle/
+          echo "${BUILD_ID}" > bundle/VERSION
+          jq -n --argjson images "${IMAGES}" '{
+            git_commit: env.GITHUB_SHA,
+            build_id: env.BUILD_ID,
+            run_id: env.GITHUB_RUN_ID,
+            images: ($images | with_entries(.value = {
+              tag: "opencuebuild/\(.key):\(env.BUILD_ID)",
+              id: .value
+            }))
+          }' | tee bundle/build_metadata.json
+
+      - name: Check the bundle
+        run: |
+          ls -l bundle
+          ci/check_release_bundle.sh "${BUILD_ID}" bundle
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-bundle
+          path: bundle/
+          retention-days: 90
+          if-no-files-found: error
+          overwrite: true
+
+  stage-images:
+    name: Stage ${{ matrix.image }} image
+    needs: [plan, bundle]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [cuebot, rqd]
+        optional: [false]
+        # The Docker Hub repositories for these do not exist yet and CI cannot create them,
+        # so their push may fail. The failure is reported as a warning. Drop once created.
+        include:
+          - image: rest-gateway
+            optional: true
+          - image: cueweb
+            optional: true
+    env:
+      IMAGE: opencuebuild/${{ matrix.image }}:${{ needs.plan.outputs.build-id }}
+      OPTIONAL: ${{ matrix.optional }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: image-${{ matrix.image }}
+          path: ${{ runner.temp }}
+
+      - name: Load image
+        run: docker load -i "${RUNNER_TEMP}/${{ matrix.image }}.tar"
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Push image
+        run: |
+          if docker push "${IMAGE}"; then
+            docker image inspect --format '{{.Id}} {{json .RepoDigests}}' "${IMAGE}" \
+              | tee -a "${GITHUB_STEP_SUMMARY}"
+          elif [[ "${OPTIONAL}" == true ]]; then
+            echo "::warning::Could not push ${IMAGE}; this image is not released yet."
+          else
+            exit 1
+          fi
+
+  stage-s3:
+    name: Mirror the bundle to S3
+    needs: [plan, bundle]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      BUILD_ID: ${{ needs.plan.outputs.build-id }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle
+          path: bundle
+
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.S3_REGION }}
+          role-to-assume: ${{ secrets.AWS_S3_ROLE }}
+          role-duration-seconds: 1800
+
+      # The release pipeline reads s3://<bucket>/opencue/<build id>/.
+      - name: Upload the bundle
+        run: |
+          aws s3 cp --recursive bundle/ "s3://${S3_BUCKET}/opencue/${BUILD_ID}/"
+          aws s3 ls "s3://${S3_BUCKET}/opencue/${BUILD_ID}/" | tee listing.txt
+          missing=0
+          for file in bundle/*; do
+            if ! grep -qF " ${file#bundle/}" listing.txt; then
+              echo "::error::${file#bundle/} is missing from S3"
+              missing=1
+            fi
+          done
+          exit "${missing}"
+
+  stage-testpypi:
+    name: Upload Python packages to TestPyPI
+    needs: [plan, bundle]
+    if: needs.plan.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: python:3.11
+    environment: testpypi
+    # TestPyPI is a staging copy that nothing reads, so a failed upload shows as a failed job
+    # but does not fail the run.
+    continue-on-error: true
+    env:
+      TWINE_USERNAME: "__token__"
+      TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+      TWINE_REPOSITORY: testpypi
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Upload packages
+        run: |
+          python3 -m pip install --upgrade twine
+          python3 -m twine upload --verbose --skip-existing packages/opencue_*

@@ -31,6 +31,7 @@ import plan_pr_jobs  # pylint: disable=import-error,wrong-import-position
 
 FILTERS_FILE = REPO / ".github" / "path-filters.yml"
 PR_WORKFLOW = REPO / ".github" / "workflows" / "pr.yml"
+MASTER_WORKFLOW = REPO / ".github" / "workflows" / "master.yml"
 
 
 def load_filters():
@@ -110,6 +111,16 @@ class PathFiltersTests(unittest.TestCase):
         workflow = PR_WORKFLOW.read_text()
         self.assertEqual(ALL_JOBS, set(re.findall(r"needs\.changes\.outputs\.(\w+)", workflow)))
         self.assertEqual(ALL_JOBS, set(re.findall(r"steps\.plan\.outputs\.(\w+)", workflow)))
+
+    def test_master_workflow_tests_every_python_package(self):
+        workflow = MASTER_WORKFLOW.read_text()
+        packages = json.loads(re.search(r"^\s+packages: '(.+)'$", workflow, re.M).group(1))
+        qt = json.loads(re.search(r"^\s+qt-packages: '(.+)'$", workflow, re.M).group(1))
+        self.assertEqual(plan_pr_jobs.QT_PACKAGES, set(qt))
+        self.assertEqual(plan_pr_jobs.PYTHON_PACKAGES,
+                         [p for p in plan_pr_jobs.PYTHON_PACKAGES if p in packages + qt])
+        self.assertEqual(len(plan_pr_jobs.PYTHON_PACKAGES), len(packages + qt))
+        self.assertFalse(set(packages) & plan_pr_jobs.QT_PACKAGES)
 
     def test_glob_regex(self):
         self.assertTrue(matches(["**/Dockerfile*"], "Dockerfile"))

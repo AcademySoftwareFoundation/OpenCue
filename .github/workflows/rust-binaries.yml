@@ -1,0 +1,87 @@
+name: Rust binaries
+
+# Builds the release openrqd binaries, one rust-binaries-<target> artifact per target.
+
+on:
+  workflow_call:
+    inputs:
+      build-id:
+        description: Version in the binary names, openrqd-<build-id>-<target>.
+        type: string
+        required: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_NET_RETRY: 10
+  RUSTUP_MAX_RETRIES: 10
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-22.04
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-22.04
+          # x86_64 cross-compiles on the arm64 runner.
+          - target: x86_64-apple-darwin
+            os: macos-15
+          - target: aarch64-apple-darwin
+            os: macos-15
+          - target: x86_64-pc-windows-msvc
+            os: windows-2022
+            suffix: .exe
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # stable
+        with:
+          toolchain: stable
+          targets: ${{ matrix.target }}
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev protobuf-compiler
+          if [[ "${TARGET}" == *-musl ]]; then
+            sudo apt-get install -y musl-tools
+          fi
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install protobuf
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install protoc -y
+
+      - name: Build openrqd
+        working-directory: rust
+        run: cargo build --release --target ${{ matrix.target }} --no-default-features -p rqd
+
+      - name: Copy binary
+        env:
+          BINARY: openrqd-${{ inputs.build-id }}-${{ matrix.target }}${{ matrix.suffix }}
+        run: |
+          mkdir release
+          cp "rust/target/${{ matrix.target }}/release/openrqd${{ matrix.suffix }}" "release/${BINARY}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rust-binaries-${{ matrix.target }}
+          path: release/
+          if-no-files-found: error
+          overwrite: true
