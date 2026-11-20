@@ -26,6 +26,7 @@ cuebot-packages:
   - "cuebot/Dockerfile"
   - "cuebot/packaging/**"
   - "cuebot/deploy/**"
+  - "LICENSE"
 
 # What the Maestro scheduler depends on, not only what is named after it: its dispatch SQL
 # lives in dao/postgres.
@@ -98,7 +99,6 @@ untested:
   - "images/**"
   - "samples/**"
   - "*.md"
-  - "LICENSE"
   - "CODEOWNERS"
   - ".gitignore"
   - ".gitattributes"

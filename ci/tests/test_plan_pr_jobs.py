@@ -163,6 +163,7 @@ class PlanTests(unittest.TestCase):
         for path in ("cuebot/packaging/rpm/cuebot.spec", "cuebot/deploy/opencue-cuebot"):
             self.assertEqual({"cuebot", "integration", "cuebot_packages"}, jobs_for(path)[0])
         self.assertIn("cuebot_packages", jobs_for("cuebot/Dockerfile")[0])
+        self.assertEqual({"integration", "cuebot_packages"}, jobs_for("LICENSE")[0])
         self.assertNotIn("cuebot_packages", jobs_for("cuebot/src/main/java/A.java")[0])
 
     def test_single_python_package(self):
