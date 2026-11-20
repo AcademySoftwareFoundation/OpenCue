@@ -21,7 +21,7 @@ This guide covers development workflows, architecture, and best practices for co
 
 The REST Gateway is built with:
 
-- **Go 1.19+** - Primary programming language
+- **Go 1.27+** - Primary programming language
 - **grpc-gateway** - Automatic REST endpoint generation from protobuf definitions
 - **Protocol Buffers** - Interface definitions and code generation
 - **JWT authentication** - HMAC SHA256 token-based security
@@ -47,7 +47,7 @@ rest_gateway/
 
 ### Prerequisites
 
-- Go 1.19 or later
+- Go 1.27 or later
 - Protocol Buffers compiler (`protoc`)
 - Docker and Docker Compose
 - Git

@@ -31,7 +31,7 @@ graph LR
 
 ## Prerequisites
 
-- Go 1.19 or later
+- Go 1.27 or later
 - Access to OpenCue Cuebot gRPC endpoint
 - JWT secret for authentication
 - Docker (optional, for containerized deployment)
