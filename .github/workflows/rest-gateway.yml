@@ -114,7 +114,8 @@ jobs:
           tags: opencuebuild/rest-gateway:${{ inputs.build-id || 'ci' }}
           outputs: ${{ inputs.build-id != '' && format('type=docker,dest={0}/rest-gateway.tar', runner.temp) || '' }}
           cache-from: type=gha,scope=rest-gateway
-          cache-to: type=gha,scope=rest-gateway,mode=max
+          # Only master writes the cache, which every pull request can read.
+          cache-to: ${{ github.ref == 'refs/heads/master' && 'type=gha,scope=rest-gateway,mode=max' || '' }}
 
       - name: Upload image
         if: inputs.build-id != ''

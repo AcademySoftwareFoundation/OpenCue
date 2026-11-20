@@ -54,6 +54,8 @@ jobs:
         with:
           workspaces: rust
           cache-on-failure: true
+          # Only master saves, so pull requests don't push its entries out of the cache.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
@@ -111,6 +113,8 @@ jobs:
         with:
           workspaces: rust
           cache-on-failure: true
+          # Only master saves, so pull requests don't push its entries out of the cache.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:

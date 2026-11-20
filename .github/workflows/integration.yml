@@ -50,7 +50,8 @@ jobs:
           tags: ${{ env.CUEBOT_IMAGE }}
           load: true
           cache-from: type=gha,scope=cuebot
-          cache-to: type=gha,scope=cuebot,mode=max
+          # Only master writes the cache, which every pull request can read.
+          cache-to: ${{ github.ref == 'refs/heads/master' && 'type=gha,scope=cuebot,mode=max' || '' }}
 
       - name: Build RQD image
         id: rqd
@@ -61,7 +62,8 @@ jobs:
           tags: ${{ env.RQD_IMAGE }}
           load: true
           cache-from: type=gha,scope=rqd
-          cache-to: type=gha,scope=rqd,mode=max
+          # Only master writes the cache, which every pull request can read.
+          cache-to: ${{ github.ref == 'refs/heads/master' && 'type=gha,scope=rqd,mode=max' || '' }}
 
       - name: Run test
         run: ci/run_integration_test.sh
