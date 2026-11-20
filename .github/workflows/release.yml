@@ -67,6 +67,8 @@ jobs:
       tag: ${{ steps.find.outputs.tag }}
       sha: ${{ steps.find.outputs.sha }}
       run-id: ${{ steps.find.outputs.run-id }}
+      artifact-id: ${{ steps.find.outputs.artifact-id }}
+      artifact-digest: ${{ steps.find.outputs.artifact-digest }}
       latest: ${{ steps.find.outputs.latest }}
       publish: ${{ steps.find.outputs.publish }}
     env:
@@ -96,9 +98,10 @@ jobs:
           echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
           echo "publish=${PUBLISH}" | tee -a "${GITHUB_OUTPUT}"
 
+      # By ID, so every job of this release uses the same bundle.
       - uses: actions/download-artifact@v8
         with:
-          name: release-bundle
+          artifact-ids: ${{ steps.find.outputs.artifact-id }}
           path: bundle
           run-id: ${{ steps.find.outputs.run-id }}
           github-token: ${{ github.token }}
@@ -116,13 +119,15 @@ jobs:
           SHA: ${{ steps.find.outputs.sha }}
           RUN_URL: ${{ steps.find.outputs.run-url }}
           LATEST: ${{ steps.find.outputs.latest }}
+          LATEST_REASON: ${{ steps.find.outputs.latest-reason }}
         run: |
           ci/release.py notes --sha "${SHA}" > notes.md
           args=()
           if [[ "${LATEST}" == true ]]; then args+=(--latest); fi
           if [[ "${PUBLISH}" == true ]]; then args+=(--publish); fi
           {
-            ci/release.py plan --tag "${TAG}" --run-url "${RUN_URL}" "${args[@]}" bundle
+            ci/release.py plan --tag "${TAG}" --run-url "${RUN_URL}" \
+              --latest-reason "${LATEST_REASON}" "${args[@]}" bundle
             echo
             echo "### Release notes"
             echo
@@ -156,9 +161,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check the bundle is the one preflight chose
+        env:
+          RUN_ID: ${{ needs.preflight.outputs.run-id }}
+          ARTIFACT_ID: ${{ needs.preflight.outputs.artifact-id }}
+          DIGEST: ${{ needs.preflight.outputs.artifact-digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ci/release.py pinned --repo "${GITHUB_REPOSITORY}" --run-id "${RUN_ID}" \
+            --artifact-id "${ARTIFACT_ID}" --digest "${DIGEST}"
+
       - uses: actions/download-artifact@v8
         with:
-          name: release-bundle
+          artifact-ids: ${{ needs.preflight.outputs.artifact-id }}
           path: bundle
           run-id: ${{ needs.preflight.outputs.run-id }}
           github-token: ${{ github.token }}
@@ -173,21 +188,24 @@ jobs:
         with:
           name: release-notes
 
-      # A published release is left as it is: publishing it is the release manager's call.
       - name: Create or update the draft release
         run: |
           list="$(ci/release.py files github --tag "${TAG}")"
           mapfile -t assets <<< "${list}"
           assets=("${assets[@]/#/bundle/}")
-          if ! draft="$(gh release view "${TAG}" --json isDraft --jq .isDraft)"; then
-            gh release create "${TAG}" --draft --verify-tag --title "${TAG}" \
-              --notes-file notes.md "${assets[@]}"
-          elif [[ "${draft}" == true ]]; then
-            gh release upload "${TAG}" --clobber "${assets[@]}"
-            gh release edit "${TAG}" --notes-file notes.md
-          else
-            echo "::notice::${TAG} is already published; it is left unchanged."
-          fi
+          action="$(ci/release.py github --repo "${GITHUB_REPOSITORY}" --tag "${TAG}")"
+          case "${action}" in
+            create)
+              gh release create "${TAG}" --draft --verify-tag --title "${TAG}" \
+                --notes-file notes.md "${assets[@]}" ;;
+            update)
+              gh release upload "${TAG}" --clobber "${assets[@]}"
+              gh release edit "${TAG}" --notes-file notes.md ;;
+            keep)
+              echo "::notice::${TAG} is already published; it is left unchanged." ;;
+            *)
+              exit 1 ;;
+          esac
 
   publish:
     name: Publish images and Python packages
@@ -208,9 +226,19 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check the bundle is the one preflight chose
+        env:
+          RUN_ID: ${{ needs.preflight.outputs.run-id }}
+          ARTIFACT_ID: ${{ needs.preflight.outputs.artifact-id }}
+          DIGEST: ${{ needs.preflight.outputs.artifact-digest }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ci/release.py pinned --repo "${GITHUB_REPOSITORY}" --run-id "${RUN_ID}" \
+            --artifact-id "${ARTIFACT_ID}" --digest "${DIGEST}"
+
       - uses: actions/download-artifact@v8
         with:
-          name: release-bundle
+          artifact-ids: ${{ needs.preflight.outputs.artifact-id }}
           path: bundle
           run-id: ${{ needs.preflight.outputs.run-id }}
           github-token: ${{ github.token }}

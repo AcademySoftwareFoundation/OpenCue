@@ -75,12 +75,36 @@ class VersionTests(unittest.TestCase):
         with self.assertRaisesRegex(release.ReleaseError, "not a release tag"):
             release.version_of("1.2.3")
 
-    def test_is_newest(self):
-        tags = ["v1.2.3", "v1.10.0", "v1.9.9", "v2.0.0-rc", "nightly"]
-        self.assertTrue(release.is_newest("v1.10.0", tags))
-        self.assertTrue(release.is_newest("v1.10.1", tags))
-        self.assertFalse(release.is_newest("v1.9.9", tags))
-        self.assertFalse(release.is_newest("v1.11.0-abc", tags))
+
+class LatestTests(unittest.TestCase):
+    RELEASES = [
+        {"tag_name": "v1.2.3", "draft": False, "prerelease": False},
+        {"tag_name": "v1.10.0", "draft": False, "prerelease": False},
+        {"tag_name": "v1.9.9", "draft": False, "prerelease": False},
+        {"tag_name": "v2.0.0", "draft": True, "prerelease": False},
+        {"tag_name": "v3.0.0", "draft": False, "prerelease": True},
+        {"tag_name": "nightly", "draft": False, "prerelease": False},
+    ]
+
+    def test_moves_for_the_highest_release(self):
+        self.assertEqual((True, ""), release.latest_decision("v1.10.0", self.RELEASES))
+        self.assertEqual((True, ""), release.latest_decision("v1.10.1", self.RELEASES))
+
+    def test_stray_tags_and_drafts_do_not_count(self):
+        # Only releases are passed in, so a tag that never became one can't hold latest back.
+        self.assertEqual((True, ""), release.latest_decision("v1.11.0", self.RELEASES))
+
+    def test_names_the_higher_release(self):
+        self.assertEqual(
+            (False, "v1.10.0 is a higher published release"),
+            release.latest_decision("v1.9.10", self.RELEASES),
+        )
+
+    def test_not_a_release_version(self):
+        self.assertEqual(
+            (False, "v1.11.0-abc is not a vX.Y.Z release"),
+            release.latest_decision("v1.11.0-abc", self.RELEASES),
+        )
 
 
 class SelectMasterRunTests(unittest.TestCase):
@@ -153,23 +177,81 @@ class PreflightTests(unittest.TestCase):
                 "workflow_runs": [master_run(7)]
             },
             "repos/o/r/actions/runs/7/artifacts?name=release-bundle": {
-                "artifacts": [{"id": 9, "name": "release-bundle", "expired": False}]
+                "artifacts": [
+                    {"id": 9, "name": "release-bundle", "expired": False, "digest": "sha256:d"}
+                ]
             },
+            "repos/o/r/releases?per_page=100": [
+                {"tag_name": "v1.3.0", "draft": False, "prerelease": False}
+            ],
         }
+        output = io.StringIO()
         with mock.patch.object(release, "resolve_commit", return_value=SHA), mock.patch.object(
-            release, "gh_api", side_effect=responses.__getitem__
-        ), mock.patch.object(release, "run", return_value="v1.2.2\nv1.2.3"), quiet():
+            release, "gh_api", side_effect=lambda path, *_: responses[path]
+        ), contextlib.redirect_stdout(output):
             outputs = release.preflight("o/r", "v1.2.3", "", "", dry_run=False)
         self.assertEqual(
             {
                 "sha": SHA,
                 "version": "1.2.3",
                 "run-id": "7",
-                "latest": "true",
                 "run-url": "https://github.com/o/r/actions/runs/7",
+                "artifact-id": "9",
+                "artifact-digest": "sha256:d",
+                "latest": "false",
+                "latest-reason": "v1.3.0 is a higher published release",
             },
             outputs,
         )
+        self.assertIn(
+            "::warning::opencue/*:latest is not moved: v1.3.0 is a higher published release.",
+            output.getvalue(),
+        )
+
+
+class PinnedTests(unittest.TestCase):
+    def bundle(self, artifact_id, digest, **fields):
+        return {
+            "id": artifact_id,
+            "name": "release-bundle",
+            "expired": False,
+            "digest": digest,
+            **fields,
+        }
+
+    def test_unchanged(self):
+        release.check_pinned([self.bundle(9, "sha256:d")], "9", "sha256:d", "run 7")
+
+    def test_replaced_by_a_rerun(self):
+        with self.assertRaisesRegex(
+            release.ReleaseError, r"chose artifact 9 \(sha256:d\), the run now has 10 .*Re-run"
+        ):
+            release.check_pinned([self.bundle(10, "sha256:e")], "9", "sha256:d", "run 7")
+
+    def test_changed_digest(self):
+        with self.assertRaisesRegex(release.ReleaseError, "changed after preflight"):
+            release.check_pinned([self.bundle(9, "sha256:e")], "9", "sha256:d", "run 7")
+
+    def test_gone(self):
+        with self.assertRaisesRegex(release.ReleaseError, "the run now has none"):
+            release.check_pinned(
+                [self.bundle(9, "sha256:d", expired=True)], "9", "sha256:d", "run 7"
+            )
+
+
+class GitHubActionTests(unittest.TestCase):
+    def test_actions(self):
+        other = {"id": 1, "tag_name": "v1.2.2", "draft": False}
+        self.assertEqual("create", release.github_action([other], "v1.2.3"))
+        draft = {"id": 2, "tag_name": "v1.2.3", "draft": True}
+        self.assertEqual("update", release.github_action([other, draft], "v1.2.3"))
+        published = {"id": 3, "tag_name": "v1.2.3", "draft": False}
+        self.assertEqual("keep", release.github_action([published], "v1.2.3"))
+
+    def test_duplicate_drafts(self):
+        drafts = [{"id": i, "tag_name": "v1.2.3", "draft": True} for i in (2, 5)]
+        with self.assertRaisesRegex(release.ReleaseError, r"2 releases \(2, 5\)"):
+            release.github_action(drafts, "v1.2.3")
 
 
 class MetadataTests(unittest.TestCase):
@@ -221,7 +303,7 @@ class BundleTests(unittest.TestCase):
             release.verify(self.bundle, "v1.2.3", SHA, "7")
 
     def test_plan(self):
-        text = release.plan(self.bundle, "v1.2.3", "https://run", latest=True, publish=False)
+        text = release.plan(self.bundle, "v1.2.3", "https://run", True, "", publish=False)
         self.assertIn("## v1.2.3: dry run", text)
         self.assertIn("- `openrqd-1.2.3-x86_64-pc-windows-msvc.exe` (1 bytes)", text)
         self.assertIn(
@@ -229,12 +311,18 @@ class BundleTests(unittest.TestCase):
         )
         self.assertIn("- `opencue_pycue-1.2.3-py3-none-any.whl`", text)
 
+    def test_plan_without_latest(self):
+        text = release.plan(self.bundle, "v1.2.3", "https://run", False, "v1.3.0 is higher", True)
+        self.assertIn("## v1.2.3: publishing", text)
+        self.assertIn("→ `opencue/cuebot:1.2.3`\n", text)
+        self.assertIn("`latest` is not moved: v1.3.0 is higher.", text)
+
     def test_branch_build_python_version(self):
         self.assertIn("opencue_rqd-1.2.3+abc.tar.gz", release.pypi_files("1.2.3-abc"))
 
 
 class FakeDocker:
-    """Answers imagetools inspect from a dict of tag to (manifest digest, config digest)."""
+    """Answers imagetools inspect from a dict of reference to (digest, raw manifest)."""
 
     def __init__(self, images, fail_create=()):
         self.images = images
@@ -245,10 +333,8 @@ class FakeDocker:
         if args[:3] == ("buildx", "imagetools", "inspect"):
             if args[-1] not in self.images:
                 raise subprocess.CalledProcessError(1, args, stderr="not found")
-            manifest, config = self.images[args[-1]]
-            if "--raw" in args:
-                return json.dumps({"config": {"digest": config}})
-            return json.dumps({"digest": manifest})
+            digest, raw = self.images[args[-1]]
+            return json.dumps(raw if "--raw" in args else {"digest": digest})
         if args[:3] == ("buildx", "imagetools", "create"):
             if any(name in args[-1] for name in self.fail_create):
                 raise subprocess.CalledProcessError(1, args, stderr="denied")
@@ -261,9 +347,19 @@ class ImageTests(unittest.TestCase):
     def setUp(self):
         self.metadata = metadata()
         self.staged = {
-            image["tag"]: ("sha256:m" + name, image["id"])
+            image["tag"]: ("sha256:m" + name, {"config": {"digest": image["id"]}})
             for name, image in self.metadata["images"].items()
         }
+
+    def stage_index(self, name, manifests):
+        tag = f"opencuebuild/{name}:1.2.3"
+        self.staged[tag] = ("sha256:index", {"manifests": manifests})
+        for m in manifests:
+            config = self.metadata["images"][name]["id"] if m["digest"] == "sha256:image" else "x"
+            self.staged[f"opencuebuild/{name}@{m['digest']}"] = (
+                m["digest"],
+                {"config": {"digest": config}},
+            )
 
     def test_retags_by_digest(self):
         docker = FakeDocker(self.staged)
@@ -304,13 +400,39 @@ class ImageTests(unittest.TestCase):
         self.assertEqual([], docker.created)
 
     def test_changed_image_publishes_nothing(self):
-        self.staged["opencuebuild/cuebot:1.2.3"] = ("sha256:new", "sha256:newconfig")
+        self.staged["opencuebuild/cuebot:1.2.3"] = (
+            "sha256:new",
+            {"config": {"digest": "sha256:c"}},
+        )
         docker = FakeDocker(self.staged)
         with quiet(), self.assertRaisesRegex(
             release.ReleaseError, "not the image .* that the build tested"
         ):
             release.retag_images(self.metadata, BUILD_ID, True, docker)
         self.assertEqual([], docker.created)
+
+    def test_index_of_one_image_with_attestation(self):
+        attestation = {"vnd.docker.reference.type": "attestation-manifest"}
+        self.stage_index(
+            "rqd",
+            [{"digest": "sha256:image"}, {"digest": "sha256:att", "annotations": attestation}],
+        )
+        docker = FakeDocker(self.staged)
+        with quiet():
+            release.retag_images(self.metadata, BUILD_ID, False, docker)
+        self.assertEqual("opencuebuild/rqd@sha256:index", docker.created[1][-1])
+
+    def test_index_of_several_images_is_refused(self):
+        self.stage_index("cuebot", [{"digest": "sha256:image"}, {"digest": "sha256:arm"}])
+        docker = FakeDocker(self.staged)
+        with quiet(), self.assertRaisesRegex(release.ReleaseError, "index of 2 images, not one"):
+            release.retag_images(self.metadata, BUILD_ID, True, docker)
+        self.assertEqual([], docker.created)
+
+    def test_index_of_another_image_is_refused(self):
+        self.stage_index("cuebot", [{"digest": "sha256:other"}])
+        with quiet(), self.assertRaisesRegex(release.ReleaseError, "that the build tested"):
+            release.retag_images(self.metadata, BUILD_ID, True, FakeDocker(self.staged))
 
     def test_optional_images_warn(self):
         del self.staged["opencuebuild/cueweb:1.2.3"]

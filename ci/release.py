@@ -6,14 +6,17 @@ A release publishes the release-bundle artifact of the OpenCue Master run of the
 commit, and retags the images that run staged. Nothing is rebuilt.
 
   preflight  resolves the tag's commit, then finds its green master run and that run's bundle
+  pinned     checks that the bundle preflight chose is still the run's bundle
   verify     checks a downloaded bundle against the tag, the commit and the run
   plan       prints what the release publishes, as Markdown
   notes      prints the release notes
   files      lists the bundle files published to GitHub or PyPI
   images     retags the staged images on Docker Hub
+  github     says whether the GitHub release must be created, updated or left alone
 
-`preflight` and `notes` need a clone with full history and tags, and `preflight` calls the
-GitHub API through `gh` (GH_TOKEN with actions: read). A failed check prints an ::error::
+`preflight` and `notes` need a clone with full history and tags. `preflight`, `pinned` and
+`github` call the GitHub API through `gh` (GH_TOKEN with actions: read; `github` needs
+contents: write to see draft releases). A failed check prints an ::error::
 annotation that says what to do, and exits 1.
 """
 
@@ -63,11 +66,14 @@ def run(*cmd):
     return subprocess.run(cmd, check=True, capture_output=True, text=True).stdout.strip()
 
 
-def gh_api(path):
+def gh_api(path, paginate=False):
+    """Calls the GitHub API. With paginate, returns the items of every page of a list."""
+    args = ["--paginate", "--slurp"] if paginate else []
     try:
-        return json.loads(run("gh", "api", path))
+        result = json.loads(run("gh", "api", *args, path))
     except subprocess.CalledProcessError as e:
         raise ReleaseError(f"GitHub API call {path} failed: {e.stderr.strip()}") from e
+    return [item for page in result for item in page] if paginate else result
 
 
 def version_of(tag):
@@ -83,12 +89,24 @@ def release_version(tag):
     return tuple(int(n) for n in match.groups()) if match else None
 
 
-def is_newest(tag, tags):
-    """Whether tag is the highest vX.Y.Z release among tags, so `latest` may point at it."""
+def latest_decision(tag, releases):
+    """Returns whether `latest` moves to tag, and the reason when it doesn't.
+
+    It moves unless a published (not draft, not pre-release) GitHub release has a higher
+    vX.Y.Z tag. Only releases count, so a stray tag that never became one doesn't hold
+    `latest` back.
+    """
     version = release_version(tag)
-    return version is not None and all(
-        version >= other for other in map(release_version, tags) if other
-    )
+    if version is None:
+        return False, f"{tag} is not a vX.Y.Z release"
+    higher = [
+        r["tag_name"] for r in releases
+        if not r["draft"] and not r["prerelease"]
+        and (release_version(r["tag_name"]) or ()) > version
+    ]
+    if higher:
+        return False, f"{max(higher, key=release_version)} is a higher published release"
+    return True, ""
 
 
 def resolve_commit(tag, sha, dry_run):
@@ -205,13 +223,36 @@ def preflight(repo, tag, sha, run_id, dry_run):
     artifacts = gh_api(f"repos/{repo}/actions/runs/{master_run['id']}/artifacts?name={BUNDLE}")
     bundle = select_bundle(artifacts["artifacts"], master_run["html_url"])
     print(f"Releasing {sha} as {tag} from {master_run['html_url']} (artifact {bundle['id']}).")
+    latest, reason = latest_decision(tag, gh_api(f"repos/{repo}/releases?per_page=100", True))
+    if not latest:
+        print(f"::warning::opencue/*:latest is not moved: {reason}.")
     return {
         "sha": sha,
         "version": version,
         "run-id": str(master_run["id"]),
         "run-url": master_run["html_url"],
-        "latest": str(is_newest(tag, run("git", "tag", "--list", "v*").split())).lower(),
+        "artifact-id": str(bundle["id"]),
+        "artifact-digest": bundle.get("digest") or "",
+        "latest": str(latest).lower(),
+        "latest-reason": reason,
     }
+
+
+def check_pinned(artifacts, artifact_id, digest, run_url):
+    """Raises unless the artifact preflight chose is still the run's bundle, unchanged."""
+    bundles = [a for a in artifacts if a["name"] == BUNDLE and not a["expired"]]
+    if [(str(a["id"]), a.get("digest") or "") for a in bundles] != [(artifact_id, digest)]:
+        found = ", ".join(f"{a['id']} ({a.get('digest')})" for a in bundles) or "none"
+        raise ReleaseError(
+            f"The {BUNDLE} of {run_url} changed after preflight: it chose artifact "
+            f"{artifact_id} ({digest}), the run now has {found}. The master run was probably "
+            "re-run. Re-run this whole release, so every job uses one bundle."
+        )
+
+
+def pinned(repo, run_id, artifact_id, digest):
+    artifacts = gh_api(f"repos/{repo}/actions/runs/{run_id}/artifacts?name={BUNDLE}")
+    check_pinned(artifacts["artifacts"], artifact_id, digest, f"run {run_id}")
 
 
 def check_metadata(metadata, version, sha, run_id):
@@ -284,19 +325,35 @@ def image_targets(name, version, latest):
 def pinned_source(image, docker):
     """Returns the staged image by digest, after checking it is the image the build recorded.
 
-    The bundle records the image ID, which is the config digest (or, with Docker's containerd
-    image store, the manifest digest).
+    The bundle records the image ID: the config digest, or with Docker's containerd image
+    store, the manifest or index digest. An index (as the containerd store pushes) must hold
+    exactly one image besides attestations, and that image's manifest or config digest counts.
     """
     inspect = ("buildx", "imagetools", "inspect")
-    manifest = json.loads(docker(*inspect, "--format", "{{json .Manifest}}", image["tag"]))
+    repository = image["tag"].rsplit(":", 1)[0]
+    digest = json.loads(docker(*inspect, "--format", "{{json .Manifest}}", image["tag"]))["digest"]
     raw = json.loads(docker(*inspect, "--raw", image["tag"]))
-    config = raw.get("config", {}).get("digest")
-    if image["id"] not in (manifest["digest"], config):
+    known = [digest]
+    if "manifests" in raw:
+        images = [
+            m for m in raw["manifests"]
+            if m.get("annotations", {}).get("vnd.docker.reference.type") != "attestation-manifest"
+        ]
+        if len(images) != 1:
+            raise ReleaseError(
+                f"{image['tag']} is an index of {len(images)} images, not one, so it can't be "
+                "matched to the image the build tested."
+            )
+        child = json.loads(docker(*inspect, "--raw", f"{repository}@{images[0]['digest']}"))
+        known += [images[0]["digest"], child.get("config", {}).get("digest")]
+    else:
+        known.append(raw.get("config", {}).get("digest"))
+    if image["id"] not in known:
         raise ReleaseError(
-            f"{image['tag']} is {manifest['digest']} (config {config}), not the image "
+            f"{image['tag']} is {digest} ({', '.join(map(str, known[1:]))}), not the image "
             f"{image['id']} that the build tested. Release from a new master run."
         )
-    return f"{image['tag'].rsplit(':', 1)[0]}@{manifest['digest']}"
+    return f"{repository}@{digest}"
 
 
 def retag_images(metadata, version, latest, docker):
@@ -343,7 +400,21 @@ def release_notes(sha):
     return NOTES.format(commits=commits)
 
 
-def plan(bundle, tag, run_url, latest, publish):
+def github_action(releases, tag):
+    """Says what the release job does with the GitHub release of tag: create, update or keep.
+
+    keep means it is published already, and publishing it is the release manager's call.
+    """
+    matches = [r for r in releases if r["tag_name"] == tag]
+    if len(matches) > 1:
+        ids = ", ".join(str(r["id"]) for r in matches)
+        raise ReleaseError(f"{tag} has {len(matches)} releases ({ids}). Delete the extra drafts.")
+    if not matches:
+        return "create"
+    return "update" if matches[0]["draft"] else "keep"
+
+
+def plan(bundle, tag, run_url, latest, latest_reason, publish):
     """Describes what the release publishes, as Markdown."""
     version = version_of(tag)
     lines = [
@@ -360,6 +431,8 @@ def plan(bundle, tag, run_url, latest, publish):
         targets = ", ".join(f"`{t}`" for t in image_targets(name, version, latest))
         note = " (optional)" if optional else ""
         lines.append(f"- `opencuebuild/{name}:{version}` → {targets}{note}")
+    if not latest:
+        lines += ["", f"`latest` is not moved: {latest_reason}."]
     lines += ["", "### PyPI", ""]
     lines += [f"- `{f}`" for f in pypi_files(version)]
     return "\n".join(lines) + "\n"
@@ -398,8 +471,19 @@ def parse_args(argv):
     command.add_argument("--tag", required=True)
     command.add_argument("--run-url", required=True)
     command.add_argument("--latest", action="store_true")
+    command.add_argument("--latest-reason", default="")
     command.add_argument("--publish", action="store_true")
     command.add_argument("bundle", type=pathlib.Path)
+
+    command = commands.add_parser("pinned")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--run-id", required=True)
+    command.add_argument("--artifact-id", required=True)
+    command.add_argument("--digest", default="")
+
+    command = commands.add_parser("github")
+    command.add_argument("--repo", required=True)
+    command.add_argument("--tag", required=True)
 
     command = commands.add_parser("notes")
     command.add_argument("--sha", required=True)
@@ -424,7 +508,15 @@ def main(argv):
         elif args.command == "verify":
             verify(args.bundle, args.tag, args.sha, args.run_id)
         elif args.command == "plan":
-            print(plan(args.bundle, args.tag, args.run_url, args.latest, args.publish), end="")
+            text = plan(
+                args.bundle, args.tag, args.run_url, args.latest, args.latest_reason, args.publish
+            )
+            print(text, end="")
+        elif args.command == "pinned":
+            pinned(args.repo, args.run_id, args.artifact_id, args.digest)
+        elif args.command == "github":
+            releases = gh_api(f"repos/{args.repo}/releases?per_page=100", paginate=True)
+            print(github_action(releases, args.tag))
         elif args.command == "notes":
             print(release_notes(args.sha), end="")
         elif args.command == "files":
