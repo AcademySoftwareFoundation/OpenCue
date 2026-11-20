@@ -20,6 +20,8 @@
 #
 # Run with:
 #   ./run_integration_test.sh
+#
+# Set CUEBOT_IMAGE and RQD_IMAGE to test images built beforehand instead of building them.
 
 set -e
 
@@ -77,6 +79,19 @@ build_service() {
         tail -n 300 "${build_log}"
         exit 1
     fi
+}
+
+# prepare_service <service> [image]: points compose at the prebuilt image, or builds one.
+prepare_service() {
+    local service="$1"
+    local image="$2"
+    if [[ -z "${image}" ]]; then
+        build_service "${service}"
+        return
+    fi
+    log INFO "Using prebuilt image ${image} for ${service}"
+    docker image inspect "${image}" >/dev/null
+    printf '  %s:\n    image: %s\n' "${service}" "${image}" >>"${COMPOSE_OVERRIDE}"
 }
 
 create_rqd_root() {
@@ -255,8 +270,11 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    build_service cuebot
-    build_service rqd
+    COMPOSE_OVERRIDE="${TEST_LOGS}/docker-compose.images.yml"
+    echo "services:" >"${COMPOSE_OVERRIDE}"
+    export COMPOSE_FILE="docker-compose.yml:${COMPOSE_OVERRIDE}"
+    prepare_service cuebot "${CUEBOT_IMAGE:-}"
+    prepare_service rqd "${RQD_IMAGE:-}"
     build_service flyway
 
     # Pre-create bind-mount directories so Docker doesn't create them as root

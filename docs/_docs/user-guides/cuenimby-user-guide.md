@@ -44,7 +44,7 @@ CueNIMBY is a Qt-based cross-platform system tray application that gives you con
 
 ### Requirements
 
-* Python 3.7 or later
+* Python 3.9 or later
 * Qt for Python (PyQt6 or PySide6) - automatically installed with CueNIMBY
 * OpenCue client libraries (pycue)
 * Access to a Cuebot server (CueNIMBY will start even if CueBot is unreachable)

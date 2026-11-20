@@ -22,7 +22,7 @@ PyOutline is a Python library that provides a high-level interface for construct
 
 Ensure you have:
 - OpenCue sandbox environment running (or a Cuebot deployment)
-- Python 3.7 or later installed
+- Python 3.9 or later installed
 - PyCue and PyOutline installed
 
 If not installed:

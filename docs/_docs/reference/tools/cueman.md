@@ -32,7 +32,7 @@ Cueman extends the functionality of `cueadmin` and the OpenCue Python API, enabl
 ### Prerequisites
 
 - OpenCue server running and accessible
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue Python packages installed
 
 ### Install from PyPI

@@ -1,0 +1,25 @@
+name: API docs
+
+# Builds the Sphinx API reference, with warnings as errors.
+
+on:
+  workflow_call:
+
+jobs:
+  sphinx:
+    name: Sphinx build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: aswf/ci-opencue:2024
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - name: Run Sphinx build
+        run: ci/build_sphinx_docs.sh

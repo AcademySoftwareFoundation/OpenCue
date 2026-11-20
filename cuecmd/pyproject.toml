@@ -11,7 +11,7 @@ dependencies = [
     "opencue_pycue",
     "opencue_pyoutline"
 ]
-requires-python = ">3.7"
+requires-python = ">=3.9"
 description = "Cuecmd is a command-line tool for OpenCue that executes a list of commands as frames on the render farm. It enables batch processing by chunking commands and submitting them as OpenCue jobs."
 readme = "README.md"
 license = {text = "Apache-2.0"}

@@ -1,0 +1,54 @@
+name: Checks
+
+# Repository checks that cover the whole tree: changed files, migrations, the version bump,
+# the CI scripts' own tests and, optionally, the dependency licenses. The changed-file and
+# version-bump checks look at the last commit (for a pull request, its merge commit).
+
+on:
+  workflow_call:
+    inputs:
+      licenses:
+        description: Also check the licenses of the Python dependencies.
+        type: boolean
+        default: false
+
+jobs:
+  checks:
+    name: Version, migration and changed-file checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Check changed files
+        run: |
+          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD | grep '^M' | awk '{print $2}')
+          ci/check_changed_files.py "${changed_files[@]}"
+
+      - name: Check database migration files
+        run: ci/check_database_migrations.py
+
+      - name: Check for version bump
+        run: |
+          readarray -t changed_files < <(git diff --name-status HEAD^1 HEAD | awk '{print $2}')
+          ci/check_version_bump.py "${changed_files[@]}"
+
+      - name: Test CI scripts and path filters
+        run: python3 -m unittest discover -s ci/tests -v
+
+  licenses:
+    name: Check Licenses of OpenCue Dependencies
+    if: inputs.licenses
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container: python:3.9
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Run license check
+        run: ci/check_licenses.sh
