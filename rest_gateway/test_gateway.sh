@@ -2,6 +2,8 @@
 
 # Script to build and test ALL REST Gateway endpoints
 
+set -e
+
 echo "===== Building and Testing REST Gateway - All Endpoints ====="
 echo ""
 
