@@ -6,10 +6,16 @@ on:
   pull_request:
     branches: [master]
 
+# Superseded pushes to a pull request cancel the older run; master runs every commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.9
     steps:
       - uses: actions/checkout@v7
@@ -24,6 +30,7 @@ jobs:
   build_opencue_packages:
     name: Build Python Packages
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: python:3.7
     outputs:
       opencue_proto_path: ${{ steps.package_outputs.outputs.opencue_proto_path }}
@@ -33,6 +40,7 @@ jobs:
       opencue_cueman_path: ${{ steps.package_outputs.outputs.opencue_cueman_path }}
       opencue_cuecmd_path: ${{ steps.package_outputs.outputs.opencue_cuecmd_path }}
       opencue_cuesubmit_path: ${{ steps.package_outputs.outputs.opencue_cuesubmit_path }}
+      opencue_cuegui_path: ${{ steps.package_outputs.outputs.opencue_cuegui_path }}
       opencue_rqd_path: ${{ steps.package_outputs.outputs.opencue_rqd_path }}
       opencue_cuenimby_path: ${{ steps.package_outputs.outputs.opencue_cuenimby_path }}
     steps:
@@ -71,6 +79,7 @@ jobs:
     needs: build_opencue_packages
     name: Test installing packages with python ${{ matrix.python-version }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -83,6 +92,7 @@ jobs:
           name: opencue_packages
           path: packages
 
+      # cuegui requires Python > 3.7, so its wheel is skipped on 3.7.
       - name: Install package
         run: |
           set -e
@@ -94,7 +104,7 @@ jobs:
               ${{ needs.build_opencue_packages.outputs.opencue_cueman_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuecmd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }} \
-              ${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }} \
+              ${{ matrix.python-version != '3.7' && needs.build_opencue_packages.outputs.opencue_cuegui_path || '' }} \
               ${{ needs.build_opencue_packages.outputs.opencue_rqd_path }} \
               ${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}
           python -c "import opencue_proto"
@@ -105,6 +115,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2023)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: aswf/ci-opencue:2023
     steps:
       - uses: actions/checkout@v7
@@ -137,6 +148,7 @@ jobs:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2023)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -150,6 +162,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Python Unit Tests (CY2024)
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container: aswf/ci-opencue:2024
     steps:
       - name: Checkout
@@ -184,6 +197,7 @@ jobs:
     needs: build_opencue_packages
     name: Build Cuebot and Run Unit Tests (CY2024)
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container:
       image: aswf/ci-opencue:2024
     steps:
@@ -197,6 +211,7 @@ jobs:
     needs: build_opencue_packages
     name: Run Integration Test
     runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -237,6 +252,7 @@ jobs:
     needs: build_opencue_packages
     name: Lint Python Code
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     container: aswf/ci-opencue:2024.1
     steps:
       - name: Checkout
@@ -254,18 +270,6 @@ jobs:
           name: opencue_packages
           path: packages
 
-      - name: Set package vars from parent action
-        run: |
-          export OPENCUE_PROTO_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_proto_path }}"
-          export OPENCUE_PYCUE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pycue_path }}"
-          export OPENCUE_PYOUTLINE_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_pyoutline_path }}"
-          export OPENCUE_CUEADMIN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueadmin_path }}"
-          export OPENCUE_CUEMAN_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cueman_path }}"
-          export OPENCUE_CUESUBMIT_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuesubmit_path }}"
-          export OPENCUE_CUEGUI_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuegui_path }}"
-          export OPENCUE_RQD_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_rqd_path }}"
-          export OPENCUE_CUENIMBY_PACKAGE_PATH="${{ needs.build_opencue_packages.outputs.opencue_cuenimby_path }}"
-
       - name: Lint Python Code
         run: ci/run_python_lint.sh
 
@@ -273,6 +277,7 @@ jobs:
     needs: build_opencue_packages
     name: Test Documentation Build
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     container:
       image: aswf/ci-opencue:2023
     steps:
@@ -290,6 +295,7 @@ jobs:
   check_changed_files:
     name: Check Changed Files
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -306,6 +312,7 @@ jobs:
   check_migration_files:
     name: Check Database Migration Files
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - name: Check Migration Files
@@ -314,6 +321,7 @@ jobs:
   check_for_version_bump:
     name: Check for Version Bump
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -330,6 +338,7 @@ jobs:
   test_rest_gateway:
     name: Test REST Gateway
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -346,9 +355,11 @@ jobs:
           go-version: '1.21'
 
       - name: Install Protocol Buffers Compiler
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y protobuf-compiler
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Go tools
         run: |
@@ -409,6 +420,7 @@ jobs:
   build_cueweb:
     name: Build CueWeb Docker Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -433,6 +445,7 @@ jobs:
   build_rest_gateway:
     name: Build REST Gateway Docker Image
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7

@@ -1,0 +1,11 @@
+[profile.default]
+# Report a test as slow every 30s and kill it after 90s, so a hang fails fast and names the test.
+slow-timeout = { period = "30s", terminate-after = 3 }
+
+[test-groups]
+# The rqd integration tests start real openrqd and dummy-cuebot processes and must not overlap.
+rqd-integration = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = "binary(rqd_integration_tests)"
+test-group = "rqd-integration"
