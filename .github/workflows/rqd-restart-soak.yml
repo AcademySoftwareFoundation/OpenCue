@@ -24,10 +24,11 @@ jobs:
         run: |
           mold -run cargo build -p dummy-cuebot --release
           mold -run cargo build -p rqd --bin openrqd
-          mold -run cargo test -p rqd --test rqd_integration_tests --no-run
+          test_bin=$(mold -run cargo test -p rqd --test rqd_integration_tests --no-run --message-format=json \
+            | jq -r 'select(.executable != null) | .executable')
           mkdir -p ../soak-bin
           cp target/release/dummy-cuebot target/debug/openrqd ../soak-bin/
-          cp "$(ls -t target/debug/deps/rqd_integration_tests-* | grep -v '\.d$' | head -1)" ../soak-bin/rqd_integration_tests
+          cp "$test_bin" ../soak-bin/rqd_integration_tests
       - uses: actions/upload-artifact@v4
         with:
           name: soak-bin
