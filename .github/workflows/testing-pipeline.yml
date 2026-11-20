@@ -4,6 +4,11 @@ on:
   push:
     branches: [master]
 
+# Superseded pushes to a pull request cancel the older run; master runs every commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   check_opencue_licenses:
     name: Check Licenses of OpenCue Dependencies
