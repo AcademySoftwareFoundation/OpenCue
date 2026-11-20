@@ -361,4 +361,114 @@ public class JobManagerSupportRetryFrameTests {
         inOrder.verify(rqdClient, times(1)).killFrame(eq(proc), anyString());
         verify(rqdClient, never()).isFrameRunning(anyString(), anyString());
     }
+
+    @Test
+    public void setsJobPendingWithoutReadingTheJob() {
+        when(rqdClient.isFrameRunning(proc.hostName, FRAME_ID)).thenReturn(false);
+
+        jobManagerSupport.retryFrame(frame, source);
+
+        // The frame carries its job's id, which is all the state update needs.
+        verify(jobManager, times(1)).updateJobState(frame, JobState.PENDING);
+        verify(jobManager, never()).getJob(anyString());
+    }
+
+    /**
+     * A frame that is not running, as found by a retry of dead or eaten frames: it has no proc, and
+     * stopping it as a RUNNING frame fails, so it is forced to WAITING from a fresh read.
+     */
+    private FrameDetail stoppedFrame(String id, String layerId) {
+        FrameDetail stopped = new FrameDetail();
+        stopped.id = id;
+        stopped.jobId = JOB_ID;
+        stopped.layerId = layerId;
+        stopped.name = id + "-render";
+        stopped.state = FrameState.EATEN;
+        stopped.version = 1;
+        when(hostManager.findVirtualProc(stopped)).thenThrow(new EmptyResultDataAccessException(1));
+        when(jobManager.getFrameDetail(id)).thenReturn(stopped);
+        return stopped;
+    }
+
+    @Test
+    public void bulkRetryHandlesLayerDependsAndJobStateOncePerLayerAndJob() {
+        when(dispatchSupport.stopFrame(any(FrameInterface.class), eq(FrameState.WAITING), anyInt()))
+                .thenReturn(false);
+        String layerA = "00000000-0000-0000-0000-0000000000b1";
+        String layerB = "00000000-0000-0000-0000-0000000000b2";
+        FrameDetail frame1 = stoppedFrame("00000000-0000-0000-0000-0000000000f1", layerA);
+        FrameDetail frame2 = stoppedFrame("00000000-0000-0000-0000-0000000000f2", layerA);
+        FrameDetail frame3 = stoppedFrame("00000000-0000-0000-0000-0000000000f3", layerB);
+        FrameSearchInterface search = mock(FrameSearchInterface.class);
+        when(jobManager.findFrames(search))
+                .thenReturn(Arrays.<FrameInterface>asList(frame1, frame2, frame3));
+
+        jobManagerSupport.retryFrames(search, source);
+
+        // Every frame is released and its FrameOnFrame depends re-activated...
+        verify(jobManager, times(3)).updateFrameState(any(FrameInterface.class),
+                eq(FrameState.WAITING));
+        verify(dependManager, times(3)).getWhatDependsOn(any(FrameInterface.class), eq(false));
+        // ...but the LayerOnLayer depends are looked up once per layer...
+        verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame1, false);
+        verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame3, false);
+        verify(dependManager, times(2)).getWhatDependsOn(any(LayerInterface.class), eq(false));
+        // ...and the job is set back to PENDING once, without being read first.
+        verify(jobManager, times(1)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
+        verify(jobManager, never()).getJob(anyString());
+    }
+
+    @Test
+    public void bulkRetryHandlesLayerAndJobOnTheFirstReleasedFrame() {
+        // The first frame's render outlives the budget, so it is deferred: its layer and job are
+        // handled for the next frame, which is released.
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(0L);
+        FrameDetail released = stoppedFrame("00000000-0000-0000-0000-0000000000f2", frame.layerId);
+        when(dispatchSupport.stopFrame(eq(released), eq(FrameState.WAITING), anyInt()))
+                .thenReturn(false);
+        FrameSearchInterface search = mock(FrameSearchInterface.class);
+        when(jobManager.findFrames(search))
+                .thenReturn(Arrays.<FrameInterface>asList(frame, released));
+
+        jobManagerSupport.retryFrames(search, source);
+
+        verify(dependManager, never()).getWhatDependsOn(frame, false);
+        verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) released, false);
+        verify(jobManager, times(1)).updateJobState(released, JobState.PENDING);
+    }
+
+    @Test
+    public void bulkRetryDoesNotSetJobPendingWhenEveryFrameIsDeferred() {
+        when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
+                .thenReturn(0L);
+        FrameSearchInterface search = mock(FrameSearchInterface.class);
+        when(jobManager.findFrames(search)).thenReturn(Arrays.<FrameInterface>asList(frame));
+
+        jobManagerSupport.retryFrames(search, source);
+
+        verify(dependManager, never()).getWhatDependsOn(any(LayerInterface.class), anyBoolean());
+        verify(jobManager, never()).updateJobState(any(JobInterface.class), any(JobState.class));
+    }
+
+    @Test
+    public void bulkRetryRepeatsLayerDependsThatFailedForTheNextFrame() {
+        // A failed layer step is not recorded as done, so the layer's next frame repeats it, as
+        // it did when every frame ran the step.
+        when(dispatchSupport.stopFrame(any(FrameInterface.class), eq(FrameState.WAITING), anyInt()))
+                .thenReturn(false);
+        FrameDetail frame1 = stoppedFrame("00000000-0000-0000-0000-0000000000f1", frame.layerId);
+        FrameDetail frame2 = stoppedFrame("00000000-0000-0000-0000-0000000000f2", frame.layerId);
+        when(dependManager.getWhatDependsOn(any(LayerInterface.class), anyBoolean()))
+                .thenThrow(new RuntimeException("depend lookup failed"))
+                .thenReturn(Collections.emptyList());
+        FrameSearchInterface search = mock(FrameSearchInterface.class);
+        when(jobManager.findFrames(search))
+                .thenReturn(Arrays.<FrameInterface>asList(frame1, frame2));
+
+        jobManagerSupport.retryFrames(search, source);
+
+        verify(dependManager, times(2)).getWhatDependsOn(any(LayerInterface.class), eq(false));
+        verify(jobManager, times(1)).updateJobState(frame2, JobState.PENDING);
+    }
 }
