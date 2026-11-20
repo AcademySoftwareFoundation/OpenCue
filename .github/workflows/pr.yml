@@ -37,14 +37,24 @@ jobs:
       gateway: ${{ steps.plan.outputs.gateway }}
       integration: ${{ steps.plan.outputs.integration }}
     steps:
+      # DO NOT MERGE (targeting demo): plan from the PR head's last commit only, so the CI
+      # changes underneath it don't force a full run.
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 2
+
+      - name: DEMO - diff only the last commit
+        id: demo
+        run: echo "base=$(git rev-parse HEAD~1)" >> "$GITHUB_OUTPUT"
 
       - name: Match changed paths
         id: filter
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
+          token: ""
+          base: ${{ steps.demo.outputs.base }}
           filters: .github/path-filters.yml
           list-files: json
           predicate-quantifier: some-with-excludes
