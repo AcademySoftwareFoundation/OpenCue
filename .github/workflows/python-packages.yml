@@ -1,0 +1,65 @@
+name: Python packages
+
+# Builds the sdists and wheels and checks the wheels install together.
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        description: JSON list of Python versions to install the wheels on.
+        type: string
+        default: '["3.9", "3.10", "3.11"]'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    # The oldest Python installed below: grpcio-tools generates proto code that needs a
+    # protobuf runtime at least as new as itself.
+    container: python:3.9
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Mark repository as safe
+        run: git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+
+      - uses: ./.github/actions/build-python-packages
+
+  install:
+    name: Install on Python ${{ matrix.python-version }}
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ${{ fromJSON(inputs.python-versions) }}
+    container: python:${{ matrix.python-version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: opencue_packages
+          path: packages
+
+      - name: Install packages
+        run: pip install packages/*.whl
+
+      # Compiling every installed module catches syntax newer than this Python; importing
+      # each package catches a missing dependency. cuegui imports Qt, which needs libGL.
+      - name: Import packages
+        shell: bash
+        run: |
+          modules="opencue_proto opencue FileSequence outline cueadmin cueman cuecmd cuesubmit cuegui cuenimby rqd"
+          site=$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
+          for module in ${modules}; do
+            python -m compileall -q "${site}/${module}"
+            if [[ "${module}" != cuegui ]]; then
+              python -c "import ${module}"
+            fi
+          done
+          python -c "import opencue_proto.report_pb2_grpc"

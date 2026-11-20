@@ -42,7 +42,7 @@ The `cuecmd` provides a simple way to parallelize any batch of shell commands us
 
 ### Prerequisites
 - OpenCue server running and accessible
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue Python packages installed
 
 ### Install Methods

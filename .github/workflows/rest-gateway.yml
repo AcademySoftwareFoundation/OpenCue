@@ -1,0 +1,97 @@
+name: REST gateway
+
+# Runs the REST gateway's Go tests and builds its image.
+
+on:
+  workflow_call:
+    inputs:
+      build-id:
+        description: >-
+          Tag the image opencuebuild/rest-gateway:<build-id> and upload it as the image-rest-gateway
+          artifact.
+        type: string
+        default: ""
+    outputs:
+      image-id:
+        description: Image ID of the built image.
+        value: ${{ jobs.image.outputs.image-id }}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: rest_gateway/opencue_gateway
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: rest_gateway/opencue_gateway/go.mod
+          cache-dependency-path: rest_gateway/opencue_gateway/go.sum
+
+      - name: Install Protocol Buffers Compiler
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ github.token }}
+
+      # The tools go.mod lists, at the versions it pins.
+      - name: Install protoc plugins
+        run: go install tool
+
+      - name: Generate protobuf code
+        run: ./generate_proto.sh
+
+      - name: Run unit tests with coverage
+        run: |
+          go test -v -coverprofile=coverage.out -covermode=atomic .
+          go tool cover -func=coverage.out
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: rest-gateway-coverage
+          path: rest_gateway/opencue_gateway/coverage.out
+
+  image:
+    name: Build image
+    runs-on: ubuntu-24.04
+    outputs:
+      image-id: ${{ steps.build.outputs.imageid }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      - name: Build REST gateway image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: .
+          file: rest_gateway/Dockerfile
+          tags: opencuebuild/rest-gateway:${{ inputs.build-id || 'ci' }}
+          outputs: ${{ inputs.build-id != '' && format('type=docker,dest={0}/rest-gateway.tar', runner.temp) || '' }}
+          cache-from: type=gha,scope=rest-gateway
+          # Only master writes the cache, which every pull request can read.
+          cache-to: ${{ github.ref == 'refs/heads/master' && 'type=gha,scope=rest-gateway,mode=max' || '' }}
+
+      - name: Upload image
+        if: inputs.build-id != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-rest-gateway
+          path: ${{ runner.temp }}/rest-gateway.tar
+          compression-level: 1
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true

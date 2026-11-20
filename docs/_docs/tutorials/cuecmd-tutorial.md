@@ -18,7 +18,7 @@ This tutorial walks you through using cuecmd to execute batch shell commands on 
 ## Prerequisites
 
 - OpenCue sandbox environment running
-- Python 3.7 or later installed
+- Python 3.9 or later installed
 - OpenCue client tools installed
 - Basic knowledge of shell commands
 

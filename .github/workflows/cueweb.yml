@@ -1,0 +1,88 @@
+name: CueWeb
+
+# Lints and tests CueWeb, then builds its image.
+
+on:
+  workflow_call:
+    inputs:
+      build-id:
+        description: >-
+          Tag the image opencuebuild/cueweb:<build-id> and upload it as the image-cueweb artifact.
+        type: string
+        default: ""
+    outputs:
+      image-id:
+        description: Image ID of the built image.
+        value: ${{ jobs.image.outputs.image-id }}
+
+jobs:
+  test:
+    name: Lint and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: cueweb
+    env:
+      SENTRYCLI_SKIP_DOWNLOAD: 1
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: cueweb/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --ci
+
+  image:
+    name: Build image
+    runs-on: ubuntu-24.04
+    outputs:
+      image-id: ${{ steps.build.outputs.imageid }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+
+      # The About dialog shows the short SHA.
+      - name: Get short SHA
+        id: sha
+        run: echo "short=${GITHUB_SHA::7}" >> "${GITHUB_OUTPUT}"
+
+      - name: Build CueWeb image
+        id: build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: cueweb
+          build-contexts: project_root=.
+          build-args: NEXT_PUBLIC_GIT_SHA=${{ steps.sha.outputs.short }}
+          tags: opencuebuild/cueweb:${{ inputs.build-id || 'ci' }}
+          outputs: ${{ inputs.build-id != '' && format('type=docker,dest={0}/cueweb.tar', runner.temp) || '' }}
+          cache-from: type=gha,scope=cueweb
+          # Only master writes the cache, which every pull request can read.
+          cache-to: ${{ github.ref == 'refs/heads/master' && 'type=gha,scope=cueweb,mode=max' || '' }}
+
+      - name: Upload image
+        if: inputs.build-id != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: image-cueweb
+          path: ${{ runner.temp }}/cueweb.tar
+          compression-level: 1
+          retention-days: 7
+          if-no-files-found: error
+          overwrite: true

@@ -1,0 +1,160 @@
+name: OpenCue PR
+
+# Tests the components a pull request touches. `changes` maps the diff to jobs through
+# .github/path-filters.yml and ci/plan_pr_jobs.py; `pr-gate` is the only check branch
+# protection needs, and it passes when the jobs that ran passed and the rest were skipped.
+#
+# Changes under .github/ or ci/, an unmapped path, or the ci:full label run every job.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      python: ${{ steps.plan.outputs.python }}
+      python_qt: ${{ steps.plan.outputs.python_qt }}
+      wheels: ${{ steps.plan.outputs.wheels }}
+      licenses: ${{ steps.plan.outputs.licenses }}
+      api_docs: ${{ steps.plan.outputs.api_docs }}
+      cuebot: ${{ steps.plan.outputs.cuebot }}
+      maestro: ${{ steps.plan.outputs.maestro }}
+      rust: ${{ steps.plan.outputs.rust }}
+      rust_windows: ${{ steps.plan.outputs.rust_windows }}
+      cueweb: ${{ steps.plan.outputs.cueweb }}
+      gateway: ${{ steps.plan.outputs.gateway }}
+      integration: ${{ steps.plan.outputs.integration }}
+      cuebot_packages: ${{ steps.plan.outputs.cuebot_packages }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Match changed paths
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: .github/path-filters.yml
+          list-files: json
+          predicate-quantifier: some-with-excludes
+
+      # The file lists go through stdin: in an environment variable they can pass Linux's
+      # 128 KiB limit on one. Every line of the JSON is indented or a brace, so none can end
+      # the heredoc.
+      - name: Plan jobs
+        id: plan
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
+        run: |
+          python3 ci/plan_pr_jobs.py <<'EOF'
+          ${{ toJSON(steps.filter.outputs) }}
+          EOF
+
+  checks:
+    name: Checks
+    needs: changes
+    uses: ./.github/workflows/checks.yml
+    with:
+      licenses: ${{ needs.changes.outputs.licenses == 'true' }}
+
+  python:
+    name: Python
+    needs: changes
+    if: needs.changes.outputs.python != '[]' || needs.changes.outputs.python_qt != '[]'
+    uses: ./.github/workflows/python.yml
+    with:
+      packages: ${{ needs.changes.outputs.python }}
+      qt-packages: ${{ needs.changes.outputs.python_qt }}
+
+  wheels:
+    name: Python packages
+    needs: changes
+    if: needs.changes.outputs.wheels == 'true'
+    uses: ./.github/workflows/python-packages.yml
+
+  api-docs:
+    name: API docs
+    needs: changes
+    if: needs.changes.outputs.api_docs == 'true'
+    uses: ./.github/workflows/api-docs.yml
+
+  cuebot:
+    name: Cuebot
+    needs: changes
+    if: needs.changes.outputs.cuebot == 'true'
+    uses: ./.github/workflows/cuebot.yml
+
+  maestro:
+    name: Maestro sim
+    needs: changes
+    if: needs.changes.outputs.maestro == 'true'
+    uses: ./.github/workflows/maestro-sim.yml
+
+  rust:
+    name: Rust
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    uses: ./.github/workflows/rust.yml
+    with:
+      windows: ${{ needs.changes.outputs.rust_windows == 'true' }}
+
+  cueweb:
+    name: CueWeb
+    needs: changes
+    if: needs.changes.outputs.cueweb == 'true'
+    uses: ./.github/workflows/cueweb.yml
+
+  rest-gateway:
+    name: REST gateway
+    needs: changes
+    if: needs.changes.outputs.gateway == 'true'
+    uses: ./.github/workflows/rest-gateway.yml
+
+  integration:
+    name: Integration
+    needs: changes
+    if: needs.changes.outputs.integration == 'true'
+    uses: ./.github/workflows/integration.yml
+    with:
+      cuebot-packages: ${{ needs.changes.outputs.cuebot_packages == 'true' }}
+
+  pr-gate:
+    name: pr-gate
+    if: always()
+    needs:
+      - changes
+      - checks
+      - python
+      - wheels
+      - api-docs
+      - cuebot
+      - maestro
+      - rust
+      - cueweb
+      - rest-gateway
+      - integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check job results
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
+          if jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' <<< "${NEEDS}" > /dev/null; then
+            echo "A job failed or was cancelled."
+            exit 1
+          fi

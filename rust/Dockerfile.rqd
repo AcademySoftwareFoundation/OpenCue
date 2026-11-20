@@ -1,7 +1,9 @@
 # Multi-stage Dockerfile for OpenCue Rust RQD
 
-# Build stage
-FROM rust:1.88-bookworm AS builder
+# Build stage, with cargo-chef to build the dependencies in their own layer
+FROM rust:1.88-bookworm AS chef
+
+RUN cargo install cargo-chef --locked --version 0.1.72
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -13,12 +15,22 @@ RUN apt-get update && apt-get install -y \
 # Create app directory
 WORKDIR /build
 
-# Copy workspace files
-COPY rust/Cargo.toml ./
-COPY rust/Cargo.lock* ./
-
-# Copy all crate directories
+# Reduce the workspace to its manifests
+FROM chef AS planner
+COPY rust/Cargo.toml rust/Cargo.lock ./
 COPY rust/crates ./crates
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef AS builder
+
+# Build the dependencies, which change only with the manifests
+COPY --from=planner /build/recipe.json ./
+RUN cargo chef cook --release -p rqd --recipe-path recipe.json
+
+# Copy the workspace manifests and only the crates RQD is built from
+COPY rust/Cargo.toml rust/Cargo.lock ./
+COPY rust/crates/rqd ./crates/rqd
+COPY rust/crates/opencue-proto ./crates/opencue-proto
 
 # Remove symlink and copy proto files from repo root
 RUN rm ./crates/opencue-proto/src/protos

@@ -42,7 +42,7 @@ This tutorial guides you through setting up and using CueNIMBY, a Qt-based syste
 
 ### 1.1 Verify prerequisites
 
-First, ensure you have Python 3.7 or later:
+First, ensure you have Python 3.9 or later:
 
 ```bash
 python --version

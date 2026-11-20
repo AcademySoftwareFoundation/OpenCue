@@ -25,7 +25,7 @@ This tutorial will guide you through your first experience with OpenCue, from un
 
 - OpenCue sandbox environment running (see [Quick starts](/docs/quick-starts/))
 - Basic understanding of command-line operations
-- Python 3.6+ installed
+- Python 3.9+ installed
 
 ## Step 1: Understanding OpenCue Components
 
