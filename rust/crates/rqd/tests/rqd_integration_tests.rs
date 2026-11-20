@@ -199,9 +199,10 @@ fn monitor_server_output(
     let mut line_count = 0;
 
     while completion_count < expected_completions {
+        // recv_timeout still returns queued lines once the deadline has passed.
         let line = match output.recv_timeout(deadline.saturating_duration_since(Instant::now())) {
-            Ok(line) => line,
-            Err(RecvTimeoutError::Timeout) => {
+            Ok(line) if Instant::now() < deadline => line,
+            Ok(_) | Err(RecvTimeoutError::Timeout) => {
                 println!(
                     "Timeout reached waiting for frame completions ({}s)",
                     timeout_secs
@@ -651,10 +652,9 @@ async fn test_memory_fork_script() {
     let _ = dummy_server.wait();
 }
 
-/// A server that stops writing must not stall the monitor past its deadline.
-#[test]
-fn test_monitor_times_out_on_silent_server() {
-    let mut silent = if cfg!(windows) {
+/// A child that stays alive without writing anything.
+fn silent_child() -> Child {
+    if cfg!(windows) {
         Command::new("powershell")
             .args(["-NoProfile", "-Command", "Start-Sleep -Seconds 60"])
             .stdout(Stdio::piped())
@@ -667,7 +667,13 @@ fn test_monitor_times_out_on_silent_server() {
             .stderr(Stdio::piped())
             .spawn()
     }
-    .expect("Failed to start silent child");
+    .expect("Failed to start silent child")
+}
+
+/// A server that stops writing must not stall the monitor past its deadline.
+#[test]
+fn test_monitor_times_out_on_silent_server() {
+    let mut silent = silent_child();
     let output = stream_output(&mut silent);
 
     let start = Instant::now();
@@ -678,6 +684,21 @@ fn test_monitor_times_out_on_silent_server() {
         start.elapsed() < Duration::from_secs(10),
         "monitor overran its 2s deadline: {:?}",
         start.elapsed()
+    );
+}
+
+/// Output still queued when the deadline passes must not keep the monitor reading.
+#[test]
+fn test_monitor_stops_at_deadline_with_output_queued() {
+    let (tx, output) = mpsc::channel();
+    tx.send("report_running_frame_completion exit_status: 0,".to_string())
+        .unwrap();
+
+    let (success, _) = monitor_server_output(silent_child(), output, 1, 0);
+
+    assert!(
+        !success,
+        "a completion read after the deadline should not count"
     );
 }
 
