@@ -104,13 +104,10 @@ brew install protobuf
 sudo dnf install protobuf protobuf-devel protobuf-compiler
 ```
 
-- **Install Go protobuf plugins** (from `rest_gateway/opencue_gateway`, at the versions `go.mod` pins):
+- **Install the Go protobuf plugins** that `go.mod` lists as tools, at the versions it pins (from `rest_gateway/opencue_gateway`):
 
 ```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+go install tool
 ```
 
 - **Generate the protobuf code** into `gen/`:
@@ -258,11 +255,7 @@ echo "Code generation complete"
 
 The Swagger UI is driven by OpenAPI 2.0 documents generated from the same `.proto` files, using `protoc-gen-openapiv2`. Because the documentation and the HTTP handlers come from one source, the documented paths and message schemas cannot drift from the code. Note that this says nothing about routing: `generate_unbound_methods=true` emits an entry for every proto method, including those `registerGRPCHandlers` does not register.
 
-Install the plugin alongside the others:
-
-```bash
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
-```
+It is one of the tools in `go.mod`, installed with the others by `go install tool`.
 
 Generate the documents:
 

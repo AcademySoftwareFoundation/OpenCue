@@ -41,14 +41,9 @@ jobs:
           version: "21.12"
           repo-token: ${{ github.token }}
 
-      # The versions go.mod pins, as in rest_gateway/Dockerfile.
+      # The tools go.mod lists, at the versions it pins.
       - name: Install protoc plugins
-        run: |
-          go install \
-            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-            github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-            google.golang.org/protobuf/cmd/protoc-gen-go \
-            google.golang.org/grpc/cmd/protoc-gen-go-grpc
+        run: go install tool
 
       - name: Generate protobuf code
         run: ./generate_proto.sh

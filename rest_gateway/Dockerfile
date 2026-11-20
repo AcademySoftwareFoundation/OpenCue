@@ -8,13 +8,9 @@ RUN apt-get update && \
 WORKDIR /app/opencue_gateway
 ENV PATH=$PATH:/root/go/bin
 
-# Dependencies and protoc plugins, at the versions go.mod pins
+# Dependencies and the protoc plugins (go.mod's tool block)
 COPY ./rest_gateway/opencue_gateway/go.mod ./rest_gateway/opencue_gateway/go.sum ./
-RUN go mod download && go install \
-    github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-    github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-    google.golang.org/protobuf/cmd/protoc-gen-go \
-    google.golang.org/grpc/cmd/protoc-gen-go-grpc
+RUN go mod download && go install tool
 
 # Generate the gRPC, grpc-gateway and OpenAPI code from the protos
 COPY ./proto /app/proto

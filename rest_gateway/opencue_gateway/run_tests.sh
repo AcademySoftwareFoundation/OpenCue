@@ -43,7 +43,7 @@ case $option in
         
         # Check Go
         if ! command -v go &> /dev/null; then
-            echo "Error: Go not found. Install Go 1.21+"
+            echo "Error: Go not found. Install Go 1.27+ (see go.mod)"
             exit 1
         fi
         echo "[OK] Go found: $(go version)"
@@ -56,24 +56,14 @@ case $option in
         echo "[OK] protoc found: $(protoc --version)"
         
         echo ""
+        echo "Installing the protoc plugins go.mod pins..."
+        go install tool
+        PATH="$PATH:$(go env GOPATH)/bin"
+        export PATH
+
+        echo ""
         echo "Generating protobuf code..."
-        
-        # Create gen directory
-        mkdir -p gen/go
-        
-        # Generate code
-        protoc -I ../../proto/src/ \
-            --go_out ./gen/go/ \
-            --go_opt paths=source_relative \
-            --go-grpc_out ./gen/go/ \
-            --go-grpc_opt paths=source_relative \
-            ../../proto/src/*.proto
-        
-        protoc -I ../../proto/src/ \
-            --grpc-gateway_out ./gen/go \
-            --grpc-gateway_opt paths=source_relative \
-            --grpc-gateway_opt generate_unbound_methods=true \
-            ../../proto/src/*.proto
+        ./generate_proto.sh
         
         echo ""
         echo "Running tests..."

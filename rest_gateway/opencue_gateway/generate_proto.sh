@@ -4,8 +4,7 @@
 #
 # Usage: generate_proto.sh [proto source dir]   (default: ../../proto/src)
 #
-# Needs protoc and, on the PATH, the plugins listed in tools/gateway.go, installed from this
-# module so go.mod pins their versions (`go install <plugin package>...`).
+# Needs protoc and, on the PATH, the plugins go.mod lists as tools (`go install tool`).
 
 set -euo pipefail
 
