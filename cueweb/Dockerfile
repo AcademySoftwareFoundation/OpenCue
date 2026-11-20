@@ -33,7 +33,8 @@ RUN npm ci \
       --fetch-retry-factor=2 \
       --fetch-retry-mintimeout=20000 \
       --fetch-retry-maxtimeout=120000 \
-      --fetch-timeout=600000
+      --fetch-timeout=600000 \
+    && npm cache clean --force
 
 COPY *.json /opt/cueweb/
 COPY OVERRIDE_CUEWEB_VERSION.in /opt/cueweb/
@@ -156,5 +157,6 @@ ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION}
 ARG NEXT_PUBLIC_GIT_SHA=
 ENV NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA}
 
-RUN npm run build
+# The build cache is not used at runtime.
+RUN npm run build && rm -rf .next/cache/turbopack
 CMD ["npm", "run", "start"]
