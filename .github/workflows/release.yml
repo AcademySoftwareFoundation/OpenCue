@@ -1,0 +1,243 @@
+name: OpenCue Release
+
+# Promotes what master already proved. A tag v<build id> on a master commit publishes the
+# release-bundle of that commit's green OpenCue Master run and the images that run staged.
+# Nothing is compiled:
+#
+#   preflight       find the green master run of the tagged commit, download and check its
+#                   bundle, write the release notes and what would be published (read-only)
+#   github-release  create or update the draft GitHub release with the bundle's assets
+#   publish         retag the staged images on Docker Hub, then upload to PyPI (waits for
+#                   approval of the `release` environment)
+#
+# Only a tag push, or a dispatch from master with dry-run off, in
+# AcademySoftwareFoundation/OpenCue publishes. Every other run is a dry run that ends after
+# preflight. Re-running a release for the same tag updates the draft, retags the same images
+# and skips files already on PyPI.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: The release tag, e.g. v1.39.12.
+        required: true
+        type: string
+      sha:
+        description: Dry run only. The full commit SHA to rehearse, when the tag doesn't exist yet.
+        type: string
+        default: ""
+      dry-run:
+        description: Show what the release would publish, without publishing.
+        type: boolean
+        default: true
+  # For testing from a pull request.
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag, e.g. v1.39.12.
+        required: true
+        type: string
+      sha:
+        description: Dry run only. The full commit SHA to rehearse, when the tag doesn't exist.
+        type: string
+        default: ""
+      run-id:
+        description: Dry run only. The run whose bundle to use, instead of the master run.
+        type: string
+        default: ""
+      dry-run:
+        description: Show what the release would publish, without publishing.
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Preflight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      tag: ${{ steps.find.outputs.tag }}
+      sha: ${{ steps.find.outputs.sha }}
+      run-id: ${{ steps.find.outputs.run-id }}
+      latest: ${{ steps.find.outputs.latest }}
+      publish: ${{ steps.find.outputs.publish }}
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      PUBLISH: >-
+        ${{ github.repository == 'AcademySoftwareFoundation/OpenCue' && !inputs.dry-run
+          && ((github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+            || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master')) }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Find the master run of the tagged commit
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ inputs.sha }}
+          RUN_ID: ${{ inputs.run-id }}
+        run: |
+          args=()
+          if [[ "${PUBLISH}" != true ]]; then args+=(--dry-run); fi
+          ci/release.py preflight --repo "${GITHUB_REPOSITORY}" --tag "${TAG}" \
+            --sha "${SHA}" --run-id "${RUN_ID}" "${args[@]}"
+          echo "tag=${TAG}" >> "${GITHUB_OUTPUT}"
+          echo "publish=${PUBLISH}" | tee -a "${GITHUB_OUTPUT}"
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle
+          path: bundle
+          run-id: ${{ steps.find.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Check the bundle
+        env:
+          SHA: ${{ steps.find.outputs.sha }}
+          RUN_ID: ${{ steps.find.outputs.run-id }}
+        run: |
+          ls -l bundle
+          ci/release.py verify --tag "${TAG}" --sha "${SHA}" --run-id "${RUN_ID}" bundle
+
+      - name: Write the release notes and plan
+        env:
+          SHA: ${{ steps.find.outputs.sha }}
+          RUN_URL: ${{ steps.find.outputs.run-url }}
+          LATEST: ${{ steps.find.outputs.latest }}
+        run: |
+          ci/release.py notes --sha "${SHA}" > notes.md
+          args=()
+          if [[ "${LATEST}" == true ]]; then args+=(--latest); fi
+          if [[ "${PUBLISH}" == true ]]; then args+=(--publish); fi
+          {
+            ci/release.py plan --tag "${TAG}" --run-url "${RUN_URL}" "${args[@]}" bundle
+            echo
+            echo "### Release notes"
+            echo
+            cat notes.md
+          } | tee -a "${GITHUB_STEP_SUMMARY}"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes
+          path: notes.md
+          if-no-files-found: error
+          overwrite: true
+
+  github-release:
+    name: Draft the GitHub release
+    needs: preflight
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: release-github-${{ needs.preflight.outputs.tag }}
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle
+          path: bundle
+          run-id: ${{ needs.preflight.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Check the bundle
+        env:
+          SHA: ${{ needs.preflight.outputs.sha }}
+          RUN_ID: ${{ needs.preflight.outputs.run-id }}
+        run: ci/release.py verify --tag "${TAG}" --sha "${SHA}" --run-id "${RUN_ID}" bundle
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-notes
+
+      # A published release is left as it is: publishing it is the release manager's call.
+      - name: Create or update the draft release
+        run: |
+          mapfile -t assets < <(ci/release.py files github --tag "${TAG}")
+          assets=("${assets[@]/#/bundle/}")
+          if ! draft="$(gh release view "${TAG}" --json isDraft --jq .isDraft)"; then
+            gh release create "${TAG}" --draft --verify-tag --title "${TAG}" \
+              --notes-file notes.md "${assets[@]}"
+          elif [[ "${draft}" == true ]]; then
+            gh release upload "${TAG}" --clobber "${assets[@]}"
+            gh release edit "${TAG}" --notes-file notes.md
+          else
+            echo "::notice::${TAG} is already published; it is left unchanged."
+          fi
+
+  publish:
+    name: Publish images and Python packages
+    needs: [preflight, github-release]
+    if: needs.preflight.outputs.publish == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: release
+    permissions:
+      contents: read
+      actions: read
+    concurrency:
+      group: release-publish-${{ needs.preflight.outputs.tag }}
+    env:
+      TAG: ${{ needs.preflight.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-bundle
+          path: bundle
+          run-id: ${{ needs.preflight.outputs.run-id }}
+          github-token: ${{ github.token }}
+
+      - name: Check the bundle
+        env:
+          SHA: ${{ needs.preflight.outputs.sha }}
+          RUN_ID: ${{ needs.preflight.outputs.run-id }}
+        run: ci/release.py verify --tag "${TAG}" --sha "${SHA}" --run-id "${RUN_ID}" bundle
+
+      - uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      # Images first: a tag can be moved again, a PyPI upload can't be replaced.
+      - name: Retag the staged images
+        env:
+          LATEST: ${{ needs.preflight.outputs.latest }}
+        run: |
+          args=()
+          if [[ "${LATEST}" == true ]]; then args+=(--latest); fi
+          ci/release.py images --tag "${TAG}" "${args[@]}" bundle/build_metadata.json
+
+      - name: Upload Python packages to PyPI
+        env:
+          TWINE_USERNAME: "__token__"
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: |
+          mapfile -t files < <(ci/release.py files pypi --tag "${TAG}")
+          pipx run --spec twine==7.0.0 twine upload --verbose --skip-existing "${files[@]/#/bundle/}"
