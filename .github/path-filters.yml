@@ -1,6 +1,7 @@
-# Changed paths to filters, for dorny/paths-filter in .github/workflows/pr.yml.
+# Changed paths to filters, for dorny/paths-filter in .github/workflows/pr.yml and master.yml.
 #
-# ci/plan_pr_jobs.py turns the matched filters into the PR jobs that run. A change matched by
+# ci/plan_pr_jobs.py turns the matched filters into the PR jobs that run. master.yml runs
+# everything, and uses `scheduler` and `ci` only to decide whether the Maestro scenarios run. A change matched by
 # `ci`, the ci:full label, or a changed file no filter below matches turns every job on, so an
 # unmapped path runs more, not less. ci/tests/test_plan_pr_jobs.py fails if a tracked file is
 # unmapped.

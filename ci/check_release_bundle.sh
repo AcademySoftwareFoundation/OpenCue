@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Checks that a release bundle holds every file a release publishes.
+# Checks that a release bundle holds every file a release publishes, with the Python packages
+# versioned as the build. Their version is the build ID in PEP 440 form, where a branch build
+# 1.2.3-abc123 becomes 1.2.3+abc123.
 #
 #   ci/check_release_bundle.sh <BUILD_ID> <BUNDLE_DIRECTORY>
 
@@ -12,6 +14,7 @@ if [[ "$#" -ne 2 ]]; then
 fi
 
 build_id="$1"
+python_version="${build_id/-/+}"
 cd "$2"
 
 expected=(
@@ -38,9 +41,10 @@ for file in "${expected[@]}"; do
 done
 
 for package in proto pycue pyoutline cueadmin cueman cuecmd cuesubmit cuegui rqd cuenimby; do
-  for pattern in "opencue_${package}-*.whl" "opencue_${package}-*.tar.gz"; do
-    if ! compgen -G "${pattern}" >/dev/null; then
-      echo "Missing: ${pattern}"
+  for file in "opencue_${package}-${python_version}-py3-none-any.whl" \
+      "opencue_${package}-${python_version}.tar.gz"; do
+    if [[ ! -s "${file}" ]]; then
+      echo "Missing: ${file}"
       missing=1
     fi
   done
