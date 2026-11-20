@@ -2,10 +2,9 @@
 
 """Decides which pull request jobs run, from the filters in .github/path-filters.yml.
 
-Run by the `changes` job in .github/workflows/pr.yml after dorny/paths-filter. It reads from
-the environment:
+Run by the `changes` job in .github/workflows/pr.yml after dorny/paths-filter. It reads the
+filter step's outputs as JSON (with list-files: json) from stdin, and from the environment:
 
-  FILTER_OUTPUTS  the filter step's outputs as JSON (with list-files: json)
   LABELS          the pull request's label names as a JSON array
   CHANGED_FILES   the pull request's changed file count, to detect a truncated file list
 
@@ -124,7 +123,7 @@ def escape_command(value):
 def main():
     labels = json.loads(os.environ.get("LABELS") or "[]")
     changed_count = int(os.environ.get("CHANGED_FILES") or 0)
-    filter_outputs = json.loads(os.environ["FILTER_OUTPUTS"])
+    filter_outputs = json.load(sys.stdin)
     jobs, unmapped, full = plan(filter_outputs, labels, changed_count)
 
     if truncated(set(json.loads(filter_outputs["all_files"])), changed_count):
