@@ -329,11 +329,22 @@ class FakeDocker:
         self.fail_create = fail_create
         self.created = []
 
+    def lookup(self, reference):
+        """A tag, or repository@digest of a tag that isn't listed itself."""
+        if reference in self.images:
+            return self.images[reference]
+        repository, _, digest = reference.partition("@")
+        for tag, image in self.images.items():
+            if tag.startswith(f"{repository}:") and image[0] == digest:
+                return image
+        return None
+
     def __call__(self, *args):
         if args[:3] == ("buildx", "imagetools", "inspect"):
-            if args[-1] not in self.images:
+            image = self.lookup(args[-1])
+            if image is None:
                 raise subprocess.CalledProcessError(1, args, stderr="not found")
-            digest, raw = self.images[args[-1]]
+            digest, raw = image
             return json.dumps(raw if "--raw" in args else {"digest": digest})
         if args[:3] == ("buildx", "imagetools", "create"):
             if any(name in args[-1] for name in self.fail_create):
@@ -402,6 +413,20 @@ class ImageTests(unittest.TestCase):
     def test_changed_image_publishes_nothing(self):
         self.staged["opencuebuild/cuebot:1.2.3"] = (
             "sha256:new",
+            {"config": {"digest": "sha256:c"}},
+        )
+        docker = FakeDocker(self.staged)
+        with quiet(), self.assertRaisesRegex(
+            release.ReleaseError, "not the image .* that the build tested"
+        ):
+            release.retag_images(self.metadata, BUILD_ID, True, docker)
+        self.assertEqual([], docker.created)
+
+    def test_tag_moved_between_reads_publishes_nothing(self):
+        # The tag resolves to sha256:mcuebot, whose manifest is not the tested image, and
+        # by the second read it holds the tested image.
+        self.staged["opencuebuild/cuebot@sha256:mcuebot"] = (
+            "sha256:mcuebot",
             {"config": {"digest": "sha256:c"}},
         )
         docker = FakeDocker(self.staged)
