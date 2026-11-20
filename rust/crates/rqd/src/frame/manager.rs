@@ -17,7 +17,11 @@ use opencue_proto::{
     host::HardwareState,
     rqd::{run_frame, RunFrame},
 };
-use std::{fs, sync::Arc, time::SystemTime};
+use std::{
+    fs,
+    sync::Arc,
+    time::{Duration, SystemTime},
+};
 use thiserror::Error;
 use tokio::{sync::OnceCell, time};
 use tracing::{error, info, warn};
@@ -27,7 +31,11 @@ use uuid::Uuid;
 use super::docker_running_frame;
 
 use super::running_frame::RunningFrame;
-use crate::{config::CONFIG, servant::rqd_servant::MachineImpl, system::machine};
+use crate::{
+    config::{RunnerConfig, CONFIG},
+    servant::rqd_servant::MachineImpl,
+    system::machine,
+};
 
 pub struct FrameManager {
     pub machine: Arc<MachineImpl>,
@@ -403,7 +411,9 @@ impl FrameManager {
                         "Killing frame {running_frame}({frame_pid}) by request.\n\
                         Reason: {reason}"
                     );
-                    self.machine.kill_session(frame_pid, false).await?;
+                    self.machine
+                        .kill_session(&running_frame.launch_id, frame_pid, false)
+                        .await?;
                     self.monitor_killed_frame(frame_pid, &running_frame);
 
                     Ok(Some(()))
@@ -442,7 +452,9 @@ impl FrameManager {
                         "Killing frame {running_frame}({frame_pid}) as a kill_all request.\n\
                         Reason: {reason}"
                     );
-                    self.machine.kill_session(frame_pid, false).await?;
+                    self.machine
+                        .kill_session(&running_frame.launch_id, frame_pid, false)
+                        .await?;
                     self.monitor_killed_frame(frame_pid, &running_frame);
                     count += 1;
                 } else {
@@ -459,19 +471,24 @@ impl FrameManager {
     /// Monitors a killed frame to ensure it fully terminates.
     ///
     /// After a frame is killed, this function spawns a background task that periodically checks
-    /// if the process and its children have fully terminated. It will log an error if processes
-    /// are still running after the monitoring time limit.
+    /// if the frame's processes have fully terminated. Processes still running after the
+    /// time limit (see [`KillEscalation`]) are force killed, or reported when force killing is
+    /// off.
     ///
     /// # Arguments
     ///
     /// * `frame_pid` - The process ID of the killed frame
     /// * `running_frame` - Reference to the RunningFrame object that was killed
     fn monitor_killed_frame(&self, frame_pid: u32, running_frame: &RunningFrame) {
-        let interval_seconds = CONFIG.runner.kill_monitor_interval.as_secs();
-        let mut monitor_limit_seconds = CONFIG.runner.kill_monitor_timeout.as_secs();
-        let force_kill = CONFIG.runner.force_kill_after_timeout;
+        // Tracked by launch, so a retry of the frame on this host is out of reach.
+        let launch_id = running_frame.launch_id;
+        let escalation =
+            KillEscalation::for_frame(self.machine.has_frame_cgroup(&launch_id), &CONFIG.runner);
+        let interval_seconds = escalation.interval.as_secs();
+        let mut monitor_limit_seconds = escalation.timeout.as_secs();
+        let force_kill = escalation.force;
         let mut tried_to_force_kill_session = false;
-        let mut interval = time::interval(CONFIG.runner.kill_monitor_interval);
+        let mut interval = time::interval(escalation.interval);
 
         // Now into localized timestamp
         let time_str: DateTime<Local> = SystemTime::now().into();
@@ -484,9 +501,11 @@ impl FrameManager {
             loop {
                 interval.tick().await;
 
-                let active_lineage = machine.get_active_proc_lineage(frame_pid).await;
+                let active_lineage = machine.get_active_proc_lineage(&launch_id, frame_pid).await;
                 if let Some(mut lineage) = active_lineage {
-                    lineage.push(frame_pid);
+                    if !lineage.contains(&frame_pid) {
+                        lineage.push(frame_pid);
+                    }
                     // Check limit before decrementing as tick() returns immediately on the first call
                     if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only
@@ -503,11 +522,11 @@ impl FrameManager {
                         if !tried_to_force_kill_session {
                             tried_to_force_kill_session = true;
                             // First try to force kill the session
-                            match machine.kill_session(frame_pid, true).await {
+                            match machine.kill_session(&launch_id, frame_pid, true).await {
                                 Ok(()) => {
                                     info!(
-                                        "Kill timeout for {}. Used session force_kill on \
-                                        session_id {} to kill {:?}",
+                                        "Kill timeout for {}. Used force_kill on the processes \
+                                        of frame pid {} to kill {:?}",
                                         job_str, frame_pid, lineage
                                     )
                                 }
@@ -542,11 +561,44 @@ impl FrameManager {
                     break;
                 }
 
-                if monitor_limit_seconds >= interval_seconds {
-                    monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
-                }
+                monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
             }
         });
+    }
+}
+
+/// How a kill request is followed up while the frame's processes linger.
+#[derive(Debug, PartialEq, Eq)]
+struct KillEscalation {
+    /// How often the frame's processes are checked.
+    interval: Duration,
+    /// Time after the kill request when lingering processes are force killed, or reported.
+    timeout: Duration,
+    /// Whether lingering processes are force killed after `timeout` instead of only reported.
+    force: bool,
+}
+
+impl KillEscalation {
+    /// Frames contained in a cgroup are always force killed once
+    /// `frame_cgroup_kill_grace_period` is over, every other frame follows the kill monitor
+    /// settings.
+    fn for_frame(contained: bool, config: &RunnerConfig) -> Self {
+        if contained {
+            let grace = config
+                .frame_cgroup_kill_grace_period
+                .max(Duration::from_secs(1));
+            Self {
+                interval: grace,
+                timeout: grace,
+                force: true,
+            }
+        } else {
+            Self {
+                interval: config.kill_monitor_interval,
+                timeout: config.kill_monitor_timeout,
+                force: config.force_kill_after_timeout,
+            }
+        }
     }
 }
 
@@ -573,5 +625,54 @@ impl From<FrameManagerError> for tonic::Status {
             FrameManagerError::Aborted(msg) => tonic::Status::aborted(msg),
             FrameManagerError::NimbyLocked => tonic::Status::aborted("Nimby Locked"),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::KillEscalation;
+    use crate::config::RunnerConfig;
+
+    #[test]
+    fn frames_without_cgroup_follow_the_kill_monitor_settings() {
+        let config = RunnerConfig::default();
+
+        assert_eq!(
+            KillEscalation::for_frame(false, &config),
+            KillEscalation {
+                interval: config.kill_monitor_interval,
+                timeout: config.kill_monitor_timeout,
+                force: config.force_kill_after_timeout,
+            }
+        );
+    }
+
+    #[test]
+    fn contained_frames_are_force_killed_after_the_grace_period() {
+        let mut config = RunnerConfig::default();
+        config.frame_cgroup_kill_grace_period = Duration::from_secs(45);
+        config.force_kill_after_timeout = false;
+
+        assert_eq!(
+            KillEscalation::for_frame(true, &config),
+            KillEscalation {
+                interval: Duration::from_secs(45),
+                timeout: Duration::from_secs(45),
+                force: true,
+            }
+        );
+    }
+
+    #[test]
+    fn zero_grace_period_is_clamped() {
+        let mut config = RunnerConfig::default();
+        config.frame_cgroup_kill_grace_period = Duration::ZERO;
+
+        assert_eq!(
+            KillEscalation::for_frame(true, &config).interval,
+            Duration::from_secs(1)
+        );
     }
 }

@@ -227,6 +227,38 @@ mod tests {
     }
 
     #[test]
+    fn frame_cgroups_are_disabled_by_default() {
+        assert!(!super::RunnerConfig::default().frame_cgroups);
+    }
+
+    #[test]
+    fn load_file_reads_frame_cgroup_settings() {
+        let mut config_file = Builder::new()
+            .suffix(".yaml")
+            .tempfile()
+            .expect("temp config file");
+        writeln!(
+            config_file,
+            "runner:\n  frame_cgroups: true\n  frame_cgroup_kill_grace_period: 1m"
+        )
+        .expect("write config");
+
+        let config = Config::load_file(
+            config_file
+                .path()
+                .to_str()
+                .expect("config path should be valid UTF-8"),
+        )
+        .expect("config should load");
+
+        assert!(config.runner.frame_cgroups);
+        assert_eq!(
+            config.runner.frame_cgroup_kill_grace_period,
+            std::time::Duration::from_secs(60)
+        );
+    }
+
+    #[test]
     fn frame_recovery_is_enabled_by_default() {
         assert!(super::RunnerConfig::default().is_frame_recovery_enabled());
     }
@@ -412,6 +444,19 @@ pub struct RunnerConfig {
     #[serde(with = "humantime_serde")]
     pub kill_monitor_timeout: Duration,
     pub force_kill_after_timeout: bool,
+    /// Contain each frame in its own cgroup (`<service>/frames/<frame_id>`), so every process
+    /// it starts is accounted for and killed with it, including processes that leave its
+    /// session, and whatever it leaves behind is killed when its wrapper exits.
+    ///
+    /// Linux only. Needs cgroup v2 and a delegated service cgroup (`Delegate=yes`, see
+    /// resources/openrqd.service). When unavailable, rqd logs a warning at startup and tracks
+    /// frames by session, as when disabled. Read at startup.
+    pub frame_cgroups: bool,
+    /// How long a frame contained in a cgroup (see `frame_cgroups`) gets to exit after the
+    /// SIGTERM of a kill request before every process left in its cgroup is SIGKILLed. Frames
+    /// without a cgroup follow `kill_monitor_timeout`/`force_kill_after_timeout` instead.
+    #[serde(with = "humantime_serde")]
+    pub frame_cgroup_kill_grace_period: Duration,
     pub docker_mounts: Vec<DockerMountConfig>,
     pub docker_default_image: String,
     pub docker_images: HashMap<String, String>,
@@ -498,6 +543,8 @@ impl Default for RunnerConfig {
             kill_monitor_interval: Duration::from_secs(120),
             kill_monitor_timeout: Duration::from_secs(1200),
             force_kill_after_timeout: false,
+            frame_cgroups: false,
+            frame_cgroup_kill_grace_period: Duration::from_secs(30),
             docker_mounts: Vec::new(),
             docker_default_image: "ubuntu:latest".to_string(),
             docker_images: HashMap::new(),

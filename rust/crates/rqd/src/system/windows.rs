@@ -31,6 +31,7 @@ use sysinfo::{
     ProcessesToUpdate, RefreshKind,
 };
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 use crate::{config::MachineConfig, system::reservation::ProcessorStructure};
 
@@ -618,7 +619,12 @@ impl SystemManager for WindowsSystem {
         Ok(uid)
     }
 
-    fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>> {
+    fn collect_proc_stats(
+        &self,
+        _launch_id: &Uuid,
+        pid: u32,
+        log_path: String,
+    ) -> Result<Option<ProcessStats>> {
         let log_mtime = std::fs::metadata(Path::new(&log_path))
             .and_then(|metadata| metadata.modified())
             .and_then(|mtime| {
@@ -657,11 +663,11 @@ impl SystemManager for WindowsSystem {
         self.refresh_procs_cache()
     }
 
-    fn kill_session(&self, session_pid: u32) -> Result<()> {
+    fn kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         self.kill_session_internal(session_pid)
     }
 
-    fn force_kill_session(&self, session_pid: u32) -> Result<()> {
+    fn force_kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         // There's no such thing in Windows. Fallback to a regular kill cmd
         self.kill_session_internal(session_pid)
     }
@@ -694,7 +700,7 @@ impl SystemManager for WindowsSystem {
         }
     }
 
-    fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
+    fn get_proc_lineage(&self, _launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
         let lineage = self.collect_lineage(pid);
         if lineage.is_empty() {
             None

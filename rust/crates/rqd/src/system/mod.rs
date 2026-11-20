@@ -13,6 +13,8 @@
 use uuid::Uuid;
 
 pub mod capabilities;
+#[cfg(unix)]
+pub mod cgroup;
 #[cfg(any(target_os = "linux", all(target_os = "macos", debug_assertions)))]
 pub mod linux;
 pub mod machine;
@@ -23,9 +25,9 @@ mod reservation;
 
 #[cfg(target_os = "macos")]
 pub mod macos;
+pub mod manager;
 #[cfg(target_os = "windows")]
 pub mod windows;
-pub mod manager;
 
 pub type ResourceId = Uuid;
 pub type CoreId = u32;

@@ -761,7 +761,12 @@ impl SystemManager for MacOsSystem {
         }
     }
 
-    fn collect_proc_stats(&self, pid: u32, log_path: String) -> Result<Option<ProcessStats>> {
+    fn collect_proc_stats(
+        &self,
+        _launch_id: &Uuid,
+        pid: u32,
+        log_path: String,
+    ) -> Result<Option<ProcessStats>> {
         // Latest log modified time in epoch seconds. Defaults to zero if the metadata is not
         // accessible.
         let log_mtime = std::fs::metadata(Path::new(&log_path))
@@ -803,7 +808,7 @@ impl SystemManager for MacOsSystem {
         self.refresh_procs_cache()
     }
 
-    fn kill_session(&self, session_pid: u32) -> Result<()> {
+    fn kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         killpg(
             nix::unistd::Pid::from_raw(session_pid as i32),
             Signal::SIGTERM,
@@ -811,7 +816,7 @@ impl SystemManager for MacOsSystem {
         .map_err(|err| miette!("Failed to kill {session_pid}. {err}"))
     }
 
-    fn force_kill_session(&self, session_pid: u32) -> Result<()> {
+    fn force_kill_session(&self, _launch_id: &Uuid, session_pid: u32) -> Result<()> {
         killpg(
             nix::unistd::Pid::from_raw(session_pid as i32),
             Signal::SIGKILL,
@@ -831,7 +836,7 @@ impl SystemManager for MacOsSystem {
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))
     }
 
-    fn get_proc_lineage(&self, pid: u32) -> Option<Vec<u32>> {
+    fn get_proc_lineage(&self, _launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
         self.read_session_processes().get(&pid).cloned()
     }
 
@@ -856,6 +861,7 @@ mod tests {
     use opencue_proto::host::HardwareState;
 
     use crate::system::macos::{MacOsSystem, MachineStaticInfo};
+    use uuid::Uuid;
 
     #[test]
     /// Use this unit test to quickly exercice a single cpuinfo file by changing the path on the
@@ -1119,7 +1125,7 @@ mod tests {
         system.refresh_procs();
 
         // Verify the cache is accessible after refresh
-        let lineage = system.get_proc_lineage(1);
+        let lineage = system.get_proc_lineage(&Uuid::nil(), 1);
         // May or may not have lineage for PID 1, but shouldn't panic
         assert!(lineage.is_some() || lineage.is_none());
     }

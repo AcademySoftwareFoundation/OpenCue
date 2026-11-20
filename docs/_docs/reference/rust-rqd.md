@@ -212,7 +212,7 @@ cargo build --release --features containerized_frames
    sudo systemctl start openrqd
    ```
 
-   Use the unit file shipped in `rust/crates/rqd/resources/openrqd.service`, or make sure your own sets `KillMode=process` — see [Frame Recovery Across Restarts](#frame-recovery-across-restarts).
+   Use the unit file shipped in `rust/crates/rqd/resources/openrqd.service`, or make sure your own sets `KillMode=process` — see [Frame Recovery Across Restarts](#frame-recovery-across-restarts) — and, for [frame cgroups](#frame-cgroups-linux), `Delegate=yes`.
 
 ### Docker Support (Experimental)
 
@@ -299,6 +299,38 @@ Behavior notes:
 - **Disable explicitly**: the default is `true`, so commenting the key out re-enables recovery at the next reload — set it to `false` rather than removing the line.
 - **Windows**: the exit-file harness is disabled, so recovery is not available there.
 - **Containerized frames**: recovery is not supported for frames run in Docker.
+
+### Frame Cgroups (Linux)
+
+By default RQD tracks a frame's processes by session, which misses anything that leaves the session (`setsid`, double forks) and leaves behind whatever a frame doesn't clean up when its wrapper exits. With frame cgroups on, each frame runs in its own cgroup v2 cgroup, so all of its processes are accounted for and killed with it:
+
+```yaml
+runner:
+  # Default: false
+  frame_cgroups: true
+  # Time a killed frame gets to exit after SIGTERM before its cgroup is SIGKILLed. Default: 30s
+  frame_cgroup_kill_grace_period: 30s
+```
+
+The feature needs cgroup v2 and the unit's cgroup delegated to RQD. The shipped unit file sets:
+
+```ini
+[Service]
+KillMode=process
+Delegate=yes
+```
+
+At startup RQD creates `<unit cgroup>/frames`. It enables no controllers and sets no limits, so frame cgroups are used for containment only. Each frame launch then joins a cgroup of its own, `frames/<launch_id>`, before its command starts. The launch id is new on every launch, so a frame killed and retried on the same host gets a fresh cgroup, and the kill of the earlier run can't reach the retry. When the host can't contain frames (no cgroup v2, or no delegation), RQD logs a warning once at startup and tracks frames by session.
+
+Behavior notes:
+
+- **Kill requests**: every process in the frame's cgroup gets `SIGTERM`, so the wrapper's traps still run, and whatever is left after `frame_cgroup_kill_grace_period` is `SIGKILL`ed. `kill_monitor_timeout`/`force_kill_after_timeout` only apply to frames without a cgroup.
+- **Frame completion**: when a frame's wrapper exits, anything left in its cgroup is killed and the cgroup removed. The frame log records `Reaped N leftover processes`.
+- **Restarts**: recovered frames that are still running are re-attached to their cgroups, found from the frame process's `/proc/<pid>/cgroup`. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
+- **Mixed hosts**: frames launched without a cgroup (feature off, or recovered from before it was enabled) keep being tracked by session.
+- **Containerized frames**: frames run in Docker (`run_on_docker`) are not contained in a cgroup and keep being tracked as today.
+- **Reported memory** still comes from per-process `/proc` data, as without cgroups.
+- **No controllers**: enabling a controller such as `memory` below the unit cgroup would make the kernel refuse new processes in the unit cgroup itself, and systemd older than 254 (e.g. RHEL/Rocky 9) starts a restarted RQD there. Per-frame accounting and limits therefore need the frame cgroups to live outside RQD's unit, which is future work.
 
 ### Log-Based Exit-Status Rules
 
