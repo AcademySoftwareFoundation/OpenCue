@@ -12,7 +12,7 @@ dependencies = [
     "PyYAML>=6.0.1",
     "future==1.0.0"
 ]
-requires-python = ">3.7"
+requires-python = ">=3.9"
 description = "PyCue is the Python API client for OpenCue, providing programmatic access to core services. It enables developers to query, submit, and control jobs, layers, and frames directly from Python code."
 readme = "README.md"
 license = {text = "Apache-2.0"}

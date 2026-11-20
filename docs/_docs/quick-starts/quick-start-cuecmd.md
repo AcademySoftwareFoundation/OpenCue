@@ -20,7 +20,7 @@ Cuecmd is a command-line tool that executes arbitrary shell commands from a text
 
 Ensure you have:
 - OpenCue sandbox environment running
-- Python 3.7 or later installed
+- Python 3.9 or later installed
 - OpenCue client tools installed
 
 ## Step 1: Install cuecmd

@@ -2,8 +2,8 @@
 
 # Script for running OpenCue unit tests with PySide2.
 #
-# This script is written to be run within the OpenCue GitHub Actions environment.
-# See `.github/workflows/testing-pipeline.yml`.
+# Installs each package from source, or from the wheel named by OPENCUE_<PACKAGE>_PACKAGE_PATH,
+# and runs its tests. CI tests each package separately (.github/workflows/python.yml).
 
 set -ex
 

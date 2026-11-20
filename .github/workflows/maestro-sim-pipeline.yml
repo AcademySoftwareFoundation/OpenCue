@@ -17,9 +17,12 @@ name: OpenCue Maestro Sim Pipeline
 #     after it. The bug that motivated this workflow lived in
 #     dao/postgres/FrameDaoJdbc.java -- Maestro could not book a single frame --
 #     and a filter listing only dispatcher/** would have sailed straight past it.
-#   - Nightly on master: catches regressions that slipped through the filter.
-#   - Manually (workflow_dispatch): to run any scenario, including the ones kept
-#     out of the gate below.
+#   - Master pushes, through master.yml: the same filter, with the heavier
+#     scenarios added.
+#   - Weekly on master, from this workflow: a drift check of the full set
+#     against an unchanged scheduler.
+#   - Manually (workflow_dispatch), from this workflow: to run any scenario,
+#     including the ones kept out of the gate below.
 #
 # Which scenarios gate, and why only these:
 #   Every scenario in the pull-request set runs on a small farm (17 hosts or
@@ -27,11 +30,10 @@ name: OpenCue Maestro Sim Pipeline
 #   was never oversubscribed, a pinned frame never left its list, a slice was
 #   delivered whole. They are cheap and they cannot be half-true.
 #
-#   Nightly adds the heavier behavioural scenarios (MIGRATE with its three
-#   cuebots, SOLOFILL on the full farm, COMPLETIONSTORM's 80-host burst):
-#   their invariants are binary too, but their load does not belong on every
-#   pull request, and their throughput-dependent windows are better judged on
-#   a quiet nightly runner than under PR-time contention. SHOWTIER runs there
+#   Master and the weekly run add the heavier behavioural scenarios (MIGRATE
+#   with its three cuebots, FORWARD, SOLOFILL on the full farm,
+#   COMPLETIONSTORM's 80-host burst): their invariants are binary too, but
+#   their load does not belong on every pull request. SHOWTIER runs there
 #   too: its farm is small, but its verdict is a mean tier gap over a
 #   throughput window, not a binary invariant.
 #
@@ -59,8 +61,8 @@ name: OpenCue Maestro Sim Pipeline
 
 on:
   schedule:
-    # Nightly on master, offset from the top of the hour.
-    - cron: "41 8 * * *"
+    # Mondays, offset from the top of the hour.
+    - cron: "41 8 * * 1"
   workflow_dispatch:
     inputs:
       scenarios:
@@ -70,11 +72,9 @@ on:
         description: "Per-scenario watch window in seconds (default 180)"
         required: false
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   sim:
     name: Maestro sim
     uses: ./.github/workflows/maestro-sim.yml
+    with:
+      full: ${{ github.event_name == 'schedule' }}

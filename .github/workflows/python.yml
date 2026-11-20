@@ -39,7 +39,10 @@ jobs:
           python-version: "3.11"
           activate-environment: true
           enable-cache: true
+          # Only master saves, so pull requests don't push its entries out of the cache.
+          save-cache: ${{ github.ref == 'refs/heads/master' }}
           cache-dependency-glob: "**/pyproject.toml"
+          cache-suffix: ${{ matrix.package }}
 
       # Every package builds on proto and pycue; the others are dependencies of some package.
       # setuptools<81 still ships pkg_resources, which some packages fall back to.

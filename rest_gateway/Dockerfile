@@ -49,7 +49,7 @@ RUN mkdir -p gen/openapiv2 && \
 # Fetch swaggo/files static assets and update dependencies.
 # go.mod/go.sum are not committed (see rest_gateway/.gitignore), so this pin is
 # the only thing keeping the build reproducible. Keep the version in sync with
-# the "Install Go dependencies" step in .github/workflows/testing-pipeline.yml.
+# the "Install Go dependencies" step in .github/workflows/rest-gateway.yml.
 RUN go get github.com/swaggo/files/v2@v2.0.2 && \
     go mod tidy
 
