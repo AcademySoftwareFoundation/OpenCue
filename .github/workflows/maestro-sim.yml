@@ -1,11 +1,15 @@
 name: Maestro sim
 
-# The Maestro simulator scenarios. Called by maestro-sim-pipeline.yml (nightly and manual
-# runs) and pr.yml; see maestro-sim-pipeline.yml for what runs when, and why. The scenario
-# set and the timeout follow the caller's event.
+# The Maestro simulator scenarios. Called by pr.yml, master.yml and maestro-sim-pipeline.yml
+# (weekly and manual runs); see maestro-sim-pipeline.yml for what runs when, and why.
 
 on:
   workflow_call:
+    inputs:
+      full:
+        description: Add the heavy behavioural scenarios to the binary set.
+        type: boolean
+        default: false
 
 jobs:
   sim:
@@ -21,9 +25,9 @@ jobs:
       # still leaves the others' verdicts (and logs) to compare against.
       fail-fast: false
       matrix:
-        # Pull requests run the small-farm binary set; the nightly schedule
-        # adds the heavier behavioural scenarios (see the header for why).
-        scenario: ${{ github.event_name == 'schedule'
+        # Pull requests run the small-farm binary set; master and the weekly
+        # schedule add the heavier behavioural scenarios (see the header for why).
+        scenario: ${{ inputs.full
           && fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE","MIGRATE","FORWARD","SOLOFILL","COMPLETIONSTORM","SHOWTIER"]')
           || fromJSON('["LIMIT","FOLDER","LICENSE","LICENSE_NO_HOSTS","PIN","SLICE"]') }}
 
