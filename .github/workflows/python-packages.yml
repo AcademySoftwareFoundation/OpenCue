@@ -50,13 +50,16 @@ jobs:
         run: pip install packages/*.whl
 
       # Compiling every installed module catches syntax newer than this Python; importing
-      # each package catches a missing dependency.
+      # each package catches a missing dependency. cuegui imports Qt, which needs libGL.
       - name: Import packages
+        shell: bash
         run: |
           modules="opencue_proto opencue FileSequence outline cueadmin cueman cuecmd cuesubmit cuegui cuenimby rqd"
           site=$(python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')
           for module in ${modules}; do
             python -m compileall -q "${site}/${module}"
-            python -c "import ${module}"
+            if [[ "${module}" != cuegui ]]; then
+              python -c "import ${module}"
+            fi
           done
           python -c "import opencue_proto.report_pb2_grpc"
