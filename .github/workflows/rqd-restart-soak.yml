@@ -25,7 +25,7 @@ jobs:
           mold -run cargo build -p dummy-cuebot --release
           mold -run cargo build -p rqd --bin openrqd
           test_bin=$(mold -run cargo test -p rqd --test rqd_integration_tests --no-run --message-format=json \
-            | jq -r 'select(.executable != null) | .executable')
+            | jq -r 'select(.target.name == "rqd_integration_tests" and .executable != null) | .executable')
           mkdir -p ../soak-bin
           cp target/release/dummy-cuebot target/debug/openrqd ../soak-bin/
           cp "$test_bin" ../soak-bin/rqd_integration_tests
