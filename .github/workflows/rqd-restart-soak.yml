@@ -1,0 +1,83 @@
+# TEMPORARY, DO NOT MERGE: soaks the rqd restart integration tests across many runners.
+name: rqd restart test soak
+
+on:
+  pull_request:
+    branches: ["master"]
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_DEV_DEBUG: line-tables-only
+  CARGO_PROFILE_TEST_DEBUG: line-tables-only
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build deps
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev mold
+      - name: Build
+        working-directory: rust
+        run: |
+          mold -run cargo build -p dummy-cuebot --release
+          mold -run cargo build -p rqd --bin openrqd
+          mold -run cargo test -p rqd --test rqd_integration_tests --no-run
+          mkdir -p ../soak-bin
+          cp target/release/dummy-cuebot target/debug/openrqd ../soak-bin/
+          cp "$(ls -t target/debug/deps/rqd_integration_tests-* | grep -v '\.d$' | head -1)" ../soak-bin/rqd_integration_tests
+      - uses: actions/upload-artifact@v4
+        with:
+          name: soak-bin
+          path: soak-bin
+          retention-days: 3
+
+  soak:
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: soak-bin
+          path: soak-bin
+      - name: Host details
+        run: |
+          echo "runner=$RUNNER_NAME image=$ImageOS/$ImageVersion"
+          uname -a
+          echo "nproc=$(nproc)"
+          grep -m1 "model name" /proc/cpuinfo
+          echo "pid1=$(cat /proc/1/comm) cgroup=$(cat /proc/self/cgroup)"
+          echo "uptime=$(cut -d' ' -f1 /proc/uptime)s"
+      - name: Run the restart tests 10 times
+        working-directory: rust/crates/rqd
+        run: |
+          mkdir -p ../../target/release ../../target/debug ../../../shim
+          install -m755 ../../../soak-bin/dummy-cuebot ../../target/release/dummy-cuebot
+          install -m755 ../../../soak-bin/openrqd ../../target/debug/openrqd
+          install -m755 ../../../soak-bin/rqd_integration_tests ../../../shim/rqd_integration_tests
+          # The tests run `cargo build -p dummy-cuebot`; the binary is prebuilt here.
+          printf '#!/bin/sh\nexit 0\n' > ../../../shim/cargo && chmod +x ../../../shim/cargo
+          export PATH="$PWD/../../../shim:$PATH"
+          pass=0; fail=0
+          for i in $(seq 1 10); do
+            for t in test_rqd_restart_recovers_running_frame test_rqd_restart_reports_frame_finished_while_down; do
+              if rqd_integration_tests --exact "$t" > "iter-$i-$t.log" 2>&1; then
+                pass=$((pass+1))
+              else
+                fail=$((fail+1))
+                echo "::group::FAIL iteration $i $t"
+                cat "iter-$i-$t.log"
+                echo "::endgroup::"
+              fi
+            done
+          done
+          echo "SOAK RESULT runner=$RUNNER_NAME pass=$pass fail=$fail"
+          [ "$fail" -eq 0 ]

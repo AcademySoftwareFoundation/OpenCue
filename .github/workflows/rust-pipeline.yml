@@ -1,10 +1,8 @@
 name: OpenCue Rust Build Pipeline
 
 on:
-  push:
-    branches: ["master"]
-  pull_request:
-    branches: ["master"]
+  # TEMPORARY for the soak PR: disabled.
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
