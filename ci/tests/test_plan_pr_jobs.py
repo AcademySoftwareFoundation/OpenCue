@@ -30,6 +30,7 @@ sys.path.insert(0, str(REPO / "ci"))
 import plan_pr_jobs  # pylint: disable=import-error,wrong-import-position
 
 FILTERS_FILE = REPO / ".github" / "path-filters.yml"
+PR_WORKFLOW = REPO / ".github" / "workflows" / "pr.yml"
 
 
 def load_filters():
@@ -105,6 +106,11 @@ class PathFiltersTests(unittest.TestCase):
         used |= {f"py-{p}" for p in plan_pr_jobs.PYTHON_PACKAGES}
         self.assertEqual(used | {"untested"}, set(FILTERS))
 
+    def test_pr_workflow_uses_every_planner_output(self):
+        workflow = PR_WORKFLOW.read_text()
+        self.assertEqual(ALL_JOBS, set(re.findall(r"needs\.changes\.outputs\.(\w+)", workflow)))
+        self.assertEqual(ALL_JOBS, set(re.findall(r"steps\.plan\.outputs\.(\w+)", workflow)))
+
     def test_glob_regex(self):
         self.assertTrue(matches(["**/Dockerfile*"], "Dockerfile"))
         self.assertTrue(matches(["**/Dockerfile*"], "rust/Dockerfile.rqd"))
@@ -158,13 +164,26 @@ class PlanTests(unittest.TestCase):
                          json.loads(jobs["python"]))
         self.assertEqual(["cuesubmit", "cuegui"], json.loads(jobs["python_qt"]))
 
+    def test_api_docs_follow_autodoc_packages(self):
+        self.assertEqual({"api_docs"}, jobs_for("api_docs/index.rst")[0])
+        self.assertIn("api_docs", jobs_for("pycue/FileSequence/__init__.py")[0])
+        self.assertIn("api_docs", jobs_for("pyoutline/outline/layer.py")[0])
+        self.assertIn("api_docs", jobs_for("proto/src/job.proto")[0])
+        self.assertNotIn("api_docs", jobs_for("cueadmin/cueadmin/common.py")[0])
+
+    def test_autodoc_modules_are_covered(self):
+        modules = set()
+        for rst in (REPO / "api_docs").rglob("*.rst"):
+            modules |= set(re.findall(r"automodule::\s+(\w+)", rst.read_text()))
+        self.assertEqual({"opencue", "FileSequence", "outline", "opencue_proto"}, modules)
+
     def test_pyproject_runs_licenses_and_wheels(self):
         self.assertEqual({"python", "licenses", "wheels"},
                          jobs_for("cuenimby/pyproject.toml")[0])
 
     def test_proto(self):
         names, jobs = jobs_for("proto/src/job.proto")
-        self.assertEqual(ALL_JOBS - {"licenses", "api_docs", "maestro", "cueweb"}, names)
+        self.assertEqual(ALL_JOBS - {"licenses", "maestro", "cueweb"}, names)
         self.assertEqual(len(plan_pr_jobs.PYTHON_PACKAGES),
                          len(json.loads(jobs["python"]) + json.loads(jobs["python_qt"])))
 
@@ -175,6 +194,14 @@ class PlanTests(unittest.TestCase):
 
     def test_full_label_runs_everything(self):
         self.assertEqual(ALL_JOBS, jobs_for("docs/index.md", labels=["ci:full"])[0])
+
+    def test_truncated_file_list_runs_everything(self):
+        outputs = filter_outputs("docs/index.md")
+        _, _, full = plan_pr_jobs.plan(outputs, [], changed_count=1)
+        self.assertFalse(full)
+        jobs, _, full = plan_pr_jobs.plan(outputs, [], changed_count=3001)
+        self.assertTrue(full)
+        self.assertNotIn("false", jobs.values())
 
     def test_unmapped_file_runs_everything(self):
         outputs = filter_outputs("newdir/thing.py")

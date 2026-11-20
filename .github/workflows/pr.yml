@@ -54,6 +54,7 @@ jobs:
         env:
           FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
           LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
         run: python3 ci/plan_pr_jobs.py
 
   checks:

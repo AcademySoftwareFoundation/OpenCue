@@ -7,11 +7,13 @@ the environment:
 
   FILTER_OUTPUTS  the filter step's outputs as JSON (with list-files: json)
   LABELS          the pull request's label names as a JSON array
+  CHANGED_FILES   the pull request's changed file count, to detect a truncated file list
 
 and writes one output per job to GITHUB_OUTPUT and a summary to GITHUB_STEP_SUMMARY.
 
-A change matched by the `ci` filter, the ci:full label, or a changed file that no filter
-matches turns every job on.
+A change matched by the `ci` filter, the ci:full label, a changed file that no filter
+matches, or a file list shorter than the pull request (the files API stops at 3000) turns
+every job on.
 """
 
 import json
@@ -37,7 +39,8 @@ QT_PACKAGES = {"cuegui", "cuesubmit"}
 JOB_FILTERS = {
     "wheels": {"packaging", "proto"},
     "licenses": {"packaging"},
-    "api_docs": {"api-docs"},
+    # The API reference autodocs pycue, pyoutline and proto, with warnings as errors.
+    "api_docs": {"api-docs", "py-pycue", "py-pyoutline", "proto"},
     "cuebot": {"cuebot", "proto"},
     "maestro": {"scheduler"},
     "rust": {"rust", "proto"},
@@ -68,8 +71,12 @@ def python_packages(changed):
     return [p for p in PYTHON_PACKAGES if affected(p)]
 
 
-def plan(filter_outputs, labels):
-    """Returns (job outputs, unmapped files, full) for a set of dorny/paths-filter outputs."""
+def plan(filter_outputs, labels, changed_count=0):
+    """Returns (job outputs, unmapped files, full) for a set of dorny/paths-filter outputs.
+
+    `changed_count` is the pull request's changed file count; more than the filter saw means
+    its file list was truncated.
+    """
     matched = set(json.loads(filter_outputs["changes"]))
     files = {
         name.removesuffix("_files"): set(json.loads(value))
@@ -78,7 +85,8 @@ def plan(filter_outputs, labels):
     }
     changed = files.pop("all")
     unmapped = sorted(changed - set().union(*files.values()))
-    full = "ci" in matched or FULL_LABEL in labels or bool(unmapped)
+    truncated = changed_count > len(changed)
+    full = "ci" in matched or FULL_LABEL in labels or bool(unmapped) or truncated
 
     if full:
         packages = PYTHON_PACKAGES
@@ -103,7 +111,14 @@ def escape_command(value):
 
 def main():
     labels = json.loads(os.environ.get("LABELS") or "[]")
-    jobs, unmapped, full = plan(json.loads(os.environ["FILTER_OUTPUTS"]), labels)
+    changed_count = int(os.environ.get("CHANGED_FILES") or 0)
+    filter_outputs = json.loads(os.environ["FILTER_OUTPUTS"])
+    jobs, unmapped, full = plan(filter_outputs, labels, changed_count)
+
+    received = len(json.loads(filter_outputs["all_files"]))
+    if changed_count > received:
+        print(f"::warning::The pull request changes {changed_count} files but only {received} "
+              "were listed, so every job runs.")
 
     for path in unmapped:
         print(escape_command(
@@ -119,7 +134,7 @@ def main():
     summary += [f"| {job} | {value} |" for job, value in jobs.items()]
     if full:
         summary.insert(0, "Every job runs: CI files changed, the ci:full label is set, "
-                          "or a changed file is unmapped.\n")
+                          "a changed file is unmapped, or the file list was truncated.\n")
     with open(os.environ.get("GITHUB_STEP_SUMMARY", os.devnull), "a", encoding="utf-8") as f:
         f.write("\n".join(summary) + "\n")
     print("\n".join(summary))
