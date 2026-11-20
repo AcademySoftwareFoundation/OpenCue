@@ -39,6 +39,7 @@ jobs:
           path: cuebot/build/libs/cuebot.jar
           retention-days: 1
           if-no-files-found: error
+          overwrite: true
 
   sim:
     needs: build
