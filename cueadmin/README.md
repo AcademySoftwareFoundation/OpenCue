@@ -210,3 +210,5 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 - **Contribute Code**: Submit pull requests with tests and documentation
 - **Improve Documentation**: Help enhance tutorials and reference docs
 - **Share Use Cases**: Contribute real-world examples and workflows
+
+<!-- DO NOT MERGE: pr-tier targeting demo -->
