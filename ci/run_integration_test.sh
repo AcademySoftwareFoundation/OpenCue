@@ -81,11 +81,10 @@ build_service() {
     fi
 }
 
-# Builds a service's image, or points compose at a prebuilt one named by <SERVICE>_IMAGE.
+# prepare_service <service> [image]: points compose at the prebuilt image, or builds one.
 prepare_service() {
     local service="$1"
-    local image_var="${service^^}_IMAGE"
-    local image="${!image_var:-}"
+    local image="$2"
     if [[ -z "${image}" ]]; then
         build_service "${service}"
         return
@@ -274,8 +273,8 @@ main() {
     COMPOSE_OVERRIDE="${TEST_LOGS}/docker-compose.images.yml"
     echo "services:" >"${COMPOSE_OVERRIDE}"
     export COMPOSE_FILE="docker-compose.yml:${COMPOSE_OVERRIDE}"
-    prepare_service cuebot
-    prepare_service rqd
+    prepare_service cuebot "${CUEBOT_IMAGE:-}"
+    prepare_service rqd "${RQD_IMAGE:-}"
     build_service flyway
 
     # Pre-create bind-mount directories so Docker doesn't create them as root
