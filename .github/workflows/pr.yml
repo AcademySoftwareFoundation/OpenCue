@@ -1,152 +1,105 @@
 name: OpenCue PR
 
-# Tests the components a pull request touches. `changes` maps the diff to jobs through
-# .github/path-filters.yml and ci/plan_pr_jobs.py; `pr-gate` is the only check branch
-# protection needs, and it passes when the jobs that ran passed and the rest were skipped.
-#
-# Changes under .github/ or ci/, an unmapped path, or the ci:full label run every job.
+# TEMPORARY (DO NOT MERGE): calls release.yml in dry-run mode against the release-bundle of
+# run 44663836822 (Phase 2's dry run), and runs the publishing jobs' checks without publishing.
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, labeled]
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: read
-  pull-requests: read
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
 
 jobs:
-  changes:
-    name: changes
+  release:
+    name: Release
+    uses: ./.github/workflows/release.yml
+    permissions:
+      contents: write
+      actions: read
+    with:
+      tag: v1.39.1-cd7663ea
+      sha: cd7663ea349a0737512c343fdf5d1764f18b8251
+      run-id: "44663836822"
+      dry-run: true
+
+  # The steps github-release and publish run before they publish, fed by preflight's outputs.
+  pinned:
+    name: Publish-job checks, no publishing
+    needs: release-outputs
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    outputs:
-      python: ${{ steps.plan.outputs.python }}
-      python_qt: ${{ steps.plan.outputs.python_qt }}
-      wheels: ${{ steps.plan.outputs.wheels }}
-      licenses: ${{ steps.plan.outputs.licenses }}
-      api_docs: ${{ steps.plan.outputs.api_docs }}
-      cuebot: ${{ steps.plan.outputs.cuebot }}
-      maestro: ${{ steps.plan.outputs.maestro }}
-      rust: ${{ steps.plan.outputs.rust }}
-      rust_windows: ${{ steps.plan.outputs.rust_windows }}
-      cueweb: ${{ steps.plan.outputs.cueweb }}
-      gateway: ${{ steps.plan.outputs.gateway }}
-      integration: ${{ steps.plan.outputs.integration }}
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    env:
+      TAG: v1.39.1-cd7663ea
+      RUN_ID: "44663836822"
+      ARTIFACT_ID: ${{ needs.release-outputs.outputs.artifact-id }}
+      DIGEST: ${{ needs.release-outputs.outputs.digest }}
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
 
-      - name: Match changed paths
-        id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
-        with:
-          filters: .github/path-filters.yml
-          list-files: json
-          predicate-quantifier: some-with-excludes
-
-      - name: Plan jobs
-        id: plan
-        env:
-          FILTER_OUTPUTS: ${{ toJSON(steps.filter.outputs) }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
-          CHANGED_FILES: ${{ github.event.pull_request.changed_files }}
-        run: python3 ci/plan_pr_jobs.py
-
-  checks:
-    name: Checks
-    needs: changes
-    uses: ./.github/workflows/checks.yml
-    with:
-      licenses: ${{ needs.changes.outputs.licenses == 'true' }}
-
-  python:
-    name: Python
-    needs: changes
-    if: needs.changes.outputs.python != '[]' || needs.changes.outputs.python_qt != '[]'
-    uses: ./.github/workflows/python.yml
-    with:
-      packages: ${{ needs.changes.outputs.python }}
-      qt-packages: ${{ needs.changes.outputs.python_qt }}
-
-  wheels:
-    name: Python packages
-    needs: changes
-    if: needs.changes.outputs.wheels == 'true'
-    uses: ./.github/workflows/python-packages.yml
-
-  api-docs:
-    name: API docs
-    needs: changes
-    if: needs.changes.outputs.api_docs == 'true'
-    uses: ./.github/workflows/api-docs.yml
-
-  cuebot:
-    name: Cuebot
-    needs: changes
-    if: needs.changes.outputs.cuebot == 'true'
-    uses: ./.github/workflows/cuebot.yml
-
-  maestro:
-    name: Maestro sim
-    needs: changes
-    if: needs.changes.outputs.maestro == 'true'
-    uses: ./.github/workflows/maestro-sim.yml
-
-  rust:
-    name: Rust
-    needs: changes
-    if: needs.changes.outputs.rust == 'true'
-    uses: ./.github/workflows/rust.yml
-    with:
-      windows: ${{ needs.changes.outputs.rust_windows == 'true' }}
-
-  cueweb:
-    name: CueWeb
-    needs: changes
-    if: needs.changes.outputs.cueweb == 'true'
-    uses: ./.github/workflows/cueweb.yml
-
-  rest-gateway:
-    name: REST gateway
-    needs: changes
-    if: needs.changes.outputs.gateway == 'true'
-    uses: ./.github/workflows/rest-gateway.yml
-
-  integration:
-    name: Integration
-    needs: changes
-    if: needs.changes.outputs.integration == 'true'
-    uses: ./.github/workflows/integration.yml
-
-  pr-gate:
-    name: pr-gate
-    if: always()
-    needs:
-      - changes
-      - checks
-      - python
-      - wheels
-      - api-docs
-      - cuebot
-      - maestro
-      - rust
-      - cueweb
-      - rest-gateway
-      - integration
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check job results
-        env:
-          NEEDS: ${{ toJSON(needs) }}
+      - name: Check the bundle is the one preflight chose
         run: |
-          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "${NEEDS}"
-          if jq -e 'any(.[]; .result == "failure" or .result == "cancelled")' <<< "${NEEDS}" > /dev/null; then
-            echo "A job failed or was cancelled."
+          ci/release.py pinned --repo "${GITHUB_REPOSITORY}" --run-id "${RUN_ID}" \
+            --artifact-id "${ARTIFACT_ID}" --digest "${DIGEST}"
+
+      - uses: actions/download-artifact@v8
+        with:
+          artifact-ids: ${{ needs.release-outputs.outputs.artifact-id }}
+          path: bundle
+          run-id: "44663836822"
+          github-token: ${{ github.token }}
+
+      - name: Check the bundle, the file lists and the release action
+        run: |
+          ci/release.py verify --tag "${TAG}" --sha cd7663ea349a0737512c343fdf5d1764f18b8251 \
+            --run-id "${RUN_ID}" bundle
+          list="$(ci/release.py files github --tag "${TAG}")"
+          mapfile -t assets <<< "${list}"
+          ls -l "${assets[@]/#/bundle/}"
+          list="$(ci/release.py files pypi --tag "${TAG}")"
+          mapfile -t files <<< "${list}"
+          ls -l "${files[@]/#/bundle/}"
+          echo "${TAG}: $(ci/release.py github --repo "${GITHUB_REPOSITORY}" --tag "${TAG}")"
+          echo "v1.37.0: $(ci/release.py github --repo "${GITHUB_REPOSITORY}" --tag v1.37.0)"
+
+      - name: Expect a refusal for another artifact
+        run: |
+          if out="$(ci/release.py pinned --repo "${GITHUB_REPOSITORY}" --run-id "${RUN_ID}" \
+              --artifact-id 1 --digest sha256:0 2>&1)"; then
+            echo "::error::Expected a refusal"
             exit 1
           fi
+          echo "${out}"
+          grep -q "changed after preflight" <<< "${out}"
+
+  # Reads preflight's outputs the way the later jobs get them (a caller can't read a called
+  # workflow's job outputs directly, so this repeats the lookup).
+  release-outputs:
+    name: Preflight outputs
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      artifact-id: ${{ steps.find.outputs.artifact-id }}
+      digest: ${{ steps.find.outputs.artifact-digest }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ci/release.py preflight --repo "${GITHUB_REPOSITORY}" --tag v1.39.1-cd7663ea \
+            --sha cd7663ea349a0737512c343fdf5d1764f18b8251 --run-id 44663836822 --dry-run
