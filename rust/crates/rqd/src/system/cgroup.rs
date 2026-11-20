@@ -643,6 +643,16 @@ mod tests {
         cgroup.remove().expect("remove missing cgroup");
     }
 
+    #[tokio::test]
+    async fn reap_of_a_missing_cgroup_is_a_noop() {
+        let dir = TempDir::new().unwrap();
+        let cgroup = FrameCgroup {
+            path: dir.path().join("missing"),
+        };
+
+        assert_eq!(cgroup.reap().await.unwrap(), 0);
+    }
+
     #[test]
     fn child_joins_through_procs_fd_before_exec() {
         use std::os::unix::process::CommandExt;

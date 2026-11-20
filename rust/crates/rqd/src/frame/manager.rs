@@ -502,7 +502,9 @@ impl FrameManager {
 
                 let active_lineage = machine.get_active_proc_lineage(&frame_id, frame_pid).await;
                 if let Some(mut lineage) = active_lineage {
-                    lineage.push(frame_pid);
+                    if !lineage.contains(&frame_pid) {
+                        lineage.push(frame_pid);
+                    }
                     // Check limit before decrementing as tick() returns immediately on the first call
                     if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only

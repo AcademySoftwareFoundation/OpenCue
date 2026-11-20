@@ -328,6 +328,7 @@ Behavior notes:
 - **Frame completion**: when a frame's wrapper exits, anything left in its cgroup is killed and the cgroup removed. The frame log records `Reaped N leftover processes`.
 - **Restarts**: recovered frames are re-attached to their cgroups. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
 - **Mixed hosts**: frames launched without a cgroup (feature off, or recovered from before it was enabled) keep being tracked by session.
+- **Containerized frames**: frames run in Docker (`run_on_docker`) are not contained in a cgroup and keep being tracked as today.
 - **Reported memory** still comes from per-process `/proc` data, as without cgroups.
 - **No controllers**: enabling a controller such as `memory` below the unit cgroup would make the kernel refuse new processes in the unit cgroup itself, and systemd older than 254 (e.g. RHEL/Rocky 9) starts a restarted RQD there. Per-frame accounting and limits therefore need the frame cgroups to live outside RQD's unit, which is future work.
 
