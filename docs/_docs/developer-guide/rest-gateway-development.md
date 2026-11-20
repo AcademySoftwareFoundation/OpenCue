@@ -104,12 +104,19 @@ brew install protobuf
 sudo dnf install protobuf protobuf-devel protobuf-compiler
 ```
 
-- **Install Go protobuf plugins:**
+- **Install Go protobuf plugins** (from `rest_gateway/opencue_gateway`, at the versions `go.mod` pins):
 
 ```bash
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
+go install google.golang.org/protobuf/cmd/protoc-gen-go
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway
+go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2
+```
+
+- **Generate the protobuf code** into `gen/`:
+
+```bash
+./generate_proto.sh
 ```
 
 ### Environment Configuration
