@@ -164,6 +164,7 @@ memory_warning_level: 5242880
 
 # These flags determine whether or not layers/frames will be readonly when job is finished.
 # If flags are set as true, layers/frames cannot be retried, eaten, edited dependency on, etc.
+# "Retry unsuccessful frames" on a job (Monitor Jobs, Monitor Cue) follows finished_jobs_readonly.frame.
 # In order to toggle the same protection on cuebot's side, set flags in opencue.properties
 finished_jobs_readonly.frame: True
 finished_jobs_readonly.layer: True

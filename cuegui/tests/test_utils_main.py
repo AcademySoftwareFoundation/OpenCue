@@ -179,5 +179,66 @@ class UtilsViewerTests(unittest.TestCase):
             cuegui.Utils.countJobTypes([self._job(running_frames=1)])['completed'])
 
 
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class UtilsUnsuccessfulFramesTests(unittest.TestCase):
+    @staticmethod
+    def _job(state=opencue_proto.job_pb2.PENDING, **stats):
+        return opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='job-name', state=state,
+            job_stats=opencue_proto.job_pb2.JobStats(**stats)))
+
+    def test_shouldReportUnsuccessfulFrames(self):
+        self.assertTrue(cuegui.Utils.hasUnsuccessfulFrames(self._job(dead_frames=1)))
+        self.assertTrue(cuegui.Utils.hasUnsuccessfulFrames(self._job(eaten_frames=1)))
+        self.assertFalse(cuegui.Utils.hasUnsuccessfulFrames(
+            self._job(succeeded_frames=9, running_frames=1)))
+
+    def test_shouldReportUnsuccessfulFramesOfNestedJob(self):
+        nestedJob = opencue.wrappers.job.NestedJob(opencue_proto.job_pb2.NestedJob(
+            stats=opencue_proto.job_pb2.JobStats(eaten_frames=1)))
+
+        self.assertTrue(cuegui.Utils.hasUnsuccessfulFrames(nestedJob))
+
+    def test_shouldReportUnsuccessfulFramesOfLayer(self):
+        def layer(**stats):
+            return opencue.wrappers.layer.Layer(opencue_proto.job_pb2.Layer(
+                layer_stats=opencue_proto.job_pb2.LayerStats(**stats)))
+
+        self.assertTrue(cuegui.Utils.hasUnsuccessfulFrames(layer(dead_frames=1)))
+        self.assertTrue(cuegui.Utils.hasUnsuccessfulFrames(layer(eaten_frames=1)))
+        self.assertFalse(cuegui.Utils.hasUnsuccessfulFrames(layer(succeeded_frames=1)))
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    def test_shouldReportFinishedJobReadonly(self):
+        self.assertTrue(cuegui.Utils.isFinishedJobReadonly(
+            self._job(state=opencue_proto.job_pb2.FINISHED)))
+        self.assertFalse(cuegui.Utils.isFinishedJobReadonly(
+            self._job(state=opencue_proto.job_pb2.PENDING)))
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    def test_shouldReportFinishedJobEditableWhenConfigAllows(self):
+        self.assertFalse(cuegui.Utils.isFinishedJobReadonly(
+            self._job(state=opencue_proto.job_pb2.FINISHED)))
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    def test_shouldCountJobsWithUnsuccessfulFrames(self):
+        finishedJob = self._job(state=opencue_proto.job_pb2.FINISHED,
+                                succeeded_frames=9, eaten_frames=1)
+        pendingJob = self._job(eaten_frames=1, running_frames=1)
+
+        jobTypes = cuegui.Utils.countJobTypes([finishedJob])
+        self.assertTrue(jobTypes['hasUnsuccessful'])
+        self.assertFalse(jobTypes['canRetryUnsuccessful'])
+        self.assertFalse(jobTypes['hasDead'])
+
+        jobTypes = cuegui.Utils.countJobTypes([finishedJob, pendingJob])
+        self.assertTrue(jobTypes['hasUnsuccessful'])
+        self.assertTrue(jobTypes['canRetryUnsuccessful'])
+
+        jobTypes = cuegui.Utils.countJobTypes([self._job(succeeded_frames=10)])
+        self.assertFalse(jobTypes['hasUnsuccessful'])
+        self.assertFalse(jobTypes['canRetryUnsuccessful'])
+
+
 if __name__ == '__main__':
     unittest.main()

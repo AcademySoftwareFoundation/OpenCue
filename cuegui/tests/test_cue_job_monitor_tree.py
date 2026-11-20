@@ -545,6 +545,55 @@ class CueJobMonitorTreeTests(unittest.TestCase):
         actions[0].trigger()
         self.assertEqual([job], launched)
 
+    def __menuOnRightClick(self, *jobs):
+        """Opens the context menu on the jobs and returns its actions by text."""
+        shownMenus = []
+
+        class RecordingMenu(_NonBlockingMenu):  # pylint: disable=too-few-public-methods
+            """Records the menu instead of showing it."""
+            def exec_(self, *args):  # pylint: disable=arguments-differ,unused-argument
+                shownMenus.append(self)
+
+        with mock.patch('qtpy.QtWidgets.QMenu', new=RecordingMenu), \
+                mock.patch('cuegui.CueJobMonitorTree.plugin_loader.load_plugins',
+                           return_value=[]), \
+                mock.patch.object(self.cue_job_monitor_tree, 'selectedObjects',
+                                  return_value=list(jobs)):
+            self.cue_job_monitor_tree.contextMenuEvent(mock.Mock())
+        return {action.text(): action for action in shownMenus[-1].actions()}
+
+    @staticmethod
+    def __job(state=opencue_proto.job_pb2.PENDING, **stats):
+        return opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            name='job-name', state=state, job_stats=opencue_proto.job_pb2.JobStats(**stats)))
+
+    def test_contextMenuRetryUnsuccessfulForEatenFrames(self):
+        actions = self.__menuOnRightClick(self.__job(eaten_frames=1, running_frames=1))
+
+        self.assertTrue(actions['Retry unsuccessful frames'].isEnabled())
+        self.assertEqual('Retry the dead and eaten frames of the selected jobs',
+                         actions['Retry unsuccessful frames'].toolTip())
+        self.assertNotIn('Retry dead frames', actions)
+
+    def test_contextMenuRetryUnsuccessfulAndDeadForDeadFrames(self):
+        actions = self.__menuOnRightClick(self.__job(dead_frames=1))
+
+        self.assertTrue(actions['Retry unsuccessful frames'].isEnabled())
+        self.assertIn('Retry dead frames', actions)
+
+    def test_contextMenuNoRetryWithoutUnsuccessfulFrames(self):
+        actions = self.__menuOnRightClick(self.__job(running_frames=1))
+
+        self.assertNotIn('Retry unsuccessful frames', actions)
+        self.assertNotIn('Retry dead frames', actions)
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    def test_contextMenuRetryUnsuccessfulDisabledForReadonlyFinishedJob(self):
+        actions = self.__menuOnRightClick(
+            self.__job(state=opencue_proto.job_pb2.FINISHED, eaten_frames=1))
+
+        self.assertFalse(actions['Retry unsuccessful frames'].isEnabled())
+
 
 @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
 class MoveDialogTests(unittest.TestCase):

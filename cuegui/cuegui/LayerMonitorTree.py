@@ -324,6 +324,7 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         __selectedObjects = self.selectedObjects()
 
         menu = QtWidgets.QMenu()
+        menu.setToolTipsVisible(True)
 
         self.__menuActions.layers().addAction(menu, "view")
         self.__menuActions.layers().addAction(menu, "copyLayerName")
@@ -368,8 +369,11 @@ class LayerMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.__menuActions.layers().addAction(menu, "kill").setEnabled(not readonly)
         self.__menuActions.layers().addAction(menu, "eat").setEnabled(not readonly)
         self.__menuActions.layers().addAction(menu, "retry").setEnabled(not readonly)
-        if [layer for layer in __selectedObjects if layer.data.layer_stats.dead_frames]:
+        if [layer for layer in __selectedObjects if cuegui.Utils.hasUnsuccessfulFrames(layer)]:
             menu.addSeparator()
+            self.__menuActions.layers().addAction(menu, "retryUnsuccessful").setEnabled(
+                not readonly)
+        if [layer for layer in __selectedObjects if layer.data.layer_stats.dead_frames]:
             self.__menuActions.layers().addAction(menu, "retryDead").setEnabled(not readonly)
 
         menu.exec_(e.globalPos())

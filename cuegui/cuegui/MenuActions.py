@@ -178,6 +178,8 @@ class AbstractActions(object):
                     self.__iconCache[icon_key] = QtGui.QIcon(":%s.png" % info[ICON])
 
             action = QtWidgets.QAction(self.__iconCache[icon_key], info[TITLE], self._caller)
+            if info[TOOLTIP]:
+                action.setToolTip(info[TOOLTIP])
 
             if not callback:
                 callback = actionName
@@ -696,6 +698,36 @@ class JobActions(AbstractActions):
                             "retry dead for some of the selected jobs",
                             ", ".join(blocked_job_owners)))
 
+    retryUnsuccessful_info = ["Retry unsuccessful frames",
+                              "Retry the dead and eaten frames of the selected jobs",
+                              "retry"]
+
+    def retryUnsuccessful(self, rpcObjects=None):
+        # Jobs with nothing to retry, or whose frames are readonly, are not sent to Cuebot.
+        jobs = [job for job in self._getOnlyJobObjects(rpcObjects)
+                if cuegui.Utils.hasUnsuccessfulFrames(job)
+                and not cuegui.Utils.isFinishedJobReadonly(job)]
+        if jobs:
+            if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
+                                             "Retry all DEAD and EATEN frames in selected jobs?",
+                                             [job.data.name for job in jobs]):
+                blocked_job_owners = []
+                authorized_jobs = []
+                for job in jobs:
+                    if not cuegui.Utils.isPermissible(job):
+                        blocked_job_owners.append(job.username())
+                    else:
+                        authorized_jobs.append(job)
+                self._runAction("Retry unsuccessful frames", authorized_jobs,
+                                lambda job: job.retryFrames(
+                                    state=[opencue_proto.job_pb2.DEAD,
+                                           opencue_proto.job_pb2.EATEN]))
+                if blocked_job_owners:
+                    cuegui.Utils.showErrorMessageBox(
+                        AbstractActions.USER_INTERACTION_PERMISSIONS.format(
+                            "retry unsuccessful frames for some of the selected jobs",
+                            ", ".join(blocked_job_owners)))
+
     dropExternalDependencies_info = ["Drop External Dependencies", None, "kill"]
 
     def dropExternalDependencies(self, rpcObjects=None):
@@ -1163,8 +1195,34 @@ class LayerActions(AbstractActions):
                 if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
                                                  "Retry all DEAD frames in selected layers?",
                                                  [layer.data.name for layer in layers]):
-                    layers[-1].parent().retryFrames(layer=[layer.data.name for layer in layers],
-                                                    state=[opencue.api.job_pb2.DEAD])
+                    # The source is the layers' job, so it is not fetched from Cuebot again.
+                    self._getSource().retryFrames(layer=[layer.data.name for layer in layers],
+                                                  state=[opencue.api.job_pb2.DEAD])
+                    self._update()
+
+    retryUnsuccessful_info = ["Retry unsuccessful frames",
+                              "Retry the dead and eaten frames of the selected layers",
+                              "retry"]
+
+    def retryUnsuccessful(self, rpcObjects=None):
+        layers = [layer for layer in self._getOnlyLayerObjects(rpcObjects)
+                  if cuegui.Utils.hasUnsuccessfulFrames(layer)]
+        if layers:
+            if not cuegui.Utils.isPermissible(self._getSource()):
+                cuegui.Utils.showErrorMessageBox(
+                    AbstractActions.USER_INTERACTION_PERMISSIONS.format(
+                        "retry unsuccessful frames in layers",
+                        self._getSource().username())
+                )
+            else:
+                if cuegui.Utils.questionBoxYesNo(self._caller, "Confirm",
+                                                 "Retry all DEAD and EATEN frames in selected "
+                                                 "layers?",
+                                                 [layer.data.name for layer in layers]):
+                    # One call to Cuebot for all the layers, on the source, which is their job.
+                    self._getSource().retryFrames(layer=[layer.data.name for layer in layers],
+                                                  state=[opencue.api.job_pb2.DEAD,
+                                                         opencue.api.job_pb2.EATEN])
                     self._update()
 
     markdone_info = ["Mark done", None, "markdone"]

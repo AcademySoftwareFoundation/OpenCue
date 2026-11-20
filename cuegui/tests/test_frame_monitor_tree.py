@@ -25,6 +25,7 @@ import qtpy.QtTest
 import qtpy.QtWidgets
 
 import opencue_proto.job_pb2
+import opencue.exception
 import opencue.wrappers.frame
 import opencue.wrappers.job
 
@@ -116,6 +117,168 @@ class FrameMonitorTreeTests(unittest.TestCase):
 
         getFramesMock.assert_called_with(self.job)
         getUpdatedFramesMock.assert_not_called()
+
+    def __finishJob(self, getFramesMock, getUpdatedFramesMock):
+        """Loads the job, then runs an update that reports the job as finished."""
+        getFramesMock.return_value = []
+        getUpdatedFramesMock.return_value = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.FINISHED, server_time=1000)
+        self.frameMonitorTree.tick()
+        self.__pollChanged()
+        getUpdatedFramesMock.reset_mock()
+
+    def __pollChanged(self):
+        """Runs the next update of the frames that changed."""
+        self.frameMonitorTree.updateChangedRequest()
+        self.frameMonitorTree.tick()
+
+    @staticmethod
+    def __finishedJob(**stats):
+        return opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(
+            id='foo', state=opencue_proto.job_pb2.FINISHED,
+            job_stats=opencue_proto.job_pb2.JobStats(**stats)))
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames', autospec=True)
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedAfterJobFinishedWithEatenFrames(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        getJobMock.return_value = self.__finishedJob(succeeded_frames=9, eaten_frames=1)
+        self.__finishJob(getFramesMock, getUpdatedFramesMock)
+
+        # The frame counts loaded with the job predate its finish, so they are fetched once.
+        getJobMock.assert_called_once_with('foo')
+        self.assertEqual(1, self.job.data.job_stats.eaten_frames)
+
+        # A retry of its frames moves the job back to PENDING.
+        getUpdatedFramesMock.return_value = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.PENDING,
+            server_time=2000,
+            updated_frames=opencue_proto.job_pb2.UpdatedFrameSeq(
+                updated_frames=[opencue_proto.job_pb2.UpdatedFrame(id='foo')]))
+        self.__pollChanged()
+
+        getUpdatedFramesMock.assert_called_with(self.job, mock.ANY)
+        self.assertEqual(opencue_proto.job_pb2.PENDING, self.job.state())
+        getJobMock.assert_called_once()
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickNoUpdateChangedAfterJobFinishedWithAllFramesSucceeded(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        getJobMock.return_value = self.__finishedJob(succeeded_frames=10)
+        self.__finishJob(getFramesMock, getUpdatedFramesMock)
+
+        self.__pollChanged()
+
+        getUpdatedFramesMock.assert_not_called()
+        getJobMock.assert_called_once_with('foo')
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickNoUpdateChangedAfterReadonlyJobFinished(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        self.__finishJob(getFramesMock, getUpdatedFramesMock)
+
+        self.__pollChanged()
+
+        getUpdatedFramesMock.assert_not_called()
+        getJobMock.assert_not_called()
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickNoUpdateChangedForLoadedJobWithAllFramesSucceeded(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        getFramesMock.return_value = []
+        # The frame counts loaded with a finished job are final.
+        self.frameMonitorTree.setJob(self.__finishedJob(succeeded_frames=10))
+        self.frameMonitorTree.tick()
+
+        self.__pollChanged()
+
+        getUpdatedFramesMock.assert_not_called()
+        getJobMock.assert_not_called()
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames', autospec=True)
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedForLoadedJobWithEatenFrames(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        getFramesMock.return_value = []
+        getUpdatedFramesMock.return_value = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.FINISHED, server_time=1000)
+        job = self.__finishedJob(succeeded_frames=9, eaten_frames=1)
+        self.frameMonitorTree.setJob(job)
+        self.frameMonitorTree.tick()
+
+        self.__pollChanged()
+
+        getUpdatedFramesMock.assert_called_with(job, mock.ANY)
+        getJobMock.assert_not_called()
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=False)
+    @mock.patch('opencue.api.getJob')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedRetriesFailedFrameCountsFetch(
+            self, getFramesMock, getUpdatedFramesMock, getJobMock):
+        getJobMock.side_effect = [opencue.exception.CueException('arbitrary failure'),
+                                  self.__finishedJob(succeeded_frames=10)]
+        self.__finishJob(getFramesMock, getUpdatedFramesMock)
+
+        # Without current counts the job is still polled, and the fetch is retried.
+        self.__pollChanged()
+        getUpdatedFramesMock.assert_called_once()
+        self.assertEqual(2, getJobMock.call_count)
+
+        # The counts show every frame succeeded, so polling stops.
+        getUpdatedFramesMock.reset_mock()
+        self.__pollChanged()
+        getUpdatedFramesMock.assert_not_called()
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    @mock.patch.object(opencue.wrappers.job.Job, 'getUpdatedFrames')
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedSetsJobState(self, getFramesMock, getUpdatedFramesMock):
+        self.__finishJob(getFramesMock, getUpdatedFramesMock)
+
+        # The layer view shares the job and reads its state for its menu.
+        self.assertEqual(opencue_proto.job_pb2.FINISHED, self.job.state())
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedSetsStateOfPolledJob(self, getFramesMock):
+        getFramesMock.return_value = []
+        self.frameMonitorTree.tick()
+        otherJob = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='bar'))
+
+        def switchJobAndFinish(_):
+            # Another job is opened while this job's update is in flight.
+            self.frameMonitorTree._FrameMonitorTree__job = otherJob  # pylint: disable=protected-access
+            return opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+                state=opencue_proto.job_pb2.FINISHED, server_time=1000)
+
+        with mock.patch.object(self.job, 'getUpdatedFrames', side_effect=switchJobAndFinish):
+            self.__pollChanged()
+
+        self.assertEqual(opencue_proto.job_pb2.FINISHED, self.job.state())
+        self.assertEqual(opencue_proto.job_pb2.PENDING, otherJob.state())
 
     def test_getCores(self):
         frame = opencue.wrappers.frame.Frame(
