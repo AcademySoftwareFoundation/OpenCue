@@ -203,6 +203,12 @@ class PlanTests(unittest.TestCase):
         self.assertTrue(full)
         self.assertNotIn("false", jobs.values())
 
+    def test_renames_cannot_hide_a_truncated_file_list(self):
+        # The API listed 3000 files; a rename among them gives the filter 3001 paths.
+        paths = [f"docs/{i}.md" for i in range(3001)]
+        _, _, full = plan_pr_jobs.plan(filter_outputs(*paths), [], changed_count=3001)
+        self.assertTrue(full)
+
     def test_unmapped_file_runs_everything(self):
         outputs = filter_outputs("newdir/thing.py")
         jobs, unmapped, full = plan_pr_jobs.plan(outputs, [])
