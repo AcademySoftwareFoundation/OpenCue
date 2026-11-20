@@ -422,7 +422,7 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
         10,
     );
 
-    let openrqd = start_openrqd(&config_path, rqd_port, "openrqd");
+    let (openrqd, _) = start_openrqd(&config_path, rqd_port, "openrqd");
 
     TestEnv {
         temp_dir,
@@ -434,8 +434,8 @@ fn setup_test_env(monitor_interval: &str, worker_threads: u32) -> TestEnv {
     }
 }
 
-/// Starts openrqd and waits for it to listen on `rqd_port`.
-fn start_openrqd(config_path: &Path, rqd_port: u16, label: &str) -> Child {
+/// Starts openrqd and waits for it to listen on `rqd_port`. Returns the process and its output.
+fn start_openrqd(config_path: &Path, rqd_port: u16, label: &str) -> (Child, Receiver<String>) {
     let mut openrqd = Command::new(get_binary_path("openrqd"))
         .env("OPENCUE_RQD_CONFIG", config_path.to_str().unwrap())
         .stdout(Stdio::piped())
@@ -444,7 +444,34 @@ fn start_openrqd(config_path: &Path, rqd_port: u16, label: &str) -> Child {
         .expect("Failed to start openrqd");
     let output = stream_output(&mut openrqd);
     wait_for_port_open(&mut openrqd, &output, rqd_port, label, 20);
-    openrqd
+    (openrqd, output)
+}
+
+/// Restarts openrqd with the test's config and waits up to 40s for dummy-cuebot to receive a
+/// frame completion, returning dummy-cuebot's output. On failure, panics with `failure` and the
+/// output of both processes.
+#[cfg(unix)]
+fn restart_and_wait_for_completion(env: TestEnv, failure: &str) -> String {
+    let (mut openrqd, rqd_output) =
+        start_openrqd(&env.config_path, env.rqd_port, "openrqd (restarted)");
+    let (success, output) = monitor_server_output(env.dummy_server, env.dummy_output, 1, 40);
+
+    let rqd_exit = openrqd.try_wait().ok().flatten();
+    let _ = openrqd.kill();
+    let _ = openrqd.wait();
+
+    if !success {
+        let rqd_output = collect_output(&rqd_output);
+        let tail: Vec<&str> = rqd_output.lines().rev().take(200).collect();
+        println!("Server output:\n{}", output);
+        println!(
+            "Restarted openrqd output (last {} lines):\n{}",
+            tail.len(),
+            tail.into_iter().rev().collect::<Vec<_>>().join("\n")
+        );
+        panic!("{failure} (restarted openrqd exit status: {rqd_exit:?})");
+    }
+    output
 }
 
 /// Returns true when a frame entrypoint wrapper spawned from `temp_dir` is still running.
@@ -779,20 +806,10 @@ async fn test_rqd_restart_recovers_running_frame() {
     );
 
     // Restart rqd with the same config; it must recover the frame from its snapshot.
-    let mut openrqd2 = start_openrqd(&env.config_path, env.rqd_port, "openrqd (restarted)");
-
-    let (dummy_server, dummy_output) = (env.dummy_server, env.dummy_output);
-    let server_handle =
-        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, 40));
-    let (success, output) = server_handle.join().unwrap();
-
-    let _ = openrqd2.kill();
-    let _ = openrqd2.wait();
-
-    if !success {
-        println!("Server output:\n{}", output);
-        panic!("Recovered frame completion was not reported after rqd restart");
-    }
+    let output = restart_and_wait_for_completion(
+        env,
+        "Recovered frame completion was not reported after rqd restart",
+    );
     assert!(
         output.contains("exit_status: 0"),
         "recovered frame should complete successfully, server output:\n{}",
@@ -836,20 +853,10 @@ async fn test_rqd_restart_reports_frame_finished_while_down() {
         "frame should have finished while rqd was down"
     );
 
-    let mut openrqd2 = start_openrqd(&env.config_path, env.rqd_port, "openrqd (restarted)");
-
-    let (dummy_server, dummy_output) = (env.dummy_server, env.dummy_output);
-    let server_handle =
-        thread::spawn(move || monitor_server_output(dummy_server, dummy_output, 1, 40));
-    let (success, output) = server_handle.join().unwrap();
-
-    let _ = openrqd2.kill();
-    let _ = openrqd2.wait();
-
-    if !success {
-        println!("Server output:\n{}", output);
-        panic!("Completion of a frame that finished during rqd downtime was not reported");
-    }
+    let output = restart_and_wait_for_completion(
+        env,
+        "Completion of a frame that finished during rqd downtime was not reported",
+    );
     assert!(
         output.contains("exit_status: 3"),
         "the frame's real exit code (3) should be recovered from the exit file, server output:\n{}",

@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
     net::ToSocketAddrs,
@@ -618,6 +618,11 @@ impl LinuxSystem {
             }
         }
 
+        // Forget processes that are gone. A stale entry for a session leader that has exited
+        // would make its session look alive with no processes in it.
+        let live_pids: HashSet<u32> = session_processes.values().flatten().copied().collect();
+        self.cached_processes
+            .retain(|pid, _| live_pids.contains(pid));
         *self.write_session_processes() = session_processes;
         Ok(())
     }
@@ -1354,6 +1359,44 @@ mod tests {
         let lineage = system.get_proc_lineage(1);
         // May or may not have lineage for PID 1, but shouldn't panic
         assert!(lineage.is_some() || lineage.is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_proc_stats_stop_once_session_exits() {
+        use crate::system::manager::SystemManager;
+        use std::os::unix::process::CommandExt;
+
+        let system = setup_test_system(1, 1, 1);
+        let mut child = unsafe {
+            std::process::Command::new("sleep")
+                .arg("30")
+                .pre_exec(|| {
+                    libc::setsid();
+                    Ok(())
+                })
+                .spawn()
+                .expect("Failed to spawn sleep")
+        };
+        let session = child.id();
+        let stats = || {
+            system
+                .collect_proc_stats(session, String::new())
+                .expect("collect_proc_stats should not fail")
+        };
+
+        // The first call registers the session; it is cached on the next refresh.
+        stats();
+        system.refresh_procs();
+        assert!(stats().is_some(), "a running session should have stats");
+
+        child.kill().unwrap();
+        child.wait().unwrap();
+        system.refresh_procs();
+        assert!(
+            stats().is_none(),
+            "a session whose leader exited should have no stats"
+        );
     }
 
     #[cfg(target_os = "linux")]
