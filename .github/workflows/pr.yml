@@ -73,6 +73,15 @@ jobs:
           python3 .github/dry-run/compare_images.py "old/${IMAGE}:probe" \
             "opencuebuild/${IMAGE}:${{ steps.new.outputs.build-id }}" | tee -a "${GITHUB_STEP_SUMMARY}"
 
+      # Next.js builds are not reproducible: this shows what two builds of the old Dockerfile
+      # already differ in.
+      - name: Compare two builds of the Phase 3 Dockerfile
+        if: matrix.image == 'cueweb'
+        run: |
+          docker buildx build --load --no-cache -t old/cueweb:probe2 -f .github/dry-run/cueweb.Dockerfile \
+            --build-context project_root=. --build-arg "NEXT_PUBLIC_GIT_SHA=${GITHUB_SHA::7}" cueweb
+          python3 .github/dry-run/compare_images.py old/cueweb:probe old/cueweb:probe2 | tee -a "${GITHUB_STEP_SUMMARY}"
+
       - uses: actions/download-artifact@v8
         if: matrix.image == 'cuebot'
         with:
