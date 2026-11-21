@@ -209,6 +209,10 @@ export type Service = {
     minGpus?: number;
     maxGpus?: number;
     minMemoryIncrease: number;        // KB (OOM increase)
+    // Email the job's owner, once per run, when a job stops running with dead
+    // frames in a layer using this service. Optional because proto3 JSON omits
+    // false booleans.
+    emailOnFailing?: boolean;
 };
 
 // A show-scoped service override (CueGUI Service Properties). Wraps a Service.

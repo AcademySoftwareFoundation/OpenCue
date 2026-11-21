@@ -26,6 +26,7 @@ import com.imageworks.spcue.FrameInterface;
 import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
 import com.imageworks.spcue.LimitEntity;
@@ -79,6 +80,22 @@ public interface JobManager {
      * @return
      */
     boolean isJobComplete(JobInterface job);
+
+    /**
+     * Returns whether the job is complete, failing or neither, in one read.
+     *
+     * @return
+     */
+    JobRunState getJobRunState(JobInterface job);
+
+    /**
+     * Claims the failing job email for the job's current run, so each run sends it once. Claimed
+     * only when the job is failing and a layer with dead frames uses a service with email on
+     * failing enabled.
+     *
+     * @return true if this call claimed the email
+     */
+    boolean claimFailingEmail(JobInterface job);
 
     /**
      * Returns true if the layer is complete.

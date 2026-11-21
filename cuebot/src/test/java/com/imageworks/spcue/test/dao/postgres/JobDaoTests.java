@@ -38,8 +38,11 @@ import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.PointInterface;
 import com.imageworks.spcue.ResourceUsage;
+import com.imageworks.spcue.ServiceEntity;
+import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.TaskEntity;
 import com.imageworks.spcue.config.TestAppConfig;
 import com.imageworks.spcue.dao.DepartmentDao;
@@ -47,6 +50,7 @@ import com.imageworks.spcue.dao.FacilityDao;
 import com.imageworks.spcue.dao.GroupDao;
 import com.imageworks.spcue.dao.JobDao;
 import com.imageworks.spcue.dao.PointDao;
+import com.imageworks.spcue.dao.ServiceDao;
 import com.imageworks.spcue.dao.ShowDao;
 import com.imageworks.spcue.dao.TaskDao;
 import com.imageworks.spcue.grpc.job.JobState;
@@ -84,6 +88,9 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
 
     @Resource
     PointDao pointDao;
+
+    @Resource
+    ServiceDao serviceDao;
 
     @Resource
     ShowDao showDao;
@@ -154,6 +161,186 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
         JobDetail job = insertJob();
         // returns true because there are no dispatchable frames
         assertEquals(true, jobDao.isJobComplete(job));
+    }
+
+    /**
+     * Launches the test job, a one frame pass_1_preprocess layer and a ten frame pass_1 layer, both
+     * on the shell service, with every frame started and succeeded.
+     */
+    private JobDetail launchSucceededJob() {
+        return succeedAllFrames(launchJob());
+    }
+
+    private JobDetail succeedAllFrames(JobDetail job) {
+        // Drop the frame depends so the frame state triggers let the states below stick.
+        jdbcTemplate.update("UPDATE frame SET int_depend_count=0 WHERE pk_job=?", job.getJobId());
+        jdbcTemplate.update("UPDATE frame SET str_state='SUCCEEDED', ts_started=current_timestamp "
+                + "WHERE pk_job=?", job.getJobId());
+        return job;
+    }
+
+    private String[] getFrames(JobDetail job, String layer) {
+        return jdbcTemplate.queryForList(
+                "SELECT frame.pk_frame FROM frame JOIN layer ON layer.pk_layer = frame.pk_layer "
+                        + "WHERE frame.pk_job=? AND layer.str_name=? ORDER BY frame.int_number",
+                String.class, job.getJobId(), layer).toArray(new String[0]);
+    }
+
+    private void setFrameState(String frame, String state) {
+        jdbcTemplate.update("UPDATE frame SET str_state=? WHERE pk_frame=?", state, frame);
+    }
+
+    private void setLayerServices(JobDetail job, String layer, String services) {
+        jdbcTemplate.update("UPDATE layer SET str_services=? WHERE pk_job=? AND str_name=?",
+                services, job.getJobId(), layer);
+    }
+
+    private ServiceEntity insertService(String name, boolean emailOnFailing) {
+        ServiceEntity service = new ServiceEntity();
+        service.name = name;
+        service.tags.add("general");
+        service.emailOnFailing = emailOnFailing;
+        serviceDao.insert(service);
+        return service;
+    }
+
+    private ServiceOverrideEntity insertServiceOverride(JobDetail job, String name,
+            boolean emailOnFailing) {
+        ServiceOverrideEntity override = new ServiceOverrideEntity();
+        override.name = name;
+        override.tags.add("general");
+        override.showId = job.getShowId();
+        override.emailOnFailing = emailOnFailing;
+        serviceDao.insert(override);
+        return override;
+    }
+
+    private void setShellEmailOnFailing(boolean emailOnFailing) {
+        ServiceEntity shell = serviceDao.get("shell");
+        shell.emailOnFailing = emailOnFailing;
+        serviceDao.update(shell);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testGetJobRunState() {
+        JobDetail job = launchJob();
+        assertEquals(JobRunState.IN_PROGRESS, jobDao.getJobRunState(job));
+
+        succeedAllFrames(job);
+        assertEquals(JobRunState.COMPLETE, jobDao.getJobRunState(job));
+        assertTrue(jobDao.isJobComplete(job));
+
+        String[] frames = getFrames(job, "pass_1");
+        setFrameState(frames[0], "DEAD");
+        assertEquals(JobRunState.FAILING, jobDao.getJobRunState(job));
+        assertFalse(jobDao.isJobComplete(job));
+
+        // Depend frames may be waiting on the dead frame, so the job is still failing.
+        setFrameState(frames[1], "DEPEND");
+        assertEquals(JobRunState.FAILING, jobDao.getJobRunState(job));
+
+        // A waiting or running frame means the job can still make progress.
+        setFrameState(frames[2], "WAITING");
+        assertEquals(JobRunState.IN_PROGRESS, jobDao.getJobRunState(job));
+        setFrameState(frames[2], "RUNNING");
+        assertEquals(JobRunState.IN_PROGRESS, jobDao.getJobRunState(job));
+
+        // Only a pending job is failing: a launching one isn't yet, a killed one isn't any more.
+        setFrameState(frames[2], "SUCCEEDED");
+        jdbcTemplate.update("UPDATE job SET str_state='STARTUP' WHERE pk_job=?", job.getJobId());
+        assertEquals(JobRunState.IN_PROGRESS, jobDao.getJobRunState(job));
+        jdbcTemplate.update("UPDATE job SET str_state='FINISHED' WHERE pk_job=?", job.getJobId());
+        assertEquals(JobRunState.IN_PROGRESS, jobDao.getJobRunState(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimFailingEmailOncePerRun() {
+        setShellEmailOnFailing(true);
+        JobDetail job = launchSucceededJob();
+        // Not failing.
+        assertFalse(jobDao.claimFailingEmail(job));
+
+        String[] frames = getFrames(job, "pass_1");
+        setFrameState(frames[0], "DEAD");
+        setFrameState(frames[1], "DEAD");
+        assertTrue(jobDao.claimFailingEmail(job));
+        // Other completions seeing the same run fail do not claim it again.
+        assertFalse(jobDao.claimFailingEmail(job));
+
+        // A retry starts a new run, which is claimed once it fails again.
+        setFrameState(frames[0], "WAITING");
+        jdbcTemplate.update("UPDATE frame SET ts_started=current_timestamp + interval '1' second "
+                + "WHERE pk_frame=?", frames[0]);
+        assertFalse(jobDao.claimFailingEmail(job));
+        setFrameState(frames[0], "DEAD");
+        assertTrue(jobDao.claimFailingEmail(job));
+        assertFalse(jobDao.claimFailingEmail(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimFailingEmailNeedsDeadFramesOnALayerWithTheEmail() {
+        insertService("emailing", true);
+        JobDetail job = launchSucceededJob();
+        setLayerServices(job, "pass_1_preprocess", "emailing");
+
+        // pass_1 uses shell, which has the email off.
+        setFrameState(getFrames(job, "pass_1")[0], "DEAD");
+        assertFalse(jobDao.claimFailingEmail(job));
+
+        setFrameState(getFrames(job, "pass_1_preprocess")[0], "DEAD");
+        assertTrue(jobDao.claimFailingEmail(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimFailingEmailFollowsTheLayersPrimaryService() {
+        insertService("emailing", true);
+        JobDetail job = launchSucceededJob();
+        setFrameState(getFrames(job, "pass_1")[0], "DEAD");
+
+        // The first listed service decides, not any listed one.
+        setLayerServices(job, "pass_1", "shell,emailing");
+        assertFalse(jobDao.claimFailingEmail(job));
+
+        // A listed service that doesn't exist is skipped, as at launch.
+        setLayerServices(job, "pass_1", "nosuchservice,emailing,shell");
+        assertTrue(jobDao.claimFailingEmail(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimFailingEmailPrefersTheShowOverride() {
+        setShellEmailOnFailing(true);
+        JobDetail job = launchSucceededJob();
+        setFrameState(getFrames(job, "pass_1")[0], "DEAD");
+
+        ServiceOverrideEntity override = insertServiceOverride(job, "shell", false);
+        assertFalse(jobDao.claimFailingEmail(job));
+
+        setShellEmailOnFailing(false);
+        override.emailOnFailing = true;
+        serviceDao.update(override);
+        assertTrue(jobDao.claimFailingEmail(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testClaimFailingEmailOnlyForPendingJobs() {
+        setShellEmailOnFailing(true);
+        JobDetail job = launchSucceededJob();
+        setFrameState(getFrames(job, "pass_1")[0], "DEAD");
+
+        jdbcTemplate.update("UPDATE job SET str_state='FINISHED' WHERE pk_job=?", job.getJobId());
+        assertFalse(jobDao.claimFailingEmail(job));
     }
 
     @Test

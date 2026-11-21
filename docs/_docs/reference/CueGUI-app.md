@@ -178,4 +178,9 @@ To edit and add services to OpenCue:
     You can modify the CPU, memory, and GPU requirements. You can also define
     the *tags* associated with this service.
 
+    Turn on **Email on Failing Job** to email the job's owner when a job stops
+    running with dead frames in a layer that uses this service. The email is
+    sent once per run of the job, so retried frames that fail again send it
+    again. A show's service override takes precedence over this setting.
+
 1.  Click **Save** to push your changes to Cuebot.

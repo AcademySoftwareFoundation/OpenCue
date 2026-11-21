@@ -28,6 +28,7 @@ import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.FrameInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
@@ -122,6 +123,8 @@ public class FrameCompleteHandlerOwnershipTests {
 
         hostManager = mock(HostManager.class);
         jobManager = mock(JobManager.class);
+        // The job still has frames to run, so the proc stays on it.
+        when(jobManager.getJobRunState(any())).thenReturn(JobRunState.IN_PROGRESS);
         redirectManager = mock(RedirectManager.class);
         dispatchSupport = mock(DispatchSupport.class);
         dispatcher = mock(Dispatcher.class);

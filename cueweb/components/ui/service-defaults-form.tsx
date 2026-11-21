@@ -95,6 +95,7 @@ export function ServiceDefaultsForm({
   const [timeout, setTimeoutMin] = React.useState(String(service?.timeout ?? 0));
   const [timeoutLlu, setTimeoutLlu] = React.useState(String(service?.timeoutLlu ?? 0));
   const [oomIncreaseMb, setOomIncreaseMb] = React.useState(String(service ? toMb(service.minMemoryIncrease) : 2048));
+  const [emailOnFailing, setEmailOnFailing] = React.useState(service?.emailOnFailing ?? false);
 
   const [useCustomTags, setUseCustomTags] = React.useState(!initAllPredefined);
   const [selectedTags, setSelectedTags] = React.useState<Set<string>>(
@@ -188,6 +189,7 @@ export function ServiceDefaultsForm({
       minGpus: service?.minGpus ?? 0,
       maxGpus: service?.maxGpus ?? 0,
       minMemoryIncrease: Number(oomIncreaseMb) * 1024,
+      emailOnFailing,
     };
     const persist = onPersist ?? ((p: Service, fresh: boolean) => (fresh ? createService(p) : updateService(p)));
     const ok = await persist(payload, isNew);
@@ -233,6 +235,14 @@ export function ServiceDefaultsForm({
       </Field>
       <Field label="OOM Increase MB:">
         <Input type="number" min={0} value={oomIncreaseMb} onChange={(e) => setOomIncreaseMb(e.target.value)} aria-label="OOM Increase MB" />
+      </Field>
+      <Field label="Email on Failing Job:">
+        <Checkbox
+          checked={emailOnFailing}
+          onCheckedChange={(c) => setEmailOnFailing(!!c)}
+          aria-label="Email on Failing Job"
+          title="Email the job's owner, once per run, when a job stops running with dead frames in a layer using this service."
+        />
       </Field>
 
       <fieldset className="rounded-md border p-4">

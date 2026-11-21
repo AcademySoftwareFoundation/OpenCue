@@ -551,7 +551,9 @@ public class FrameCompleteHandler {
                 byLayer.putIfAbsent(c.frame.getLayerId(), c);
             }
         }
-        if (succeeded || c.newFrameState.equals(FrameState.EATEN)) {
+        // Any of these can end the job's run: complete, or failing when frames are dead.
+        if (succeeded || c.newFrameState.equals(FrameState.EATEN)
+                || c.newFrameState.equals(FrameState.DEAD)) {
             byJob.putIfAbsent(c.frame.getJobId(), c);
         }
         String name = c.frame.getName();
@@ -620,11 +622,39 @@ public class FrameCompleteHandler {
         }
     }
 
-    /** Phase three of batchPostOps for one job: the completion check. */
+    /** Phase three of batchPostOps for one job: the completion and failing checks. */
     private void fileJob(QueuedFrameCompletion c) {
-        if (jobManager.isJobComplete(c.job)) {
-            c.job.state = JobState.FINISHED;
-            jobManagerSupport.queueShutdownJob(c.job, new Source("natural"), false);
+        checkJobRunState(c.job);
+    }
+
+    /**
+     * After a frame succeeded, was eaten or died: shuts the job down when it is complete, or queues
+     * the failing job email when it is failing, from one read of the job's frame counts. A failure
+     * of the email costs the email only.
+     */
+    private void checkJobRunState(DispatchJob job) {
+        switch (jobManager.getJobRunState(job)) {
+            case COMPLETE:
+                job.state = JobState.FINISHED;
+                jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
+                break;
+            case FAILING:
+                guard(() -> queueFailingJobEmail(job), "failing email of job " + job.getName());
+                break;
+            default:
+                break;
+        }
+    }
+
+    /**
+     * Queues the failing job email when this completion claims it for the job's run. The claim
+     * holds only when a layer with dead frames uses a service with email on failing enabled, and
+     * only one of the completions that see the run fail gets it.
+     */
+    private void queueFailingJobEmail(DispatchJob job) {
+        if (jobManager.claimFailingEmail(job)) {
+            logger.info("job " + job.getName() + " is failing, queueing the failing job email");
+            jobManagerSupport.queueFailingJobEmail(job);
         }
     }
 
@@ -1473,9 +1503,9 @@ public class FrameCompleteHandler {
     /**
      * Proc-independent frame-completion bookkeeping shared by the normal and orphaned paths:
      * satisfies frame- and layer-level dependencies, optimizes the layer's resource requirements on
-     * success, and shuts the job down once it has fully completed. Proc-dependent work (usage
-     * counters, unbook/rebook, memory growth, and Kafka/Prometheus telemetry) is intentionally left
-     * to the callers.
+     * success, shuts the job down once it has fully completed, and queues the failing job email
+     * once it is failing. Proc-dependent work (usage counters, unbook/rebook, memory growth, and
+     * Kafka/Prometheus telemetry) is intentionally left to the callers.
      *
      * @return whether the frame's layer is now complete, so a caller can run any additional
      *         layer-completion side effects it owns.
@@ -1504,14 +1534,14 @@ public class FrameCompleteHandler {
 
         /*
          * The final frame can either be Succeeded or Eaten. If you only check if the frame is
-         * Succeeded before doing an isJobComplete check, then jobs that finish with the auto-eat
-         * flag enabled will not leave the cue.
+         * Succeeded before doing a completion check, then jobs that finish with the auto-eat flag
+         * enabled will not leave the cue. A dead frame can leave the job failing instead; its check
+         * is new, so a failure of it costs the check only.
          */
         if (newFrameState.equals(FrameState.SUCCEEDED) || newFrameState.equals(FrameState.EATEN)) {
-            if (jobManager.isJobComplete(job)) {
-                job.state = JobState.FINISHED;
-                jobManagerSupport.queueShutdownJob(job, new Source("natural"), false);
-            }
+            checkJobRunState(job);
+        } else if (newFrameState.equals(FrameState.DEAD)) {
+            guard(() -> checkJobRunState(job), "failing check of job " + job.getName());
         }
 
         return isLayerComplete;

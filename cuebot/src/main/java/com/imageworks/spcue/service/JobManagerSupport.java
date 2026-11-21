@@ -47,6 +47,7 @@ import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
+import com.imageworks.spcue.dispatcher.commands.DispatchJobFailingEmail;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -96,6 +97,10 @@ public class JobManagerSupport {
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
+    }
+
+    public void queueFailingJobEmail(JobInterface job) {
+        manageQueue.execute(new DispatchJobFailingEmail(job, emailSupport));
     }
 
     public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {

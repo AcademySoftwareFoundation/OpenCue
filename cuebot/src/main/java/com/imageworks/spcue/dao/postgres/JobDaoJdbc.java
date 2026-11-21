@@ -47,6 +47,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.TaskEntity;
@@ -181,27 +182,114 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
         return getJdbcTemplate().queryForObject(GET_DISPATCH_JOB, DISPATCH_JOB_MAPPER, uuid);
     }
 
+    /**
+     * A job is complete once nothing is left waiting, running, checkpointing, depending or dead,
+     * and failing once it is pending with nothing left waiting, running or checkpointing and some
+     * frames dead. A launching job is neither.
+     */
+    private static final RowMapper<JobRunState> JOB_RUN_STATE_MAPPER = (rs, rowNum) -> {
+        String state = rs.getString("str_state");
+        if (state.equals(JobState.STARTUP.toString()) || rs.getLong("int_active_count") > 0) {
+            return JobRunState.IN_PROGRESS;
+        }
+        long dead = rs.getLong("int_dead_count");
+        if (dead == 0 && rs.getLong("int_depend_count") == 0) {
+            return JobRunState.COMPLETE;
+        }
+        if (dead > 0 && state.equals(JobState.PENDING.toString())) {
+            return JobRunState.FAILING;
+        }
+        return JobRunState.IN_PROGRESS;
+    };
+
     // spotless:off
-    private static final String IS_JOB_COMPLETE =
+    private static final String GET_JOB_RUN_STATE =
             "SELECT "
-                + "SUM ("
-                    + "int_waiting_count + "
-                    + "int_running_count + "
-                    + "int_dead_count + "
-                    + "int_depend_count + "
-                    + "int_checkpoint_count "
-                + ") "
-            + "FROM job_stat "
-            + "WHERE pk_job=?";
+                + "job.str_state, "
+                + "job_stat.int_waiting_count "
+                    + "+ job_stat.int_running_count "
+                    + "+ job_stat.int_checkpoint_count AS int_active_count, "
+                + "job_stat.int_depend_count, "
+                + "job_stat.int_dead_count "
+            + "FROM "
+                + "job "
+                + "JOIN job_stat ON job_stat.pk_job = job.pk_job "
+            + "WHERE "
+                + "job.pk_job=?";
     // spotless:on
 
     @Override
+    public JobRunState getJobRunState(JobInterface job) {
+        return getJdbcTemplate().queryForObject(GET_JOB_RUN_STATE, JOB_RUN_STATE_MAPPER,
+                job.getJobId());
+    }
+
+    @Override
     public boolean isJobComplete(JobInterface job) {
-        if (isLaunching(job)) {
-            return false;
-        }
-        return getJdbcTemplate().queryForObject(IS_JOB_COMPLETE, Integer.class,
-                job.getJobId()) == 0;
+        return getJobRunState(job) == JobRunState.COMPLETE;
+    }
+
+    /*
+     * The job's run is marked by its latest frame start. A layer's service is its first listed
+     * service that exists, a show's override before the facility service, as JobSpec chose it at
+     * launch.
+     */
+    // spotless:off
+    private static final String CLAIM_FAILING_EMAIL =
+            "UPDATE "
+                + "job "
+            + "SET "
+                + "ts_failing_email = run.ts_started "
+            + "FROM "
+                + "(SELECT MAX(ts_started) AS ts_started FROM frame WHERE pk_job=?) AS run "
+            + "WHERE "
+                + "job.pk_job=? "
+            + "AND "
+                + "job.str_state=? "
+            + "AND "
+                + "run.ts_started IS NOT NULL "
+            + "AND "
+                + "(job.ts_failing_email IS NULL OR job.ts_failing_email < run.ts_started) "
+            + "AND EXISTS ("
+                + "SELECT 1 FROM job_stat "
+                + "WHERE job_stat.pk_job = job.pk_job "
+                + "AND job_stat.int_waiting_count + job_stat.int_running_count "
+                    + "+ job_stat.int_checkpoint_count = 0"
+            + ") "
+            + "AND EXISTS ("
+                + "SELECT 1 "
+                + "FROM "
+                    + "layer_stat "
+                    + "JOIN layer ON layer.pk_layer = layer_stat.pk_layer "
+                    + "CROSS JOIN LATERAL ("
+                        + "SELECT "
+                            + "COALESCE(show_service.b_email_on_failing, "
+                                + "service.b_email_on_failing) AS b_email_on_failing "
+                        + "FROM "
+                            + "unnest(string_to_array(layer.str_services, ',')) "
+                                + "WITH ORDINALITY AS layer_service(str_name, int_order) "
+                            + "LEFT JOIN show_service ON show_service.pk_show = job.pk_show "
+                                + "AND show_service.str_name = layer_service.str_name "
+                            + "LEFT JOIN service ON service.str_name = layer_service.str_name "
+                        + "WHERE "
+                            + "show_service.pk_show_service IS NOT NULL "
+                            + "OR service.pk_service IS NOT NULL "
+                        + "ORDER BY layer_service.int_order "
+                        + "LIMIT 1"
+                    + ") AS primary_service "
+                + "WHERE "
+                    + "layer_stat.pk_job = job.pk_job "
+                + "AND "
+                    + "layer_stat.int_dead_count > 0 "
+                + "AND "
+                    + "primary_service.b_email_on_failing"
+            + ")";
+    // spotless:on
+
+    @Override
+    public boolean claimFailingEmail(JobInterface job) {
+        return getJdbcTemplate().update(CLAIM_FAILING_EMAIL, job.getJobId(), job.getJobId(),
+                JobState.PENDING.toString()) > 0;
     }
 
     // spotless:off

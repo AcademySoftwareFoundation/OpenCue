@@ -32,7 +32,9 @@ import com.imageworks.spcue.DispatchHost;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
 import com.imageworks.spcue.JobDetail;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.LayerDetail;
+import com.imageworks.spcue.ServiceEntity;
 import com.imageworks.spcue.ServiceOverrideEntity;
 import com.imageworks.spcue.VirtualProc;
 import com.imageworks.spcue.dao.FrameDao;
@@ -518,6 +520,70 @@ public class FrameCompleteHandlerTests extends TransactionalTest {
     public void testDependRetryExhausted() {
         // All three calls fail — depend remains unsatisfied, frame stays in DEPEND
         executeDependWithRetry(3, 1, FrameState.DEPEND);
+    }
+
+    /**
+     * Kills the only frame of test0, whose layer uses the shell service, and returns how many
+     * failing job emails its completion queued.
+     */
+    private int executeFailingJob(boolean emailOnFailing) {
+        ServiceEntity shell = serviceManager.getService("shell");
+        shell.emailOnFailing = emailOnFailing;
+        serviceManager.updateService(shell);
+
+        JobDetail job = jobManager.findJobDetail("pipe-default-testuser_test0");
+        jobManager.setJobPaused(job, false);
+
+        DispatchHost host = getHost(HOSTNAME);
+        List<VirtualProc> procs = dispatcher.dispatchHost(host);
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).build();
+        FrameCompleteReport report =
+                FrameCompleteReport.newBuilder().setFrame(info).setExitStatus(1).build();
+
+        DispatchJob dispatchJob = jobManager.getDispatchJob(proc.getJobId());
+        DispatchFrame dispatchFrame = jobManager.getDispatchFrame(report.getFrame().getFrameId());
+        FrameDetail frameDetail = jobManager.getFrameDetail(report.getFrame().getFrameId());
+        dispatchSupport.stopFrame(dispatchFrame, FrameState.DEAD, report.getExitStatus(),
+                report.getFrame().getMaxRss());
+
+        JobManagerSupport originalSupport = frameCompleteHandler.getJobManagerSupport();
+        JobManagerSupport spySupport = spy(originalSupport);
+        final int[] emails = {0};
+        doAnswer(invocation -> {
+            emails[0]++;
+            return null;
+        }).when(spySupport).queueFailingJobEmail(any());
+        frameCompleteHandler.setJobManagerSupport(spySupport);
+        try {
+            frameCompleteHandler.handlePostFrameCompleteOperations(proc, report, dispatchJob,
+                    dispatchFrame, FrameState.DEAD, frameDetail);
+        } finally {
+            frameCompleteHandler.setJobManagerSupport(originalSupport);
+        }
+
+        assertEquals(JobRunState.FAILING, jobManager.getJobRunState(job));
+        // Any later completion seeing this run fail claims nothing.
+        assertFalse(jobManager.claimFailingEmail(job));
+        return emails[0];
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFailingJobQueuesEmail() {
+        assertEquals(1, executeFailingJob(true));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFailingJobWithoutEmailQueuesNone() {
+        assertEquals(0, executeFailingJob(false));
     }
 
     /**

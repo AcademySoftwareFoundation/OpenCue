@@ -77,6 +77,7 @@ public class ManageServiceOverride
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();
         entity.minMemoryIncrease = service.getMinMemoryIncrease();
+        entity.emailOnFailing = service.getEmailOnFailing();
         return entity;
     }
 }

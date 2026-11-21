@@ -269,6 +269,25 @@ class Service(object):
         else:
             raise ValueError("Minimum memory increase must be > 0")
 
+    def emailOnFailing(self):
+        """Returns whether jobs using this service email their owner when failing.
+
+        A job is failing when nothing is left waiting or running and some frames are dead.
+        The email is sent once per run of a job, when a layer using this service has dead frames.
+
+        :rtype: bool
+        :return: whether the failing job email is enabled
+        """
+        return self.data.email_on_failing
+
+    def setEmailOnFailing(self, email_on_failing):
+        """Sets whether jobs using this service email their owner when failing.
+
+        :type email_on_failing: bool
+        :param email_on_failing: whether the failing job email is enabled
+        """
+        self.data.email_on_failing = email_on_failing
+
 class ServiceOverride(object):
     """Represents a display override of a service assigned to a show"""
     def __init__(self, serviceOverride=None):

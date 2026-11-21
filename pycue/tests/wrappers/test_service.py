@@ -148,6 +148,14 @@ class ServiceTests(unittest.TestCase):
         service.setMinMemoryIncrease(12345678)
         self.assertEqual(service.minMemoryIncrease(), 12345678)
 
+    def testSetEmailOnFailing(self, getStubMock):
+        service = opencue.wrappers.service.Service(
+            service_pb2.Service(name=TEST_SERVICE_NAME))
+        self.assertFalse(service.emailOnFailing())
+
+        service.setEmailOnFailing(True)
+        self.assertTrue(service.emailOnFailing())
+
 
 if __name__ == '__main__':
     unittest.main()

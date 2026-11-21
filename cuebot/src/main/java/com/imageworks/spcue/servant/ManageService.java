@@ -59,6 +59,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         service.timeout = request.getData().getTimeout();
         service.timeout_llu = request.getData().getTimeoutLlu();
         service.minMemoryIncrease = request.getData().getMinMemoryIncrease();
+        service.emailOnFailing = request.getData().getEmailOnFailing();
         serviceManager.createService(service);
         responseObserver.onNext(ServiceCreateServiceResponse.newBuilder()
                 .setService(whiteboard.getService(service.getId())).build());
@@ -133,6 +134,7 @@ public class ManageService extends ServiceInterfaceGrpc.ServiceInterfaceImplBase
         entity.timeout = service.getTimeout();
         entity.timeout_llu = service.getTimeoutLlu();
         entity.minMemoryIncrease = service.getMinMemoryIncrease();
+        entity.emailOnFailing = service.getEmailOnFailing();
         return entity;
     }
 }

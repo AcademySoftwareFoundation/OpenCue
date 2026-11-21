@@ -546,7 +546,7 @@ A facility-wide service-defaults editor at `/services` (`cueweb/app/services/pag
 |----------|-------------|
 | **Layout** | Two panes: a left list of the facility default services (`New` / `Del`) and a right edit form for the selected service. |
 | **Data source** | Loads via `getDefaultServices()` (`app/utils/get_utils.ts`) &rarr; `/api/service/getdefaultservices` &rarr; `service.ServiceInterface/GetDefaultServices`. `getDefaultServices()` returns an array on success and throws on a non-array response, so a backend outage reaches the page's error state rather than rendering "No services defined". |
-| **Form fields** | Name, Threadable, Min/Max Threads (centcores; `100` = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined two-column checkbox matrix or a Custom Tags free-text toggle). |
+| **Form fields** | Name, Threadable, Min/Max Threads (centcores; `100` = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, Email on Failing Job, and Tags (predefined two-column checkbox matrix or a Custom Tags free-text toggle). |
 | **Units** | Memory fields are MB in the UI but KB in the proto (&times;1024); threads are stored as cores &times; 100. |
 | **Validation** | Name length/charset, all numeric fields non-negative integers, min &le; max threads when max &gt; 0, OOM increase &gt; 0, and tag charset. Invalid input raises a warning toast and blocks save. |
 | **Save** | Shows a facility-wide confirmation, then calls `createService()` (new) or `updateService()` (existing) &rarr; `/api/service/{create,update}` &rarr; `service.ServiceInterface/{CreateService,Update}`. |

@@ -2145,10 +2145,13 @@ POST /service.ServiceInterface/GetService
     "timeoutLlu": 0,
     "minGpus": 0,
     "maxGpus": 0,
-    "minMemoryIncrease": 0
+    "minMemoryIncrease": 0,
+    "emailOnFailing": false
   }
 }
 ```
+
+When `emailOnFailing` is `true`, Cuebot emails the job summary, marked FAILING, once a job stops running with dead frames in a layer that uses this service: no frames are left waiting, running or checkpointing, and that layer has at least one dead frame. A layer uses the first of its listed services that exists, and a show's service override takes precedence over the facility service. The email is sent once per run of the job; retried frames that fail again start a new run and send it again. It goes to the job's email addresses, or to `<user>@<email.domain>` if the job has none.
 
 ### Get Default Services
 
@@ -2206,7 +2209,8 @@ POST /service.ServiceInterface/CreateService
     "minCores": 1,
     "maxCores": 16,
     "minMemory": 2147483648,
-    "tags": ["blender", "render"]
+    "tags": ["blender", "render"],
+    "emailOnFailing": true
   }
 }
 ```

@@ -37,6 +37,7 @@ import com.imageworks.spcue.FrameStateTotals;
 import com.imageworks.spcue.GroupDetail;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.JobLaunchException;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.LayerInterface;
@@ -85,6 +86,16 @@ public class JobManagerService implements JobManager {
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
     public boolean isJobComplete(JobInterface job) {
         return jobDao.isJobComplete(job);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED, readOnly = true)
+    public JobRunState getJobRunState(JobInterface job) {
+        return jobDao.getJobRunState(job);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    public boolean claimFailingEmail(JobInterface job) {
+        return jobDao.claimFailingEmail(job);
     }
 
     @Transactional(propagation = Propagation.REQUIRED, readOnly = true)

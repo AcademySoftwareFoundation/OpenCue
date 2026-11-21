@@ -29,6 +29,7 @@ import com.imageworks.spcue.GroupInterface;
 import com.imageworks.spcue.Inherit;
 import com.imageworks.spcue.JobDetail;
 import com.imageworks.spcue.JobInterface;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.ResourceUsage;
 import com.imageworks.spcue.ShowInterface;
 import com.imageworks.spcue.TaskEntity;
@@ -116,6 +117,27 @@ public interface JobDao {
      * @return
      */
     boolean isJobComplete(JobInterface job);
+
+    /**
+     * Returns whether the job is complete, failing or neither, from one read of the job and its
+     * frame counts.
+     *
+     * @param job
+     * @return
+     */
+    JobRunState getJobRunState(JobInterface job);
+
+    /**
+     * Claims the failing job email for the job's current run, in one conditional update of the job.
+     * The claim is made when the job is failing, a layer with dead frames uses a service with email
+     * on failing enabled (a show's service override takes precedence), and the job's latest frame
+     * start is newer than the one last claimed. Every run starts frames, so each run is claimed
+     * once, by one of the completions that see it fail, on one Cuebot or several.
+     *
+     * @param job
+     * @return true if this call claimed the email
+     */
+    boolean claimFailingEmail(JobInterface job);
 
     /**
      * Inserts a JobDetail. The job will not be pending until its activated.
