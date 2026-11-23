@@ -290,7 +290,7 @@ jobs:
           role-to-assume: ${{ secrets.AWS_S3_ROLE }}
           role-duration-seconds: 1800
 
-      # The release pipeline reads s3://<bucket>/opencue/<build id>/.
+      # The long-lived copy of the bundle; release.yml reads the artifact, which expires.
       - name: Upload the bundle
         run: |
           aws s3 cp --recursive bundle/ "s3://${S3_BUCKET}/opencue/${BUILD_ID}/"
