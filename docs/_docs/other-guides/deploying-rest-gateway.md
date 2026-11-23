@@ -31,7 +31,7 @@ graph LR
 
 ## Prerequisites
 
-- Go 1.19 or later
+- Go 1.27 or later
 - Access to OpenCue Cuebot gRPC endpoint
 - JWT secret for authentication
 - Docker (optional, for containerized deployment)
@@ -208,16 +208,9 @@ produce them, and they are not checked into the source tree. Without them the
 it were disabled. Generate and install them alongside the binary:
 
 ```bash
-# Once, to install the plugin
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
-
-# From rest_gateway/opencue_gateway
-mkdir -p gen/openapiv2
-protoc -I ../../proto/src/ \
-  --openapiv2_out ./gen/openapiv2 \
-  --openapiv2_opt generate_unbound_methods=true \
-  --openapiv2_opt logtostderr=true \
-  ../../proto/src/*.proto
+# From rest_gateway/opencue_gateway: install the protoc plugins go.mod pins, then generate
+go install tool
+./generate_proto.sh
 
 # Install next to the binary
 sudo mkdir -p /opt/opencue/gen/openapiv2

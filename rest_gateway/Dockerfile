@@ -5,53 +5,20 @@ RUN apt-get update && \
     apt-get install -y protobuf-compiler && \
     rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+WORKDIR /app/opencue_gateway
 ENV PATH=$PATH:/root/go/bin
 
-# Copy all of the staged files (protos plus go source)
+# Dependencies and the protoc plugins (go.mod's tool block)
+COPY ./rest_gateway/opencue_gateway/go.mod ./rest_gateway/opencue_gateway/go.sum ./
+RUN go mod download && go install tool
+
+# Generate the gRPC, grpc-gateway and OpenAPI code from the protos
 COPY ./proto /app/proto
+COPY ./rest_gateway/opencue_gateway/generate_proto.sh ./
+RUN ./generate_proto.sh ../proto/src
+
+# Copy the go source
 COPY ./rest_gateway/opencue_gateway /app/opencue_gateway
-# COPY ./lib /app/lib
-
-
-WORKDIR /app/opencue_gateway
-RUN if [ ! -f go.mod ]; then go mod init opencue_gateway; fi && go mod tidy
-
-RUN go install \
-    github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway \
-    github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2 \
-    github.com/golang-jwt/jwt/v5 \
-    google.golang.org/protobuf/cmd/protoc-gen-go \
-    google.golang.org/grpc/cmd/protoc-gen-go-grpc
-
-# Generate go grpc code
-RUN mkdir -p gen/go && \
-    protoc -I ../proto/src/ \
-    --go_out ./gen/go/ \
-    --go_opt paths=source_relative \
-    --go-grpc_out ./gen/go/ \
-    --go-grpc_opt paths=source_relative \
-    ../proto/src/*.proto
-
-# Generate grpc-gateway handlers
-RUN protoc -I ../proto/src/ --grpc-gateway_out ./gen/go \
-    --grpc-gateway_opt paths=source_relative \
-    --grpc-gateway_opt generate_unbound_methods=true \
-    ../proto/src/*.proto
-
-# Generate OpenAPI/Swagger definitions
-RUN mkdir -p gen/openapiv2 && \
-    protoc -I ../proto/src/ --openapiv2_out ./gen/openapiv2 \
-    --openapiv2_opt generate_unbound_methods=true \
-    --openapiv2_opt logtostderr=true \
-    ../proto/src/*.proto
-
-# Fetch swaggo/files static assets and update dependencies.
-# go.mod/go.sum are not committed (see rest_gateway/.gitignore), so this pin is
-# the only thing keeping the build reproducible. Keep the version in sync with
-# the "Install Go dependencies" step in .github/workflows/rest-gateway.yml.
-RUN go get github.com/swaggo/files/v2@v2.0.2 && \
-    go mod tidy
 
 # Uncomment this to run go tests
 # RUN go test -v

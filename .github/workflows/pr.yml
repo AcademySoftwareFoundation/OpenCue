@@ -36,6 +36,7 @@ jobs:
       cueweb: ${{ steps.plan.outputs.cueweb }}
       gateway: ${{ steps.plan.outputs.gateway }}
       integration: ${{ steps.plan.outputs.integration }}
+      cuebot_packages: ${{ steps.plan.outputs.cuebot_packages }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -127,6 +128,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.integration == 'true'
     uses: ./.github/workflows/integration.yml
+    with:
+      cuebot-packages: ${{ needs.changes.outputs.cuebot_packages == 'true' }}
 
   pr-gate:
     name: pr-gate
