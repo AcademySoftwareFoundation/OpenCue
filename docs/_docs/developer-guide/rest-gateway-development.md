@@ -283,7 +283,7 @@ gen/openapiv2/
 
 `generate_unbound_methods=true` must match the flag passed to `--grpc-gateway_out`. Without it the generated paths would not line up with the routes the gateway actually registers.
 
-The same steps run in `rest_gateway/Dockerfile` at image build time, and in the `Generate OpenAPI definitions` step of `.github/workflows/testing-pipeline.yml`. If you change one, change the others.
+The same steps run in `rest_gateway/Dockerfile` at image build time, and in the `Generate OpenAPI definitions` step of `.github/workflows/rest-gateway.yml`. If you change one, change the others.
 
 Inspect the output directly:
 

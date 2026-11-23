@@ -4,6 +4,11 @@ name: Cuebot
 
 on:
   workflow_call:
+    inputs:
+      coverage:
+        description: Also write the JaCoCo coverage report and upload it as cuebot-coverage.
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -24,4 +29,11 @@ jobs:
 
       - name: Build with Gradle
         working-directory: cuebot
-        run: ./gradlew build --stacktrace
+        run: ./gradlew build ${{ inputs.coverage && 'jacocoTestReport' || '' }} --stacktrace
+
+      - name: Upload coverage report
+        if: inputs.coverage
+        uses: actions/upload-artifact@v7
+        with:
+          name: cuebot-coverage
+          path: cuebot/build/reports/jacoco/

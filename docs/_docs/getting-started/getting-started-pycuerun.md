@@ -19,7 +19,7 @@ Set up pycuerun and learn the essential commands for submitting and managing Ope
 
 You need:
 
-- Python 3.7 or later
+- Python 3.9 or later
 - A running Cuebot instance (see [Deploying Cuebot](/docs/getting-started/deploying-cuebot/))
 - PyCue and PyOutline installed (see [Installing PyCue and PyOutline](/docs/getting-started/installing-pycue-and-pyoutline/))
 - `CUEBOT_HOSTS` environment variable set to your Cuebot hostname

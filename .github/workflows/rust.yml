@@ -36,7 +36,14 @@ jobs:
 
       # mold is invoked through `mold -run`, so it needs no linker config.
       - name: Install build dependencies
-        run: sudo apt-get update && sudo apt-get install -y libx11-dev protobuf-compiler libcurl4-openssl-dev mold
+        run: sudo apt-get update && sudo apt-get install -y libx11-dev libcurl4-openssl-dev mold
+
+      - name: Install protoc
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ github.token }}
 
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # stable
         with:
@@ -54,6 +61,8 @@ jobs:
         with:
           workspaces: rust
           cache-on-failure: true
+          # Only master saves, so pull requests don't push its entries out of the cache.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:
@@ -103,14 +112,18 @@ jobs:
           components: clippy
 
       - name: Install protoc
-        run: |
-          choco install protoc -y
-          echo "PROTOC=C:\ProgramData\chocolatey\bin\protoc.exe" >> $env:GITHUB_ENV
+        uses: arduino/setup-protoc@c65c819552d16ad3c9b72d9dfd5ba5237b9c906b # v3.0.0
+        with:
+          # Same protoc as Ubuntu 24.04's protobuf-compiler package.
+          version: "21.12"
+          repo-token: ${{ github.token }}
 
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: rust
           cache-on-failure: true
+          # Only master saves, so pull requests don't push its entries out of the cache.
+          save-if: ${{ github.ref == 'refs/heads/master' }}
 
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         with:

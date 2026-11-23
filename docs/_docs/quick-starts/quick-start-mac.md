@@ -32,7 +32,7 @@ This quick start takes approximately 20 minutes to complete.
 
 You must have the following software installed on your machine:
 
-*   Python version 3.7 or greater
+*   Python version 3.9 or greater
 *   The Python [`pip` command](https://pypi.org/project/pip/)
     * On some systems this command may be installed as `pip3`
 *   [Docker](https://docs.docker.com/install/)

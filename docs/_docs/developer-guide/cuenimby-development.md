@@ -31,7 +31,7 @@ CueNIMBY is a Python-based system tray application built with modern, modular ar
 
 ### Technology stack
 
-* **Language**: Python 3.7+
+* **Language**: Python 3.9+
 * **UI Framework**: Qt6 (QSystemTrayIcon, QMenu)
 * **Graphics**: Qt6 QPixmap for icon rendering
 * **API Client**: pycue (OpenCue Python API)
