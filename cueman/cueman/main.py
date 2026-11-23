@@ -795,17 +795,16 @@ def _get_proc_filters(args):
             greater_less_than_match = re.search(
                 RE_PATTERN_GREATER_LESS_THAN, str(args.memory)
             )
+            # A bare number means "greater than" (see common.handleIntCriterion), so
+            # only an explicit "lt" prefix asks for an upper bound.
+            is_less_than = bool(greater_less_than_match) and re.search(
+                "lt", greater_less_than_match.group())
+            memory_kwarg = "memory_less_than" if is_less_than else "memory_greater_than"
             procs = opencue.api.getProcs(
-                job=[args.lp], memory_less_than=mem[-1].value, duration=duration_range
+                job=[args.lp],
+                duration=duration_range,
+                **{memory_kwarg: mem[-1].value}
             )
-
-            if greater_less_than_match:
-                if re.search("gt", greater_less_than_match.group()):
-                    procs = opencue.api.getProcs(
-                        job=[args.lp],
-                        memory_greater_than=mem[-1].value,
-                        duration=duration_range,
-                    )
     else:
         # If no memory filter, just use duration filter
         procs = opencue.api.getProcs(job=[args.lp], duration=duration_range)
