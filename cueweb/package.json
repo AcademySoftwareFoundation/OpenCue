@@ -9,7 +9,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint --ext .js,.jsx,.ts,.tsx .",
     "test": "jest",
     "coverage": "jest --coverage",
     "test:watch": "jest --watchAll",

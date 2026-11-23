@@ -18,7 +18,7 @@ Set up your environment to build and submit render jobs using PyOutline and pycu
 
 You need:
 
-- Python 3.7 or later
+- Python 3.9 or later
 - A running Cuebot instance (see [Deploying Cuebot](/docs/getting-started/deploying-cuebot/))
 - PyCue installed (see [Installing PyCue and PyOutline](/docs/getting-started/installing-pycue-and-pyoutline/))
 

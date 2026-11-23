@@ -35,7 +35,7 @@ Cuecmd is a command-line tool that enables batch execution of shell commands on 
 
 ### Key Technologies
 
-- **Python 3.7+**: Modern Python with type hints support
+- **Python 3.9+**: Modern Python with type hints support
 - **PyOutline**: OpenCue's job specification library
 - **PyCue**: OpenCue's Python API client
 - **Argparse**: Command-line argument parsing
@@ -120,7 +120,7 @@ commands.txt    ─────>   /tmp/cuecmd_*/      ─────>  Shell L
 
 ### Prerequisites
 
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue repository cloned
 - Virtual environment recommended
 

@@ -791,7 +791,9 @@ pub async fn watch_live_config() {
 
         let recovery_enabled = new_config.runner.frame_recovery_enabled;
         if recovery_enabled != last_recovery_enabled {
-            CONFIG.runner.reload_frame_recovery_enabled(recovery_enabled);
+            CONFIG
+                .runner
+                .reload_frame_recovery_enabled(recovery_enabled);
             info!(
                 "Reloaded frame_recovery_enabled={}. Frames launched from now on {} write an \
                 exit file",

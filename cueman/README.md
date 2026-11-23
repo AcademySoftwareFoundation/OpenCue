@@ -93,7 +93,7 @@ Cueman is available as a standard OpenCue CLI package and can be installed with 
 
 ### Prerequisites
 - OpenCue server running and accessible
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue Python packages installed
 
 ### Install Methods

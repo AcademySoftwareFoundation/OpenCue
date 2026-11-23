@@ -20,7 +20,7 @@ dependencies = [
     "win10toast>=0.9;sys_platform=='win32'",  # Windows notifications
     "notify2>=0.3.1;sys_platform=='linux'",  # Linux notifications
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.9"
 description = "CueNIMBY is a cross-platform system tray application for OpenCue NIMBY control. It allows workstation users to monitor their machine's rendering availability, toggle between available and disabled states, receive notifications when jobs start, and schedule automatic state changes based on time of day."
 readme = "README.md"
 authors = [
@@ -34,8 +34,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",

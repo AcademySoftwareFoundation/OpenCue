@@ -294,7 +294,10 @@ mod idle_action_tests {
     #[test]
     fn armed_action_does_not_fire_while_busy() {
         assert_eq!(resolve_idle_action(false, Some(IdleAction::Reboot)), None);
-        assert_eq!(resolve_idle_action(false, Some(IdleAction::RestartRqd)), None);
+        assert_eq!(
+            resolve_idle_action(false, Some(IdleAction::RestartRqd)),
+            None
+        );
     }
 
     #[test]

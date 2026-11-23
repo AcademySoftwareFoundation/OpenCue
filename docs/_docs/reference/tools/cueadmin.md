@@ -34,7 +34,7 @@ CueAdmin is the command-line administration tool for OpenCue, providing comprehe
 ### Prerequisites
 
 - OpenCue server running and accessible
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue Python packages installed
 
 ### Install from PyPI

@@ -73,6 +73,8 @@ VENV_PY = os.environ.get("SIM_VENV_PY", sys.executable)
 JDK17 = os.environ.get("SIM_JDK_HOME", "/tmp/jdk-17.0.2")
 # Gradle user home, per-user so two users on the same box don't clash.
 GHOME = os.environ.get("SIM_GRADLE_HOME", f"/tmp/ghome-{getpass.getuser()}")
+# Set to 1 to run the cuebot jar already in CUEBOT_DIR/build/libs without building it.
+SKIP_BUILD = os.environ.get("SIM_SKIP_BUILD") == "1"
 PGBIN = os.environ.get("SIM_PG_BIN", "/usr/lib/postgresql/16/bin")
 PGDATA = os.environ.get("SIM_PGDATA", "/tmp/pgdata")
 PG_PORT = int(os.environ.get("SIM_PG_PORT", "5433"))
@@ -662,6 +664,12 @@ def ensure_cuebot_built():
     services.gradle.org / Maven Central and dies with UnknownHostException.
     Building here first (no hosts file) makes the later bootRun build-cache-only,
     leaving the hosts file to govern only the app's RQD dials. A no-op once warm."""
+    if SKIP_BUILD:
+        jar = os.path.join(CUEBOT_DIR, "build", "libs", "cuebot.jar")
+        if not os.path.exists(jar):
+            sys.exit(f"SIM_SKIP_BUILD=1 but there is no cuebot jar at {jar}")
+        log(f"using the prebuilt cuebot jar at {jar} (SIM_SKIP_BUILD)")
+        return
     log("building cuebot (gradle assemble; warms the cache for bootRun) ...")
     cmd = ["./gradlew", "assemble", "-g", GHOME, "--no-daemon", "--console=plain"]
     if JDK17 and os.path.isdir(JDK17):
@@ -2201,6 +2209,10 @@ def run_verify():
     # split a long battery across interrupted sessions).
     only = {s.strip().upper() for s in
             os.environ.get("SIM_VERIFY_ONLY", "").split(",") if s.strip()}
+    unknown = only - {entry[0].upper() for entry in scenarios}
+    if unknown:
+        print(f"SIM_VERIFY_ONLY names unknown scenarios: {', '.join(sorted(unknown))}")
+        return 1
     for entry in scenarios:
         name, flags = entry[0], entry[1]
         if only and name.upper() not in only:

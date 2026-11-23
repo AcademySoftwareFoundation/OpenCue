@@ -159,11 +159,13 @@ impl ElasticsearchClient {
                 );
 
                 // Index action
-                let action: JsonBody<serde_json::Value>  = if let Some(ref event_id) = event.event_id {
-                    json!({ "index": { "_index": index_name, "_id": event_id } })
-                } else {
-                    json!({ "index": { "_index": index_name } })
-                }.into();
+                let action: JsonBody<serde_json::Value> =
+                    if let Some(ref event_id) = event.event_id {
+                        json!({ "index": { "_index": index_name, "_id": event_id } })
+                    } else {
+                        json!({ "index": { "_index": index_name } })
+                    }
+                    .into();
 
                 // Document
                 serde_json::from_str(&event.payload).map(|valid_doc: serde_json::Value| {
