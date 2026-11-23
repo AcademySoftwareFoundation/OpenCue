@@ -2,6 +2,8 @@
 
 # Script to build and test ALL REST Gateway endpoints
 
+set -e
+
 echo "===== Building and Testing REST Gateway - All Endpoints ====="
 echo ""
 
@@ -15,43 +17,17 @@ RED='\033[0;31m'
 YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
-# Initialize go module if not exists
-if [ ! -f "go.mod" ]; then
-    echo "Initializing go module..."
-    go mod init opencue_gateway
-    go mod tidy
-fi
-
-# Install required tools
+# Install the protoc plugins go.mod lists as tools, at the versions it pins
 echo "Installing required tools..."
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+go install tool
 
 # Add go bin to PATH
 export PATH=$PATH:$(go env GOPATH)/bin
 
-# Create gen directory
-mkdir -p gen/go
-
-# Generate go grpc code
+# Generate the gRPC code, grpc-gateway handlers and OpenAPI definitions
 echo ""
 echo "Generating gRPC code..."
-protoc -I ../../proto/src/ \
-    --go_out ./gen/go/ \
-    --go_opt paths=source_relative \
-    --go-grpc_out ./gen/go/ \
-    --go-grpc_opt paths=source_relative \
-    ../../proto/src/*.proto
-
-# Generate grpc-gateway handlers
-echo "Generating grpc-gateway handlers..."
-protoc -I ../../proto/src/ \
-    --grpc-gateway_out ./gen/go \
-    --grpc-gateway_opt paths=source_relative \
-    --grpc-gateway_opt generate_unbound_methods=true \
-    ../../proto/src/*.proto
+./generate_proto.sh
 
 # List of all interfaces registered in main.go with correct proto file mappings
 declare -a interfaces=(
@@ -95,11 +71,6 @@ fi
 
 echo -e "${GREEN}All interface handlers generated successfully!${NC}"
 
-# Update go.mod with dependencies
-echo ""
-echo "Updating dependencies..."
-go mod tidy
-
 # Build the gateway
 echo ""
 echo "Building the gateway..."
@@ -113,7 +84,7 @@ fi
 # Run unit tests
 echo ""
 echo "Running unit tests..."
-go test -v 2>/dev/null || echo "Tests skipped (package conflict with tools/gateway.go)"
+go test -v .
 
 # List sample endpoints for each interface
 echo ""

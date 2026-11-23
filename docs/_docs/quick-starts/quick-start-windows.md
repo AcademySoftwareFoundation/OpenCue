@@ -16,7 +16,7 @@ parent: Quick Starts
 - Windows 10/11 with WSL2 enabled
 - Docker Desktop for Windows
 - Git for Windows
-- Python 3.6+ (for CueGUI)
+- Python 3.9+ (for CueGUI)
 
 ## Setup Steps
 

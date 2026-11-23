@@ -28,8 +28,7 @@ class ImagesTests(unittest.TestCase):
 
     def test_iconsImportShouldSucceed(self):
         # Nothing to test here really -- we're just verifying the icons files import without
-        # any syntax errors. This test is mostly intended to fix a SonarCloud bug which
-        # sometimes shows these files as uncovered.
+        # any syntax errors.
         pass
 
 

@@ -45,7 +45,7 @@ PyCuerun is the command-line frontend that:
 
 ### Key Technologies
 
-- **Python 3.7+** with type hints
+- **Python 3.9+** with type hints
 - **PyYAML** for serialization
 - **FileSequence** for frame range parsing
 - **PyCue (opencue)** for Cuebot API communication

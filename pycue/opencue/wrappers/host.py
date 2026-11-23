@@ -56,6 +56,12 @@ class Host(object):
         LOCKED = host_pb2.LOCKED
         NIMBY_LOCKED = host_pb2.NIMBY_LOCKED
 
+    class NimbyFilter(enum.IntEnum):
+        """Enum for filtering a host search on whether nimby is enabled."""
+        NIMBY_ANY = host_pb2.NIMBY_ANY
+        NIMBY_ONLY = host_pb2.NIMBY_ONLY
+        NIMBY_EXCLUDE = host_pb2.NIMBY_EXCLUDE
+
     class ThreadMode(enum.IntEnum):
         """Enum representing the thread mode of the host."""
         AUTO = host_pb2.AUTO
@@ -677,3 +683,50 @@ class NestedHost(Host):
         :return: the procs running on this host
         """
         return self.data.procs
+
+
+class HostLockResult(object):
+    """The outcome of a bulk host lock or unlock (`opencue.api.lockHosts`/`unlockHosts`).
+
+    :ivar locked: names of the hosts now locked (lock only)
+    :ivar unlocked: names of the hosts now unlocked (unlock only)
+    :ivar unreachable: names of the hosts whose lock changed in Cuebot but whose RQD could not
+                       be reached
+    :ivar skipped: names of the matched hosts left alone because another source holds their
+                   lock, or (unlock) because they aren't locked by this source
+    :ivar framesKilled: number of frames killed and returned to waiting (lock with kill only)
+    :ivar framesDeferred: names of the frames whose kill could not be confirmed (lock with kill
+                          only); they stay running until their host reports them done
+    """
+
+    def __init__(self, locked=(), unlocked=(), unreachable=(), skipped=(), framesKilled=0,
+                 framesDeferred=()):
+        self.locked = list(locked)
+        self.unlocked = list(unlocked)
+        self.unreachable = list(unreachable)
+        self.skipped = list(skipped)
+        self.framesKilled = framesKilled
+        self.framesDeferred = list(framesDeferred)
+
+    @classmethod
+    def fromLockResponse(cls, response):
+        """Builds the result from a host_pb2.HostLockHostsResponse."""
+        return cls(locked=response.locked, unreachable=response.unreachable,
+                   skipped=response.skipped, framesKilled=response.frames_killed,
+                   framesDeferred=response.frames_deferred)
+
+    @classmethod
+    def fromUnlockResponse(cls, response):
+        """Builds the result from a host_pb2.HostUnlockHostsResponse."""
+        return cls(unlocked=response.unlocked, unreachable=response.unreachable,
+                   skipped=response.skipped)
+
+    def __eq__(self, other):
+        return isinstance(other, HostLockResult) and vars(self) == vars(other)
+
+    def __ne__(self, other):
+        return not self == other
+
+    def __repr__(self):
+        return 'HostLockResult(%s)' % ', '.join(
+            '%s=%r' % item for item in sorted(vars(self).items()))

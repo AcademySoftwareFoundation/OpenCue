@@ -19,7 +19,7 @@ Cueman is a command-line job management tool for OpenCue that provides efficient
 
 ### Prerequisites
 - OpenCue server running and accessible
-- Python 3.7 or higher
+- Python 3.9 or higher
 - OpenCue Python packages installed
 
 ### Installation

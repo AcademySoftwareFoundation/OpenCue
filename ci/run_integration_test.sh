@@ -20,6 +20,8 @@
 #
 # Run with:
 #   ./run_integration_test.sh
+#
+# Set CUEBOT_IMAGE and RQD_IMAGE to test images built beforehand instead of building them.
 
 set -e
 
@@ -68,6 +70,30 @@ verify_no_containers() {
     fi
 }
 
+build_service() {
+    local service="$1"
+    local build_log="${TEST_LOGS}/docker-build-${service}.log"
+    log INFO "Building ${service} image..."
+    if ! docker compose build "${service}" &>"${build_log}"; then
+        log ERROR "${service} Docker build failed. Last 300 lines of ${build_log}:"
+        tail -n 300 "${build_log}"
+        exit 1
+    fi
+}
+
+# prepare_service <service> [image]: points compose at the prebuilt image, or builds one.
+prepare_service() {
+    local service="$1"
+    local image="$2"
+    if [[ -z "${image}" ]]; then
+        build_service "${service}"
+        return
+    fi
+    log INFO "Using prebuilt image ${image} for ${service}"
+    docker image inspect "${image}" >/dev/null
+    printf '  %s:\n    image: %s\n' "${service}" "${image}" >>"${COMPOSE_OVERRIDE}"
+}
+
 create_rqd_root() {
   if [ -e "$RQD_ROOT" ]; then
     log ERROR "log root ${RQD_ROOT} already exists"
@@ -83,7 +109,8 @@ wait_for_service_state() {
     while true; do
         current_time=$(date +%s)
         if [[ $current_time -gt $3 ]]; then
-            log ERROR "Timed out waiting for Docker compose to come up"
+            log ERROR "Timed out waiting for Docker compose to come up. Last compose log lines:"
+            tail -n 100 "${DOCKER_COMPOSE_LOG}"
             exit 1
         fi
         container=$(docker compose ps --all --format json | jq -s ".[] | select(.Service==\"$1\")")
@@ -243,21 +270,19 @@ main() {
     log INFO "$(docker --version)"
     log INFO "$(docker compose version)"
 
-    log INFO "Building Cuebot image..."
-    docker build -t opencue/cuebot -f cuebot/Dockerfile . &>"${TEST_LOGS}/docker-build-cuebot.log"
-    log INFO "Building RQD image..."
-    if ! docker build -t opencue/rqd -f rust/Dockerfile.rqd . &>"${TEST_LOGS}/docker-build-rqd.log"; then
-        log ERROR "RQD Docker build failed. Build log:"
-        cat "${TEST_LOGS}/docker-build-rqd.log"
-        exit 1
-    fi
+    COMPOSE_OVERRIDE="${TEST_LOGS}/docker-compose.images.yml"
+    echo "services:" >"${COMPOSE_OVERRIDE}"
+    export COMPOSE_FILE="docker-compose.yml:${COMPOSE_OVERRIDE}"
+    prepare_service cuebot "${CUEBOT_IMAGE:-}"
+    prepare_service rqd "${RQD_IMAGE:-}"
+    build_service flyway
 
     # Pre-create bind-mount directories so Docker doesn't create them as root
     mkdir -p "${HOME}/.opencue/sessions"
     mkdir -p /tmp/opencue
 
     log INFO "Starting Docker compose (core services only)..."
-    docker compose up db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
+    docker compose up --no-build db flyway cuebot rqd &>"${DOCKER_COMPOSE_LOG}" &
     if [[ "$(uname -s)" == "Darwin" ]]; then
         docker_timeout=$(date -v +5M +%s)
     else

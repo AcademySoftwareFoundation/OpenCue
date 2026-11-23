@@ -45,7 +45,7 @@ PyCuerun is the command-line frontend for PyOutline. It serves two roles:
 
 ### Key Technologies
 
-- **Python 3.7+** with type hints
+- **Python 3.9+** with type hints
 - **OptionParser** for CLI argument parsing (via `CuerunOptionParser`)
 - **PyOutline** for job specification and session management
 - **PyCue (opencue)** for Cuebot API communication
@@ -144,7 +144,7 @@ OptionParser
 
 ### Prerequisites
 
-- Python 3.7+
+- Python 3.9+
 - OpenCue repository cloned
 
 ### Install in Development Mode

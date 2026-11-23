@@ -11,7 +11,7 @@
 // the License.
 
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     fs::File,
     io::{BufRead, BufReader},
     net::ToSocketAddrs,
@@ -537,9 +537,7 @@ impl LinuxSystem {
     fn read_temp_storage(&self) -> Result<(u64, u64)> {
         let stat = nix::sys::statvfs::statvfs(self.config.temp_path.as_str())
             .into_diagnostic()
-            .wrap_err_with(|| {
-                format!("statvfs failed for temp path {}", self.config.temp_path)
-            })?;
+            .wrap_err_with(|| format!("statvfs failed for temp path {}", self.config.temp_path))?;
         let total_space = stat.blocks() as u64 * stat.fragment_size() as u64;
         let available_space = stat.blocks_available() as u64 * stat.fragment_size() as u64;
         Ok((total_space, available_space))
@@ -551,6 +549,7 @@ impl LinuxSystem {
             .wrap_err("Failed to read /proc")?;
 
         let mut session_processes: HashMap<u32, Vec<u32>> = HashMap::new();
+        let mut live_pids: HashSet<u32> = HashSet::new();
 
         for entry in proc_dir.flatten() {
             let pid = match entry.file_name().to_string_lossy().parse::<u32>() {
@@ -608,10 +607,14 @@ impl LinuxSystem {
                         && is_group_leader
                         && valid_state
                     {
+                        live_pids.insert(pid);
                         if let Ok(process_data) = self.read_proc_data(pid) {
                             self.cached_processes.insert(pid, process_data);
+                        }
+                        // A process whose read failed counts with its last sample, if any.
+                        if self.cached_processes.contains_key(&pid) {
                             session_processes.entry(session_id).or_default().push(pid);
-                        } // Skip processes that failed to be read
+                        }
                     }
                 }
                 _ => {
@@ -620,6 +623,11 @@ impl LinuxSystem {
             }
         }
 
+        // Forget processes that are gone. A stale entry for a session leader that has exited
+        // would make its session look alive with no processes in it. A live process whose
+        // read failed keeps its last entry.
+        self.cached_processes
+            .retain(|pid, _| live_pids.contains(pid));
         *self.write_session_processes() = session_processes;
         Ok(())
     }
@@ -1356,6 +1364,89 @@ mod tests {
         let lineage = system.get_proc_lineage(1);
         // May or may not have lineage for PID 1, but shouldn't panic
         assert!(lineage.is_some() || lineage.is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_unreadable_live_session_leader_stays_cached() {
+        use crate::system::manager::SystemManager;
+        use std::os::unix::ffi::OsStrExt;
+        use std::os::unix::process::CommandExt;
+
+        let system = setup_test_system(1, 1, 1);
+        // A command line that isn't UTF-8 makes read_proc_data fail for the leader.
+        let mut child = unsafe {
+            std::process::Command::new("sh")
+                .args(["-c", "sleep 30; :"])
+                .arg(std::ffi::OsStr::from_bytes(b"\xff"))
+                .pre_exec(|| {
+                    libc::setsid();
+                    Ok(())
+                })
+                .spawn()
+                .expect("Failed to spawn sh")
+        };
+        let session = child.id();
+        system.collect_proc_stats(session, String::new()).unwrap();
+        system.cached_processes.insert(
+            session,
+            super::ProcessData {
+                rss: 0,
+                pss: 0,
+                virtual_memory: 0,
+                cmd: String::new(),
+                state: "S".to_string(),
+                name: "sh".to_string(),
+                start_time: 0,
+                run_time: 0,
+            },
+        );
+
+        system.refresh_procs();
+        let cached = system.cached_processes.contains_key(&session);
+        let counted = system.read_session_processes()[&session].contains(&session);
+        unsafe { libc::kill(-(session as i32), libc::SIGKILL) };
+        child.wait().unwrap();
+        assert!(cached, "a live session leader should keep its cache entry");
+        assert!(counted, "a live session leader should stay in its session");
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn test_proc_stats_stop_once_session_exits() {
+        use crate::system::manager::SystemManager;
+        use std::os::unix::process::CommandExt;
+
+        let system = setup_test_system(1, 1, 1);
+        let mut child = unsafe {
+            std::process::Command::new("sleep")
+                .arg("30")
+                .pre_exec(|| {
+                    libc::setsid();
+                    Ok(())
+                })
+                .spawn()
+                .expect("Failed to spawn sleep")
+        };
+        let session = child.id();
+        let stats = || {
+            system
+                .collect_proc_stats(session, String::new())
+                .expect("collect_proc_stats should not fail")
+        };
+
+        // The first call registers the session; it is cached on the next refresh.
+        stats();
+        system.refresh_procs();
+        assert!(stats().is_some(), "a running session should have stats");
+
+        child.kill().unwrap();
+        child.wait().unwrap();
+        system.refresh_procs();
+        assert!(
+            stats().is_none(),
+            "a session whose leader exited should have no stats"
+        );
     }
 
     #[cfg(target_os = "linux")]

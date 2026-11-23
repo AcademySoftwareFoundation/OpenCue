@@ -16,6 +16,8 @@ use miette::{Context, IntoDiagnostic, Result};
 use opencue_proto::rqd::RunFrame;
 use serde_derive::Serialize;
 use std::collections::HashMap;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 use std::{
     fs::{self, File, Permissions},
@@ -24,8 +26,6 @@ use std::{
     sync::{Arc, Mutex},
     time::SystemTime,
 };
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use tracing::error;
 use ureq::Agent;
 
@@ -322,7 +322,8 @@ impl FrameLokiLogger {
             |h| h.to_string_lossy().into_owned(),
         );
         #[cfg(windows)]
-        let host = sysinfo::System::host_name().unwrap_or_else(|| "hostname-unavailable".to_string());
+        let host =
+            sysinfo::System::host_name().unwrap_or_else(|| "hostname-unavailable".to_string());
 
         let loki_labels = LokiLabels {
             host,
@@ -608,7 +609,8 @@ mod tests {
         }
 
         let log_path = locked.join("frame.rqlog");
-        let result = FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None, false);
+        let result =
+            FrameFileLogger::init(log_path.to_string_lossy().to_string(), false, None, false);
 
         // Restore perms so the tempdir can be cleaned up.
         let _ = fs::set_permissions(&locked, Permissions::from_mode(0o755));

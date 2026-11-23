@@ -123,3 +123,4 @@ export const submissionSchema = z.object({
 });
 
 export type Submission = z.infer<typeof submissionSchema>;
+export type SubmissionInput = z.input<typeof submissionSchema>;

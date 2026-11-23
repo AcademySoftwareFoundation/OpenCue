@@ -18,19 +18,25 @@ package com.imageworks.spcue.test.dispatcher;
 import java.io.File;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ThreadPoolExecutor;
 import javax.annotation.Resource;
 
+import com.imageworks.spcue.dispatcher.BookingQueue;
 import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.HostReportQueue;
 import com.imageworks.spcue.dispatcher.FrameCompleteHandler;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHost;
+import com.imageworks.spcue.dispatcher.commands.DispatchBookHostLocal;
 import com.imageworks.spcue.grpc.job.FrameState;
 import org.junit.Before;
 import org.junit.Test;
+import org.springframework.core.env.Environment;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.imageworks.spcue.AllocationEntity;
@@ -40,6 +46,7 @@ import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.HostReportHandler;
 import com.imageworks.spcue.FacilityInterface;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.HostInterface;
 import com.imageworks.spcue.dao.FrameDao;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.host.LockState;
@@ -49,6 +56,7 @@ import com.imageworks.spcue.grpc.report.RenderHost;
 import com.imageworks.spcue.grpc.report.RunningFrameInfo;
 import com.imageworks.spcue.grpc.report.FrameCompleteReport;
 import com.imageworks.spcue.service.AdminManager;
+import com.imageworks.spcue.service.BookingManager;
 import com.imageworks.spcue.service.CommentManager;
 import com.imageworks.spcue.service.HostManager;
 import com.imageworks.spcue.service.JobLauncher;
@@ -64,8 +72,15 @@ import java.util.UUID;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 @ContextConfiguration
 public class HostReportHandlerTests extends TransactionalTest {
@@ -429,6 +444,53 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(420000, frame.maxRss);
     }
 
+    /** Reports a running frame of the proc at the given max rss. */
+    private void reportRss(VirtualProc proc, long maxRss) {
+        RunningFrameInfo info = RunningFrameInfo.newBuilder().setJobId(proc.getJobId())
+                .setLayerId(proc.getLayerId()).setFrameId(proc.getFrameId())
+                .setResourceId(proc.getProcId()).setLluTime(System.currentTimeMillis() / 1000)
+                .setRss(maxRss).setMaxRss(maxRss).build();
+        HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                .setCoreInfo(getCoreDetail(200, 200, 0, 0)).addFrames(info).build();
+        hostReportHandler.handleHostReport(report, false);
+    }
+
+    private long layerMaxRss(VirtualProc proc) {
+        return jdbcTemplate.queryForObject("SELECT int_max_rss FROM layer_mem WHERE pk_layer = ?",
+                Long.class, proc.getLayerId());
+    }
+
+    /**
+     * On a scheduler-managed show a host report records the layer's max rss, the fact Maestro sizes
+     * from, but never raises the layer's memory: the ask stays the user's. A legacy show still
+     * ratchets its ask up to the running frame's rss.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testHostReportRecordsRssButLeavesAManagedLayersMemory() {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+        List<VirtualProc> procs = dispatcher.dispatchHost(getHost(hostname));
+        assertEquals(1, procs.size());
+        VirtualProc proc = procs.get(0);
+        long ask = jobManager.getLayerDetail(proc.getLayerId()).minimumMemory;
+
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = true WHERE pk_show = ?",
+                proc.getShowId());
+        reportRss(proc, ask + CueUtil.GB);
+        assertEquals("the managed layer's ask stays", ask,
+                jobManager.getLayerDetail(proc.getLayerId()).minimumMemory);
+        assertEquals("the managed layer's max rss is recorded", ask + CueUtil.GB,
+                layerMaxRss(proc));
+
+        jdbcTemplate.update("UPDATE show SET b_scheduler_managed = false WHERE pk_show = ?",
+                proc.getShowId());
+        reportRss(proc, ask + CueUtil.GB2);
+        assertEquals("a legacy layer still ratchets", ask + CueUtil.GB2,
+                jobManager.getLayerDetail(proc.getLayerId()).minimumMemory);
+    }
+
     /**
      * Strict fencing: a reported running frame whose resource_id maps to a proc that now owns a
      * different frame is a zombie and must be killed immediately, skipping the grace period. The
@@ -678,5 +740,71 @@ public class HostReportHandlerTests extends TransactionalTest {
         assertEquals(
                 Math.max(memoryUsedProc3, layerBeforeIncrease.getMinimumMemory() + CueUtil.GB2),
                 layer.getMinimumMemory());
+    }
+
+    /**
+     * Run one host report through a handler whose Maestro mode is facility and whose booking
+     * collaborators are mocks, restoring the real ones afterwards. The host has a pending job in
+     * its facility so the report reaches the booking decision.
+     */
+    private BookingQueue reportInFacilityMode(boolean hasLocalAssignment) {
+        jobLauncher.testMode = true;
+        jobLauncher.launch(new File("src/test/resources/conf/jobspec/jobspec_simple.xml"));
+
+        HostReportHandler target = AopTestUtils.getUltimateTargetObject(hostReportHandler);
+        Environment originalEnv = (Environment) ReflectionTestUtils.getField(target, "env");
+        BookingManager originalBookingManager = target.getBookingManager();
+        BookingQueue originalBookingQueue = target.getBookingQueue();
+
+        Environment facilityEnv = mock(Environment.class, delegatesTo(originalEnv));
+        doReturn("facility").when(facilityEnv).getProperty("maestro.enabled", "no");
+        BookingManager bookingManager = mock(BookingManager.class);
+        when(bookingManager.hasLocalHostAssignment(any(HostInterface.class)))
+                .thenReturn(hasLocalAssignment);
+        when(bookingManager.getLocalHostAssignment(any(HostInterface.class)))
+                .thenReturn(Collections.emptyList());
+        when(bookingManager.hasResourceDeficit(any(HostInterface.class))).thenReturn(false);
+        BookingQueue bookingQueue = mock(BookingQueue.class);
+
+        ReflectionTestUtils.setField(target, "env", facilityEnv);
+        target.setBookingManager(bookingManager);
+        target.setBookingQueue(bookingQueue);
+        try {
+            HostReport report = HostReport.newBuilder().setHost(getRenderHost(hostname))
+                    .setCoreInfo(getCoreDetail(200, 200, 0, 0)).build();
+            hostReportHandler.handleHostReport(report, false);
+        } finally {
+            ReflectionTestUtils.setField(target, "env", originalEnv);
+            target.setBookingManager(originalBookingManager);
+            target.setBookingQueue(originalBookingQueue);
+        }
+        return bookingQueue;
+    }
+
+    /**
+     * Facility mode: Maestro never books local host assignments, so a host with one must still be
+     * booked locally from its host report. Before the fix the facility-mode gate also blocked the
+     * local branch, and a local render was never rebooked.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFacilityModeStillBooksLocalAssignment() {
+        BookingQueue bookingQueue = reportInFacilityMode(true);
+
+        verify(bookingQueue, times(1)).execute(any(DispatchBookHostLocal.class));
+        verify(bookingQueue, never()).execute(any(DispatchBookHost.class));
+    }
+
+    /**
+     * Facility mode: Maestro owns cue dispatch, so a host without a local assignment is not booked.
+     */
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testFacilityModeSuppressesCueBooking() {
+        BookingQueue bookingQueue = reportInFacilityMode(false);
+
+        verifyNoInteractions(bookingQueue);
     }
 }

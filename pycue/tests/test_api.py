@@ -511,6 +511,59 @@ class HostTests(unittest.TestCase):
         self.assertEqual(TEST_HOST_NAME, hosts[0].name())
 
     @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testGetHostsByNimby(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.GetHosts.return_value = host_pb2.HostGetHostsResponse()
+        getStubMock.return_value = stubMock
+
+        opencue.api.getHosts(nimby=True)
+
+        stubMock.GetHosts.assert_called_with(
+            host_pb2.HostGetHostsRequest(
+                r=host_pb2.HostSearchCriteria(nimby=host_pb2.NIMBY_ONLY)),
+            timeout=mock.ANY)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testLockHosts(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.LockHosts.return_value = host_pb2.HostLockHostsResponse(
+            locked=['ws-01'], unreachable=['ws-02'], skipped=['ws-03'], frames_killed=2,
+            frames_deferred=['0001-render'])
+        getStubMock.return_value = stubMock
+
+        result = opencue.api.lockHosts('night-render', kill=True, nimby=True)
+
+        stubMock.LockHosts.assert_called_with(
+            host_pb2.HostLockHostsRequest(
+                criteria=host_pb2.HostSearchCriteria(nimby=host_pb2.NIMBY_ONLY),
+                kill_running=True, source='night-render'),
+            timeout=mock.ANY)
+        self.assertEqual(
+            opencue.wrappers.host.HostLockResult(
+                locked=['ws-01'], unreachable=['ws-02'], skipped=['ws-03'], framesKilled=2,
+                framesDeferred=['0001-render']),
+            result)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
+    def testUnlockHosts(self, getStubMock):
+        stubMock = mock.Mock()
+        stubMock.UnlockHosts.return_value = host_pb2.HostUnlockHostsResponse(
+            unlocked=['ws-01'], skipped=['ws-02'])
+        getStubMock.return_value = stubMock
+
+        result = opencue.api.unlockHosts('night-render', host=['ws-01', 'ws-02'])
+
+        stubMock.UnlockHosts.assert_called_with(
+            host_pb2.HostUnlockHostsRequest(
+                criteria=host_pb2.HostSearchCriteria(hosts=['ws-01', 'ws-02']),
+                source='night-render'),
+            timeout=mock.ANY)
+        self.assertEqual(['ws-01'], result.unlocked)
+        self.assertEqual(['ws-02'], result.skipped)
+        self.assertEqual([], result.locked)
+        self.assertEqual(0, result.framesKilled)
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub')
     def testFindHost(self, getStubMock):
         stubMock = mock.Mock()
         stubMock.FindHost.return_value = host_pb2.HostFindHostResponse(

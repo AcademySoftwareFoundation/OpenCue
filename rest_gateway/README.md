@@ -189,7 +189,7 @@ Before deploying the OpenCue REST Gateway, ensure you have:
 
 #### **Software Dependencies**
 - **Docker** (recommended): Version 20.0+ for containerized deployment
-- **Go** (for development): Version 1.21+ for building from source
+- **Go** (for development): Version 1.27+ for building from source (see `opencue_gateway/go.mod`)
 - **Protocol Buffers**: protoc compiler for code generation
 
 #### **OpenCue Environment**
@@ -2343,38 +2343,18 @@ cd rest_gateway
 
 ```bash
 # Prerequisites
-go version  # Go 1.21+ required
+go version  # Go 1.27+ required (see go.mod)
 protoc --version  # Protocol Buffers compiler
 
 # Clone and build
 git clone https://github.com/AcademySoftwareFoundation/OpenCue.git
 cd OpenCue/rest_gateway/opencue_gateway
 
-# Initialize module and install dependencies
-go mod init opencue_gateway
-go mod tidy
+# Install the protoc plugins go.mod lists as tools, at the versions it pins
+go install tool
 
-# Install protoc plugins
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@latest
-go install github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@latest
-go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
-
-# Generate gRPC code
-mkdir -p gen/go
-protoc -I ../../proto/src/ \
-    --go_out ./gen/go/ \
-    --go_opt paths=source_relative \
-    --go-grpc_out ./gen/go/ \
-    --go-grpc_opt paths=source_relative \
-    ../../proto/src/*.proto
-
-# Generate REST gateway handlers
-protoc -I ../../proto/src/ \
-    --grpc-gateway_out ./gen/go \
-    --grpc-gateway_opt paths=source_relative \
-    --grpc-gateway_opt generate_unbound_methods=true \
-    ../../proto/src/*.proto
+# Generate the gRPC, REST gateway and OpenAPI code into gen/
+./generate_proto.sh
 
 # Build
 go build -o opencue_gateway main.go

@@ -289,6 +289,7 @@
     <property name="subscriptionDao" ref="subscriptionDao" />
     <property name="allocationDao" ref="allocationDao" />
     <property name="facilityDao" ref="facilityDao" />
+    <property name="jobManagerSupport" ref="jobManagerSupport" />
   </bean>
 
   <bean id="groupManager" class="com.imageworks.spcue.service.GroupManagerService">

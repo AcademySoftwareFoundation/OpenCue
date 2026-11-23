@@ -1,0 +1,108 @@
+# Changed paths to filters, for dorny/paths-filter in .github/workflows/pr.yml and master.yml.
+#
+# ci/plan_pr_jobs.py turns the matched filters into the PR jobs that run. master.yml runs
+# everything, and uses `scheduler` and `ci` only to decide whether the Maestro scenarios run. A change matched by
+# `ci`, the ci:full label, or a changed file no filter below matches turns every job on, so an
+# unmapped path runs more, not less. ci/tests/test_plan_pr_jobs.py fails if a tracked file is
+# unmapped.
+#
+# Patterns are picomatch globs. A pattern starting with `!` excludes from its own filter only
+# (predicate-quantifier: some-with-excludes).
+
+ci:
+  - ".github/**"
+  - "ci/**"
+  # The shared version of every package.
+  - "VERSION.in"
+
+proto:
+  - "proto/**"
+
+cuebot:
+  - "cuebot/**"
+
+# What the Cuebot RPM is built from, in the Dockerfile's packages target.
+cuebot-packages:
+  - "cuebot/Dockerfile"
+  - "cuebot/packaging/**"
+  - "cuebot/deploy/**"
+  - "LICENSE"
+
+# What the Maestro scheduler depends on, not only what is named after it: its dispatch SQL
+# lives in dao/postgres.
+scheduler:
+  - "cuebot/src/main/java/com/imageworks/spcue/dispatcher/**"
+  - "cuebot/src/main/java/com/imageworks/spcue/dao/postgres/**"
+  - "cuebot/src/main/resources/opencue.properties"
+  - "cuebot/src/main/resources/conf/ddl/postgres/migrations/**"
+  - "sandbox/maestro-sim/**"
+
+# One filter per Python package, named py-<directory>. Dependents are added from each
+# package's pyproject.toml, so a pycue change also tests everything built on pycue.
+py-pycue:
+  - "pycue/**"
+py-pyoutline:
+  - "pyoutline/**"
+py-cueadmin:
+  - "cueadmin/**"
+py-cueman:
+  - "cueman/**"
+py-cuecmd:
+  - "cuecmd/**"
+py-cuesubmit:
+  - "cuesubmit/**"
+py-cuegui:
+  - "cuegui/**"
+py-cuenimby:
+  - "cuenimby/**"
+py-rqd:
+  - "rqd/**"
+
+# Wheel builds and the dependency license check.
+packaging:
+  - "**/pyproject.toml"
+  - "rqd/winps/setup.py"
+
+api-docs:
+  - "api_docs/**"
+
+rust:
+  - "rust/**"
+
+# What the Windows rqd jobs build and run.
+rqd:
+  - "rust/crates/rqd/**"
+  - "rust/crates/opencue-proto/**"
+  - "rust/crates/dummy-cuebot/**"
+  - "rust/Cargo.*"
+  - "rust/.config/**"
+
+cueweb:
+  - "cueweb/**"
+
+gateway:
+  - "rest_gateway/**"
+
+integration:
+  - "docker-compose.yml"
+  - ".dockerignore"
+  - "**/Dockerfile*"
+  - "**/*.Dockerfile"
+  - "sandbox/**"
+  - "!sandbox/maestro-sim/**"
+  - "ci/run_integration_test.sh"
+
+# Paths no PR job tests. Listed so they don't count as unmapped.
+untested:
+  - "docs/**"
+  - "tsc/**"
+  - "images/**"
+  - "samples/**"
+  - "*.md"
+  - "CODEOWNERS"
+  - ".gitignore"
+  - ".gitattributes"
+
+# Every changed file, to find the ones no filter above matches.
+all:
+  - "**"

@@ -333,9 +333,12 @@ public class HostReportHandler {
             // redirect paths below) excludes b_scheduler_managed shows. That has to
             // hold on Cuebots running with Maestro off too, since during a rollout
             // one Cuebot plans and the rest report and forward to it.
+            // Local host assignments are the exception: Maestro never books them,
+            // so they are booked here in every mode, and only turn_off_booking
+            // stops them.
             boolean bookingOff =
-                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false)
-                            || MaestroMode.facility(env);
+                    env.getProperty("dispatcher.turn_off_booking", Boolean.class, false);
+            boolean cueBookingOff = bookingOff || MaestroMode.facility(env);
             /*
              * If a message was set, the host is not bookable. Log the message and move on.
              */
@@ -354,6 +357,11 @@ public class HostReportHandler {
                     if (!bookingManager.hasResourceDeficit(host)) {
                         bookingQueue.execute(new DispatchBookHostLocal(host, localDispatcher));
                     }
+                    return;
+                }
+
+                if (cueBookingOff) {
+                    logger.debug("Maestro owns dispatch; legacy cue booking is off");
                     return;
                 }
 
@@ -967,9 +975,13 @@ public class HostReportHandler {
             }
         }
 
-        /* Attempt to update the max RSS value for the layer **/
+        // Record the max RSS on every layer. Raise the ask only for legacy shows: on managed shows
+        // Maestro sizes memory and the ask stays the user's.
+        boolean allManaged = MaestroMode.facility(env);
         for (Map.Entry<LayerEntity, Long> set : layers.entrySet()) {
-            layerDao.increaseLayerMinMemory(set.getKey(), set.getValue());
+            if (!allManaged) {
+                layerDao.increaseUnmanagedLayerMinMemory(set.getKey(), set.getValue());
+            }
             layerDao.updateLayerMaxRSS(set.getKey(), set.getValue(), false);
         }
 

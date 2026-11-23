@@ -7,12 +7,15 @@ FROM ruby:3.2-alpine
 LABEL maintainer="OpenCue Team"
 LABEL description="Docker image for building OpenCue documentation with Jekyll"
 
-# Install build dependencies
+# Install build dependencies.
+# No Node.js toolchain here on purpose: the only JS-adjacent gem in the bundle is
+# jekyll-sass-converter, which compiles Sass through the sass-embedded gem's
+# native Dart binary, so nothing in the docs build shells out to node or npm.
+# Leaving them out keeps an unpatched Node runtime out of the image (the
+# October 2026 releases fixed CVE-2026-111497 in the bundled Brotli decoder).
 RUN apk add --no-cache \
     build-base \
     git \
-    nodejs \
-    npm \
     tzdata
 
 # Set working directory

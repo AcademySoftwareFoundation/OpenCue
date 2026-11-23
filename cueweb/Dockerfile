@@ -1,4 +1,12 @@
-FROM node:21-alpine
+# Node 24 LTS, pinned to the October 2026 security release. 24.22.1 fixes
+# CVE-2026-111497 ("Node2Shell"), an out-of-bounds write in the bundled
+# Brotli decoder that permits remote code execution. The Node.js project
+# rates it high, the highest severity in that release, and it is the
+# reason for this pin, plus the DNS/TLS issues in the same advisory:
+# https://nodejs.org/en/blog/vulnerability/october-2026-security-releases
+# Node 21 was end-of-life and never received these patches.
+# Next.js 16 requires Node >= 20.9.0.
+FROM node:24.22.1-alpine
 
 WORKDIR /opt/cueweb
 
@@ -25,7 +33,8 @@ RUN npm ci \
       --fetch-retry-factor=2 \
       --fetch-retry-mintimeout=20000 \
       --fetch-retry-maxtimeout=120000 \
-      --fetch-timeout=600000
+      --fetch-timeout=600000 \
+    && npm cache clean --force
 
 COPY *.json /opt/cueweb/
 COPY OVERRIDE_CUEWEB_VERSION.in /opt/cueweb/
@@ -148,5 +157,6 @@ ENV NEXT_PUBLIC_APP_VERSION=${NEXT_PUBLIC_APP_VERSION}
 ARG NEXT_PUBLIC_GIT_SHA=
 ENV NEXT_PUBLIC_GIT_SHA=${NEXT_PUBLIC_GIT_SHA}
 
-RUN npm run build
+# The build cache is not used at runtime.
+RUN npm run build && rm -rf .next/cache/turbopack
 CMD ["npm", "run", "start"]

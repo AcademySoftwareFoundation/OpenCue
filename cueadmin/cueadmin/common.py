@@ -33,6 +33,8 @@ import cueadmin.util
 
 logger = logging.getLogger("opencue.tools.cueadmin")
 
+DEFAULT_LOCK_SOURCE = "cueadmin"
+
 __ALL__ = [
     "testServer",
     "handleCommonArgs",
@@ -413,8 +415,28 @@ def getParser():
         metavar="SUBSTR",
         help="Specify a list of substring matches to match groups of hosts.",
     )
+    host.add_argument(
+        "-nimby",
+        action="store_true",
+        help="Restrict to hosts with nimby enabled. Counts as a host selection, so "
+        "-host/-hostmatch are optional with it. With -lock/-unlock, the hosts are "
+        "locked or unlocked in a single bulk request.",
+    )
     host.add_argument("-lock", action="store_true", help="lock hosts")
     host.add_argument("-unlock", action="store_true", help="unlock hosts")
+    host.add_argument(
+        "-kill-frames",
+        action="store_true",
+        help="With -lock -nimby: kill the frames running on the locked hosts. "
+        "They go back to waiting without spending a retry (best effort).",
+    )
+    host.add_argument(
+        "-source",
+        action="store",
+        metavar="NAME",
+        help="With -lock/-unlock -nimby: lock source tag, defaults to '%s'. "
+        "-unlock only releases hosts locked with the same tag." % DEFAULT_LOCK_SOURCE,
+    )
     host.add_argument(
         "-move",
         action="store",
@@ -637,10 +659,18 @@ def handleIntCriterion(mixed, convert=None):
     return [result]
 
 
-def resolveHostNames(names=None, substr=None):
-    """Returns a list of hosts using their names."""
+def resolveHostNames(names=None, substr=None, nimby=False):
+    """Returns a list of hosts using their names, optionally restricted to nimby hosts."""
     items = []
-    if names:
+    if nimby:
+        options = {"nimby": True}
+        if names:
+            options["host"] = names
+        if substr:
+            options["match"] = substr
+        items = opencue.search.HostSearch.byOptions(**options)
+        logger.debug("matched %d nimby hosts", len(items))
+    elif names:
         items = opencue.search.HostSearch.byName(names)
         logger.debug("found %d of %d supplied hosts", len(items), len(names))
         if len(names) != len(items) and items:
@@ -685,6 +715,18 @@ def resolveShowNames(names):
     if not items:
         raise ValueError("no valid shows")
     return items
+
+
+def bulkHostOptions(args):
+    """Returns the host search options of a bulk lock or unlock."""
+    options = {"nimby": True}
+    if args.host:
+        options["host"] = args.host
+    if args.hostmatch:
+        options["match"] = args.hostmatch
+    if args.alloc:
+        options["alloc"] = args.alloc
+    return options
 
 
 # pylint: disable=inconsistent-return-statements
@@ -1083,8 +1125,11 @@ def handleArgs(args):
 
     if args.lh:
         states = [Convert.strToHardwareState(s) for s in args.state]
+        nimby_option = {"nimby": True} if args.nimby else {}
         cueadmin.output.displayHosts(
-            opencue.api.getHosts(match=args.query, state=states, alloc=args.alloc),
+            opencue.api.getHosts(
+                match=args.query, state=states, alloc=args.alloc, **nimby_option
+            ),
             lock_state=args.lock_state,
             sort_idle=args.sort_idle,
         )
@@ -1135,10 +1180,17 @@ def handleArgs(args):
     #
     # Gather hosts if -host or -hostmatch was specified
     #
-    host_error_msg = "No valid hosts selected, see the -host/-hostmatch options"
+    host_error_msg = "No valid hosts selected, see the -host/-hostmatch/-nimby options"
+    bulk_lock = args.nimby and (args.lock or args.unlock)
+    if args.kill_frames and not (args.nimby and args.lock):
+        raise ValueError("-kill-frames requires -lock -nimby")
+    if args.source and not bulk_lock:
+        raise ValueError("-source requires -lock or -unlock with -nimby")
+    if bulk_lock and args.state:
+        raise ValueError("-state is not supported with -lock/-unlock -nimby")
     hosts = None
-    if args.host or args.hostmatch:
-        hosts = resolveHostNames(args.host, args.hostmatch)
+    if not bulk_lock and (args.host or args.hostmatch or args.nimby):
+        hosts = resolveHostNames(args.host, args.hostmatch, nimby=args.nimby)
 
     #
     # Allocations
@@ -1301,6 +1353,33 @@ def handleArgs(args):
     # specify more than one host in an operation. For example,
     # -hostmatch vrack -lock would locl all vrack hosts.
     #
+    elif bulk_lock:
+        source = args.source or DEFAULT_LOCK_SOURCE
+        options = bulkHostOptions(args)
+        if args.lock:
+            msg = "Lock all nimby hosts matching the selection with source '%s'" % source
+            if args.kill_frames:
+                msg += " and kill their running frames"
+            result = confirm(
+                msg,
+                args.force,
+                opencue.api.lockHosts,
+                source,
+                kill=args.kill_frames,
+                **options
+            )
+        else:
+            result = confirm(
+                "Unlock all nimby hosts matching the selection locked by source '%s'"
+                % source,
+                args.force,
+                opencue.api.unlockHosts,
+                source,
+                **options
+            )
+        if result is not None:
+            cueadmin.output.displayHostLockResult(result, locking=args.lock)
+
     elif args.lock:
         if not hosts:
             raise ValueError(host_error_msg)

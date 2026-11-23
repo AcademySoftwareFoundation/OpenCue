@@ -285,7 +285,7 @@ impl RqdInterface for RqdServant {
             warn!("Unlock: cancelled pending idle action {:?}", cancelled);
         }
         self.machine.unlock_all_cores().await;
-        info!("Unlock: All cores have been unlocked");
+        info!("Unlock: UnlockAll processed");
 
         Ok(Response::new(RqdStaticUnlockAllResponse {}))
     }
