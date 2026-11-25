@@ -230,7 +230,8 @@ The Rust RQD includes experimental support for running frames in Docker containe
 
 The Rust RQD uses YAML configuration files with extensive customization options:
 
-- **Default location**: `/etc/openrqd/rqd.yaml`
+- **Packaged install**: `/etc/openrqd/rqd.yaml` (the bundled systemd service points `OPENCUE_RQD_CONFIG` at it)
+- **Standalone binary**: `~/.local/share/rqd.yaml` when `OPENCUE_RQD_CONFIG` is not set. This file is optional; if it is missing, RQD runs on built-in defaults
 - **Override with environment**: `OPENCUE_RQD_CONFIG=/path/to/config.yaml`
 - **Sample configs**: Available in `rust/config/` directory
 
@@ -243,6 +244,7 @@ Key configuration sections:
 - Container runtime settings (when enabled)
 - Frame recovery across restarts (see below)
 - Log-based exit-status rules (see below)
+- Overriding hardware values reported to Cuebot (see below)
 
 ### Frame Recovery Across Restarts
 
@@ -347,6 +349,40 @@ The exit status is an arbitrary number chosen in `rqd.yaml` and repeated in `ope
 `330` is the conventional license-shortage code. Delayed layers are visible in CueGUI (tinted row
 plus a *Start After* column) and in the `cuebot_layers_delayed` / `cuebot_layer_delays_total`
 Prometheus metrics.
+
+### Overriding Hardware Values
+
+RQD can report different hardware to Cuebot than the host really has. This is useful for testing, or for giving the farm only part of a machine. Set `override_real_values` in the **`machine`** section of `rqd.yaml`:
+
+```yaml
+machine:
+  override_real_values:
+    cores: 4                 # cores per physical CPU (socket)
+    procs: 1                 # physical CPUs (sockets)
+    memory_size: "16GB"      # "16GB" = 16 x 10^9 bytes; "16GiB" = 16 x 2^30 bytes
+    hostname: "render-042"   # name the host registers under in Cuebot
+    os: "rocky9"             # reported as the host's OS
+    workstation_mode: true   # adds the "desktop" tag
+```
+
+Behavior notes:
+
+- **All fields are optional**: anything left out is read from the host as usual.
+- **Total cores is `procs × cores`**: Cuebot multiplies the two, so `cores: 4` with `procs: 8` reports a 32-core host. To report 4 cores, use `cores: 4` with `procs: 1`.
+- **Memory above the real amount** is accepted, but RQD logs a warning, because Cuebot may then book frames the host cannot fit.
+- **`workstation_mode` is not `runner.desktop_mode`**: the two are separate settings in separate sections.
+- **Read at startup only**: restart RQD after changing these values.
+
+To confirm the overrides took effect, look for this line in the RQD log at startup:
+
+```
+Applying override_real_values: cores=Some(4), procs=Some(1), ...
+```
+
+If it is missing, check the lines RQD prints before logging starts:
+
+- `Config::load: using config file: ...` shows which file RQD actually read.
+- `WARN Config::load: ignoring unrecognized config key "..."` names every key RQD did not recognize, such as `runner.override_real_values` when the block is under the wrong section, or `machine.override_real_values.memory` when a field name is misspelled.
 
 ## Testing
 
