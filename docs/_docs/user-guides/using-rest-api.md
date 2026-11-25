@@ -23,6 +23,7 @@ Make sure you have:
 
 - OpenCue REST Gateway deployed and running
 - Valid JWT authentication token
+- Valid API key (optional)
 - Access to the gateway endpoint (typically port 8448)
 
 **Quick Setup:** Deploy the REST Gateway alongside OpenCue:
@@ -36,12 +37,14 @@ docker compose up -d
 
 # Deploy REST Gateway separately
 export JWT_SECRET=$(openssl rand -base64 32)
+export CLIENT_API_KEY=$(openssl rand -base64 32)
 docker build -f rest_gateway/Dockerfile -t opencue-rest-gateway:latest .
 docker run -d --name opencue-rest-gateway \
   --network opencue_default \
   -p 8448:8448 \
   -e CUEBOT_ENDPOINT=cuebot:8443 \
   -e JWT_SECRET="$JWT_SECRET" \
+  -e CLIENT_API_KEYS="$CLIENT_API_KEY" \
   opencue-rest-gateway:latest
 
 # The REST Gateway will be available at http://localhost:8448
@@ -51,9 +54,16 @@ For detailed installation and deployment options, see the [Deploying REST Gatewa
 
 ## Authentication
 
-**Important:** ALL REST Gateway API endpoints require JWT authentication. The only routes served without a token are the Swagger UI and the OpenAPI definitions under `/swagger/`, which expose documentation but no data. See [Exploring the API with Swagger UI](#exploring-the-api-with-swagger-ui).
+The OpenCue REST Gateway supports two authentication mechanisms depending on the caller:
 
-Create and use JWT tokens for authentication:
+1. **JWT Bearer Authentication (Full Access):** Intended for the trusted web application and administrative services. Provides full access to all routed OpenCue endpoints.
+2. **API Key Authentication (Restricted Access):** Intended for direct pipeline tools, render submitters, and scripts. Restricted exclusively to **submitting and monitoring jobs**.
+
+> **Note:** The only routes served without authentication are the Swagger UI and the OpenAPI definitions under `/swagger/`, which expose documentation but no data. See [Exploring the API with Swagger UI](#exploring-the-api-with-swagger-ui).
+
+### 1. JWT Authentication (Full Access)
+
+Create and use JWT tokens for full administrative access:
 
 ```bash
 # Generate a JWT token using your gateway's JWT_SECRET
@@ -71,6 +81,36 @@ curl -H "Authorization: Bearer $JWT_TOKEN" \
      "http://localhost:8448/show.ShowInterface/GetShows" \
      -d '{}'
 ```
+
+### 2. API Key Authentication (Job Submission & Monitoring Only)
+
+Direct clients and submission scripts can authenticate using an API key configured in the gateway's `CLIENT_API_KEYS` environment variable.
+
+Provide the key using either the `X-Api-Key` header or the `Authorization: ApiKey <key>` header:
+
+```bash
+# Option A: Using X-Api-Key header
+curl -H "X-Api-Key: $CLIENT_API_KEY" \
+     -H "Content-Type: application/json" \
+     -X POST \
+     "http://localhost:8448/job.JobInterface/GetJobs" \
+     -d '{"r": {"show": "testing"}}'
+
+# Option B: Using Authorization header
+curl -H "Authorization: ApiKey $CLIENT_API_KEY" \
+     -H "Content-Type: application/json" \
+     -X POST \
+     "http://localhost:8448/job.JobInterface/GetJobs" \
+     -d '{"r": {"show": "testing"}}'
+```
+
+#### Allowed Endpoints for API Keys
+API keys are restricted to operations necessary for submitting and monitoring render jobs:
+- **Job Submission:** `LaunchSpec`, `LaunchSpecAndWait`
+- **Job Monitoring:** `GetJob`, `GetJobs`, `GetJobNames`, `FindJob`, `IsJobPending`
+- **Lookups:** `GetShows`, `FindShow`
+
+Calling any other administrative endpoint (e.g. rebooting hosts, deleting subscriptions, modifying allocations) with an API key returns **`403 Forbidden`**.
 
 ## Exploring the API with Swagger UI
 
