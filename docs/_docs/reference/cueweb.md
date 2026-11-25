@@ -417,7 +417,7 @@ A show-grouped job tree at `/monitor-cue` (`cueweb/app/monitor-cue/page.tsx`), t
 
 | Behavior | Description |
 |----------|-------------|
-| **Shows multi-select** | A **Shows** dropdown (`monitor-cue-show-menu.tsx`): All Shows / Clear / per-show checkboxes. The selection persists to `localStorage["cueweb.monitor-cue.shows"]`; the table is empty until at least one show is chosen. |
+| **Shows multi-select** | A **Shows** dropdown (`monitor-cue-show-menu.tsx`): All Shows / Clear / per-show checkboxes. The selection persists per facility to `localStorage["cueweb.monitor-cue.shows.<facility>"]`; the table is empty until at least one show is chosen. |
 | **Data source** | `getActiveShows()` on mount, then per selected show `getShowGroups()` (`/api/show/getgroups`) and per group `getGroupJobs()` (`/api/group/getjobs`), assembled into a group tree (`buildTreeFromGroups`). Auto-refreshes every 5s (a monotonic load token discards stale responses) and reloads on `cueweb:groups-changed`. |
 | **Columns** | Comment icon, Auto-eat icon, Job, Run, Cores, Gpus, Wait, Depend, Total, Booking (`job-booking-bar.tsx`), Min, Max, Min G, Max G, Pri, ETA (disabled, CueGUI parity), MaxRss, MaxGpuMem, Age, Readable Age, Progress (`JobProgressBar`). All but Booking / ETA / Progress are sortable (asc/desc with header arrows). |
 | **Columns dropdown + filter** | Top-right Columns dropdown (show/hide + `←`/`→` reorder + Reset to Default) persists to `localStorage["cueweb.monitor-cue.columnOrder"]` / `["cueweb.monitor-cue.columnHidden"]`; a **Filter jobs...** box does a client-side substring filter. |
