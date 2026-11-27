@@ -508,7 +508,9 @@ impl FrameManager {
     /// After a frame is killed, this function spawns a background task that periodically checks
     /// if the frame's processes have fully terminated. Processes still running after the
     /// time limit (see [`KillEscalation`]) are force killed, or reported when force killing is
-    /// off. A contained launch is only ever force killed through its cgroup, never by pid.
+    /// off. A contained launch is only ever force killed through its cgroup, never by pid, and
+    /// its cgroup is killed even when its processes can't be listed (see
+    /// [`on_unknown_lineage`]).
     ///
     /// # Arguments
     ///
@@ -522,6 +524,7 @@ impl FrameManager {
         let mut monitor_limit_seconds = escalation.timeout.as_secs();
         let force_kill = escalation.force;
         let mut tried_to_force_kill_session = false;
+        let mut blind_kill_attempts = 0;
         let mut interval = time::interval(escalation.interval);
 
         // Now into localized timestamp
@@ -540,12 +543,46 @@ impl FrameManager {
                     Lineage::Active(lineage) => Some(lineage),
                     Lineage::Gone => None,
                     Lineage::Unknown => {
-                        warn!(
-                            "Couldn't tell whether {} is still being killed, checking again later",
-                            job_str
-                        );
-                        monitor_limit_seconds =
-                            monitor_limit_seconds.saturating_sub(interval_seconds);
+                        match on_unknown_lineage(
+                            launch.contained,
+                            monitor_limit_seconds == 0,
+                            blind_kill_attempts,
+                        ) {
+                            UnknownLineageStep::Wait => {
+                                warn!(
+                                    "Couldn't tell whether {} is still being killed, \
+                                    checking again later",
+                                    job_str
+                                );
+                                monitor_limit_seconds =
+                                    monitor_limit_seconds.saturating_sub(interval_seconds);
+                            }
+                            UnknownLineageStep::KillCgroup => {
+                                blind_kill_attempts += 1;
+                                tried_to_force_kill_session = true;
+                                match machine.kill_session(launch, frame_pid, true).await {
+                                    Ok(()) => warn!(
+                                        "Kill timeout for {}. Couldn't list its processes, \
+                                        killed its cgroup",
+                                        job_str
+                                    ),
+                                    Err(err) => warn!(
+                                        "Kill timeout for {}. Couldn't list its processes \
+                                        and failed to kill its cgroup. {}",
+                                        job_str, err
+                                    ),
+                                }
+                            }
+                            UnknownLineageStep::GiveUp => {
+                                error!(
+                                    "Gave up waiting on {} termination. Kill has been \
+                                    requested at {} but its processes couldn't be listed \
+                                    after {} cgroup kills.",
+                                    job_str, kill_request_time, blind_kill_attempts
+                                );
+                                break;
+                            }
+                        }
                         continue;
                     }
                 };
@@ -692,6 +729,41 @@ fn tracked_lineage(contained: bool, mut lineage: Vec<u32>, frame_pid: u32) -> Ve
     lineage
 }
 
+/// How many times the kill monitor kills a contained launch's cgroup past the time limit while
+/// its processes can't be listed, before giving up.
+const MAX_BLIND_CGROUP_KILLS: u32 = 3;
+
+/// What the kill monitor does on a tick where the launch's processes couldn't be listed.
+#[derive(Debug, PartialEq, Eq)]
+enum UnknownLineageStep {
+    /// Check again on the next tick.
+    Wait,
+    /// Kill the launch's cgroup, which needs no process list, and check again on the next tick.
+    KillCgroup,
+    /// Report the frame as possibly still running and stop monitoring it.
+    GiveUp,
+}
+
+/// Picks the kill monitor's step when the processes of a launch couldn't be listed, given
+/// whether the launch is `contained`, whether the time limit was reached and how many times
+/// its cgroup was killed that way already.
+///
+/// Only a contained launch is escalated: its cgroup can be killed without knowing its
+/// processes, while the wrapper pid can't be trusted.
+fn on_unknown_lineage(
+    contained: bool,
+    limit_reached: bool,
+    blind_kill_attempts: u32,
+) -> UnknownLineageStep {
+    if !contained || !limit_reached {
+        UnknownLineageStep::Wait
+    } else if blind_kill_attempts < MAX_BLIND_CGROUP_KILLS {
+        UnknownLineageStep::KillCgroup
+    } else {
+        UnknownLineageStep::GiveUp
+    }
+}
+
 /// Why [`FrameManager::kill_frame`] failed.
 enum KillError {
     /// The frame has no pid to kill, nothing was signalled.
@@ -720,14 +792,12 @@ struct KillEscalation {
 }
 
 impl KillEscalation {
-    /// Frames contained in a cgroup are always force killed once
-    /// `frame_cgroup_kill_grace_period` is over, every other frame follows the kill monitor
-    /// settings.
+    /// Frames contained in a cgroup are always force killed once their grace period
+    /// ([`RunnerConfig::frame_cgroup_kill_grace`]) is over, every other frame follows the kill
+    /// monitor settings.
     fn for_frame(contained: bool, config: &RunnerConfig) -> Self {
         if contained {
-            let grace = config
-                .frame_cgroup_kill_grace_period
-                .max(Duration::from_secs(1));
+            let grace = config.frame_cgroup_kill_grace();
             Self {
                 interval: grace,
                 timeout: grace,
@@ -775,7 +845,10 @@ mod tests {
 
     use uuid::Uuid;
 
-    use super::{list_snapshots, prefer_live_snapshots, tracked_lineage, KillEscalation};
+    use super::{
+        list_snapshots, on_unknown_lineage, prefer_live_snapshots, tracked_lineage, KillEscalation,
+        UnknownLineageStep, MAX_BLIND_CGROUP_KILLS,
+    };
     use crate::config::RunnerConfig;
 
     #[test]
@@ -821,13 +894,44 @@ mod tests {
     }
 
     #[test]
-    fn zero_grace_period_is_clamped() {
+    fn contained_frames_use_the_effective_grace_period() {
         let mut config = RunnerConfig::default();
         config.frame_cgroup_kill_grace_period = Duration::ZERO;
 
+        let escalation = KillEscalation::for_frame(true, &config);
+        assert_eq!(escalation.interval, config.frame_cgroup_kill_grace());
+        assert_eq!(escalation.timeout, config.frame_cgroup_kill_grace());
+    }
+
+    #[test]
+    fn unknown_lineage_waits_before_the_limit() {
+        assert_eq!(on_unknown_lineage(true, false, 0), UnknownLineageStep::Wait);
+    }
+
+    #[test]
+    fn unknown_lineage_of_a_session_tracked_launch_always_waits() {
         assert_eq!(
-            KillEscalation::for_frame(true, &config).interval,
-            Duration::from_secs(1)
+            on_unknown_lineage(false, false, 0),
+            UnknownLineageStep::Wait
+        );
+        assert_eq!(on_unknown_lineage(false, true, 0), UnknownLineageStep::Wait);
+        assert_eq!(
+            on_unknown_lineage(false, true, MAX_BLIND_CGROUP_KILLS),
+            UnknownLineageStep::Wait
+        );
+    }
+
+    #[test]
+    fn unknown_lineage_past_the_limit_kills_the_cgroup_a_bounded_number_of_times() {
+        for attempts in 0..MAX_BLIND_CGROUP_KILLS {
+            assert_eq!(
+                on_unknown_lineage(true, true, attempts),
+                UnknownLineageStep::KillCgroup
+            );
+        }
+        assert_eq!(
+            on_unknown_lineage(true, true, MAX_BLIND_CGROUP_KILLS),
+            UnknownLineageStep::GiveUp
         );
     }
 

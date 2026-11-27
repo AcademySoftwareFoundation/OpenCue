@@ -186,15 +186,27 @@ impl Default for MachineConfig {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
+    use std::{io::Write, time::Duration};
 
     use tempfile::Builder;
 
-    use super::{Config, MachineConfig};
+    use super::{Config, MachineConfig, RunnerConfig};
 
     #[test]
     fn machine_config_defaults_to_unlocked_nimby_startup() {
         assert!(!MachineConfig::default().nimby_lock_by_default);
+    }
+
+    #[test]
+    fn frame_cgroup_kill_grace_is_at_least_a_second() {
+        let mut config = RunnerConfig {
+            frame_cgroup_kill_grace_period: Duration::ZERO,
+            ..Default::default()
+        };
+        assert_eq!(config.frame_cgroup_kill_grace(), Duration::from_secs(1));
+
+        config.frame_cgroup_kill_grace_period = Duration::from_secs(45);
+        assert_eq!(config.frame_cgroup_kill_grace(), Duration::from_secs(45));
     }
 
     #[test]
@@ -559,6 +571,13 @@ impl Default for RunnerConfig {
 }
 
 impl RunnerConfig {
+    /// The grace period a killed frame contained in a cgroup actually gets:
+    /// `frame_cgroup_kill_grace_period`, but at least one second.
+    pub fn frame_cgroup_kill_grace(&self) -> Duration {
+        self.frame_cgroup_kill_grace_period
+            .max(Duration::from_secs(1))
+    }
+
     /// Returns the current compiled `log_exit_status_rules`, seeding the shared cell from this
     /// config's raw fields on first call.
     ///

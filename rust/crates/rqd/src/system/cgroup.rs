@@ -56,7 +56,7 @@ use nix::{
     sys::signal::{kill, Signal},
     unistd::Pid,
 };
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 const CGROUP_MOUNT: &str = "/sys/fs/cgroup";
@@ -353,13 +353,26 @@ impl FrameCgroup {
         }
     }
 
-    /// Waits until the cgroup has no process left, it is gone or `deadline` passes, whichever
-    /// comes first.
-    pub async fn wait_empty(&self, deadline: Instant) -> Result<()> {
-        while self.path.exists() && self.is_populated()? && Instant::now() < deadline {
+    /// Waits until the cgroup is confirmed to have no process left, it is gone or `deadline`
+    /// passes, whichever comes first. A failed read of `cgroup.events` doesn't end the wait, as
+    /// the cgroup may still be populated.
+    pub async fn wait_empty(&self, deadline: Instant) {
+        let mut warned = false;
+        while self.path.exists() && Instant::now() < deadline {
+            match self.is_populated() {
+                Ok(false) => return,
+                Ok(true) => {}
+                Err(err) if !warned => {
+                    warned = true;
+                    warn!(
+                        "Waiting on {} to empty until the deadline. {err}",
+                        self.path.display()
+                    );
+                }
+                Err(err) => debug!("{err}"),
+            }
             tokio::time::sleep(REAP_POLL_INTERVAL).await;
         }
-        Ok(())
     }
 
     /// Kills whatever is left in the cgroup, waits for it to empty and removes it. Returns the
@@ -738,10 +751,7 @@ mod tests {
         });
 
         let start = Instant::now();
-        cgroup
-            .wait_empty(start + Duration::from_secs(30))
-            .await
-            .expect("wait");
+        cgroup.wait_empty(start + Duration::from_secs(30)).await;
 
         assert!(start.elapsed() >= Duration::from_millis(200));
         assert!(start.elapsed() < Duration::from_secs(5));
@@ -757,13 +767,31 @@ mod tests {
         write(&dir.path().join("cgroup.events"), "populated 1\nfrozen 0\n");
 
         let start = Instant::now();
-        cgroup
-            .wait_empty(start + Duration::from_millis(200))
-            .await
-            .expect("wait");
+        cgroup.wait_empty(start + Duration::from_millis(200)).await;
 
         assert!(start.elapsed() >= Duration::from_millis(200));
         assert!(start.elapsed() < Duration::from_secs(5));
+    }
+
+    #[tokio::test]
+    async fn wait_empty_keeps_waiting_through_unreadable_events() {
+        let dir = TempDir::new().unwrap();
+        let missing_events = FrameCgroup {
+            path: dir.path().join("missing_events"),
+        };
+        fs::create_dir(&missing_events.path).unwrap();
+        let events_dir = FrameCgroup {
+            path: dir.path().join("events_dir"),
+        };
+        fs::create_dir_all(events_dir.path.join("cgroup.events")).unwrap();
+
+        for cgroup in [missing_events, events_dir] {
+            let start = Instant::now();
+            cgroup.wait_empty(start + Duration::from_millis(200)).await;
+
+            assert!(start.elapsed() >= Duration::from_millis(200));
+            assert!(start.elapsed() < Duration::from_secs(5));
+        }
     }
 
     #[tokio::test]
@@ -779,8 +807,8 @@ mod tests {
 
         let start = Instant::now();
         let deadline = start + Duration::from_secs(30);
-        empty.wait_empty(deadline).await.expect("wait on empty");
-        missing.wait_empty(deadline).await.expect("wait on missing");
+        empty.wait_empty(deadline).await;
+        missing.wait_empty(deadline).await;
 
         assert!(start.elapsed() < Duration::from_secs(5));
     }

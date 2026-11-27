@@ -1035,15 +1035,13 @@ impl RunningFrame {
     /// Returns the number of processes killed, when there were any.
     ///
     /// When the frame was killed, what is left first gets until the end of the kill grace
-    /// period (`frame_cgroup_kill_grace_period`) to exit on its own.
+    /// period ([`RunnerConfig::frame_cgroup_kill_grace`]) to exit on its own.
     #[cfg(unix)]
     async fn reap_cgroup(&self) -> Option<usize> {
         let frame_cgroup = cgroup::frame_cgroups()?.open(&self.launch_id)?;
         if let Some(requested) = self.kill_requested_at.get() {
-            let deadline = *requested + self.config.frame_cgroup_kill_grace_period;
-            if let Err(err) = frame_cgroup.wait_empty(deadline).await {
-                warn!("Failed to wait on the cgroup of {self} to empty. {err}");
-            }
+            let deadline = *requested + self.config.frame_cgroup_kill_grace();
+            frame_cgroup.wait_empty(deadline).await;
         }
         match frame_cgroup.reap().await {
             Ok(0) => None,
