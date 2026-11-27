@@ -334,6 +334,26 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
     @Test
     @Transactional
     @Rollback(true)
+    public void testClaimFailingEmailMatchesServicesById() {
+        ServiceEntity emailing = insertService("emailing", true);
+        JobDetail job = launchSucceededJob();
+        setFrameState(getFrames(job, "pass_1")[0], "DEAD");
+
+        // A service listed by id resolves, as at launch, so shell, which has the email off,
+        // does not decide.
+        setLayerServices(job, "pass_1", emailing.getId() + ",shell");
+        assertTrue(jobDao.claimFailingEmail(job));
+
+        // So does a show's override listed by id.
+        jdbcTemplate.update("UPDATE job SET ts_failing_email=NULL WHERE pk_job=?", job.getJobId());
+        ServiceOverrideEntity override = insertServiceOverride(job, "shell", true);
+        setLayerServices(job, "pass_1", override.getId());
+        assertTrue(jobDao.claimFailingEmail(job));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
     public void testClaimFailingEmailOnlyForPendingJobs() {
         setShellEmailOnFailing(true);
         JobDetail job = launchSucceededJob();

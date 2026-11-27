@@ -231,8 +231,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     /*
      * The job's run is marked by its latest frame start. A layer's service is its first listed
-     * service that exists, a show's override before the facility service, as JobSpec chose it at
-     * launch.
+     * service that exists, by id or name, a show's override before the facility service, as JobSpec
+     * chose it at launch.
      */
     // spotless:off
     private static final String CLAIM_FAILING_EMAIL =
@@ -269,8 +269,10 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
                             + "unnest(string_to_array(layer.str_services, ',')) "
                                 + "WITH ORDINALITY AS layer_service(str_name, int_order) "
                             + "LEFT JOIN show_service ON show_service.pk_show = job.pk_show "
-                                + "AND show_service.str_name = layer_service.str_name "
-                            + "LEFT JOIN service ON service.str_name = layer_service.str_name "
+                                + "AND (show_service.pk_show_service = layer_service.str_name "
+                                    + "OR show_service.str_name = layer_service.str_name) "
+                            + "LEFT JOIN service ON (service.pk_service = layer_service.str_name "
+                                + "OR service.str_name = layer_service.str_name) "
                         + "WHERE "
                             + "show_service.pk_show_service IS NOT NULL "
                             + "OR service.pk_service IS NOT NULL "
