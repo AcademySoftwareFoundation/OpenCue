@@ -1787,8 +1787,10 @@ pub trait Machine {
     async fn get_hyperthreading_multiplier(&self) -> u32;
 
     /// Send a signal (SIGTERM, or SIGKILL when `force`) to the processes of the frame `launch`:
-    /// every member of its cgroup when it is contained, otherwise the session led by `pid`.
-    /// Nothing is signaled once the cgroup of a contained launch is gone.
+    /// every member of its cgroup when it is contained, otherwise the process group of `pid`
+    /// (the wrapper leads its own session, so pgid == `pid`); other process groups in that
+    /// session aren't reached. On Windows, with or without `force`, the process tree of `pid` is
+    /// killed. Nothing is signaled once the cgroup of a contained launch is gone.
     ///
     /// # Returns Errors:
     ///  * [EINVAL] The value of the sig argument is an invalid or unsupported signal number.

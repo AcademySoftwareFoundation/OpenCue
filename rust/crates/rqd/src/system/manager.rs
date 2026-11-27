@@ -61,12 +61,14 @@ pub trait SystemManager {
     fn refresh_procs(&self);
 
     /// Sends SIGTERM to the processes of the frame `launch`: every member of its cgroup when it
-    /// is contained, otherwise the process group of `session_pid`. Nothing is signaled once the
-    /// cgroup of a contained launch is gone, and it fails when the cgroup can't be looked up.
+    /// is contained, otherwise the process group of `session_pid` (pgid == `session_pid`, as the
+    /// wrapper calls `setsid`), which leaves out other process groups in its session. On Windows
+    /// the process tree of `session_pid` is killed instead. Nothing is signaled once the cgroup
+    /// of a contained launch is gone, and it fails when the cgroup can't be looked up.
     fn kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()>;
 
     /// Sends SIGKILL to the processes of the frame `launch`, picked as in
-    /// [`Self::kill_session`].
+    /// [`Self::kill_session`]. On Windows this is the same process-tree kill.
     fn force_kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()>;
 
     /// Force kill a list of pids
