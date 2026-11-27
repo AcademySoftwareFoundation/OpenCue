@@ -896,12 +896,7 @@ impl MachineMonitor {
             frame_procs
                 .into_iter()
                 .map(|(launch, pid, log_path)| {
-                    system_manager
-                        .collect_proc_stats(launch, pid, log_path)
-                        .unwrap_or_else(|err| {
-                            warn!("Failed to collect proc_stats. {}", err);
-                            None
-                        })
+                    system_manager.collect_proc_stats(launch, pid, log_path)
                 })
                 .collect::<Vec<_>>()
         })
@@ -909,9 +904,18 @@ impl MachineMonitor {
         .map_err(|err| miette!("Proc stats collection task failed: {err}"))?;
 
         // Handle Running frames separately to avoid deadlocks when trying to get a frame state
-        for ((running_frame, running_state), proc_stats_opt) in
+        for ((running_frame, running_state), proc_stats_result) in
             running_frames.iter().zip(all_proc_stats)
         {
+            let proc_stats_opt = match proc_stats_result {
+                Ok(proc_stats_opt) => proc_stats_opt,
+                // Not knowing whether the frame's processes are running is no sign the frame
+                // is gone: skip it until its stats can be read again.
+                Err(err) => {
+                    warn!("Failed to collect proc_stats of {}. {}", running_frame, err);
+                    continue;
+                }
+            };
             if let Some(proc_stats) = proc_stats_opt {
                 // Mark memory aggressor frames
                 if running_frame.request.soft_memory_limit > 0

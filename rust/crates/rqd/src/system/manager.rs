@@ -48,7 +48,8 @@ pub trait SystemManager {
     ///
     /// The processes are the members of the launch's cgroup when it is contained (see
     /// [`FrameLaunch::contained`]), otherwise the processes in the session of `pid`. Either way
-    /// the stats come from per-process data. Returns `None` once `pid` is no longer active.
+    /// the stats come from per-process data. Returns `None` once `pid` is no longer active, and
+    /// fails when that can't be told, such as when a contained launch's cgroup can't be looked up.
     fn collect_proc_stats(
         &self,
         launch: FrameLaunch,
@@ -61,7 +62,7 @@ pub trait SystemManager {
 
     /// Sends SIGTERM to the processes of the frame `launch`: every member of its cgroup when it
     /// is contained, otherwise the process group of `session_pid`. Nothing is signaled once the
-    /// cgroup of a contained launch is gone.
+    /// cgroup of a contained launch is gone, and it fails when the cgroup can't be looked up.
     fn kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()>;
 
     /// Sends SIGKILL to the processes of the frame `launch`, picked as in

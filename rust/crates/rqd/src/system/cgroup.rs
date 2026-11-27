@@ -168,25 +168,55 @@ impl FrameCgroups {
 
     /// Opens the cgroup of the frame launch `launch_id`, or returns `None` when the launch
     /// didn't get one or it has been removed.
-    pub fn open(&self, launch_id: &Uuid) -> Option<FrameCgroup> {
+    ///
+    /// Fails when the cgroup can't be looked up, or when something other than a directory sits
+    /// at its path: neither tells whether the launch still has processes.
+    pub fn open(&self, launch_id: &Uuid) -> Result<Option<FrameCgroup>> {
         let path = self.frame_path(launch_id);
-        path.is_dir().then_some(FrameCgroup { path })
+        match fs::metadata(&path) {
+            Ok(metadata) if metadata.is_dir() => Ok(Some(FrameCgroup { path })),
+            Ok(_) => Err(miette!("{} is not a cgroup directory", path.display())),
+            Err(err) if err.kind() == io::ErrorKind::NotFound => Ok(None),
+            Err(err) => Err(miette!(
+                "Failed to look up cgroup {}: {err}",
+                path.display()
+            )),
+        }
     }
 
     /// The launch id of the frame cgroup process `pid` runs in, read from `/proc/<pid>/cgroup`.
-    /// `None` when the process is gone or isn't in a frame cgroup.
-    pub fn launch_of(&self, pid: u32) -> Option<Uuid> {
-        let proc_cgroup = fs::read_to_string(format!("/proc/{pid}/cgroup")).ok()?;
-        self.launch_in(&proc_cgroup)
+    /// `None` when the process is gone or isn't in a frame cgroup. Fails when that can't be told,
+    /// the file being unreadable or the frame cgroup failing to be looked up.
+    pub fn launch_of(&self, pid: u32) -> Result<Option<Uuid>> {
+        self.launch_from(Path::new(&format!("/proc/{pid}/cgroup")))
+    }
+
+    /// [`Self::launch_of`] for the `/proc/<pid>/cgroup` file at `path`.
+    fn launch_from(&self, path: &Path) -> Result<Option<Uuid>> {
+        match fs::read_to_string(path) {
+            Ok(proc_cgroup) => self.launch_in(&proc_cgroup),
+            // A process that exits while its file is read fails the read with ESRCH
+            Err(err)
+                if err.kind() == io::ErrorKind::NotFound
+                    || err.raw_os_error() == Some(Errno::ESRCH as i32) =>
+            {
+                Ok(None)
+            }
+            Err(err) => Err(miette!("Failed to read {}: {err}", path.display())),
+        }
     }
 
     /// The launch id of the frame cgroup named by a `/proc/<pid>/cgroup` content.
-    fn launch_in(&self, proc_cgroup: &str) -> Option<Uuid> {
-        let cgroup = proc_cgroup
+    fn launch_in(&self, proc_cgroup: &str) -> Result<Option<Uuid>> {
+        let launch_id = proc_cgroup
             .lines()
-            .find_map(|line| line.strip_prefix("0::"))?;
-        let launch_id = Uuid::parse_str(Path::new(cgroup.trim()).file_name()?.to_str()?).ok()?;
-        self.open(&launch_id).map(|_| launch_id)
+            .find_map(|line| line.strip_prefix("0::"))
+            .and_then(|cgroup| Path::new(cgroup.trim()).file_name()?.to_str())
+            .and_then(|name| Uuid::parse_str(name).ok());
+        let Some(launch_id) = launch_id else {
+            return Ok(None);
+        };
+        Ok(self.open(&launch_id)?.map(|_| launch_id))
     }
 
     /// Frame cgroups that don't belong to any of `launch_ids`.
@@ -577,12 +607,29 @@ mod tests {
         let frame_cgroups = FrameCgroups::at(dir.path());
         let launch_id = Uuid::new_v4();
 
-        assert!(frame_cgroups.open(&launch_id).is_none());
+        assert!(frame_cgroups.open(&launch_id).unwrap().is_none());
         let cgroup = frame_cgroups.create(&launch_id).expect("create");
 
         assert_eq!(cgroup.path, dir.path().join(launch_id.to_string()));
-        assert!(frame_cgroups.open(&launch_id).is_some());
-        assert!(frame_cgroups.open(&Uuid::new_v4()).is_none());
+        assert!(frame_cgroups.open(&launch_id).unwrap().is_some());
+        assert!(frame_cgroups.open(&Uuid::new_v4()).unwrap().is_none());
+    }
+
+    #[test]
+    fn open_fails_when_the_cgroup_cant_be_looked_up() {
+        // Only a missing cgroup means the launch has none: any other error says nothing about
+        // its processes.
+        let dir = TempDir::new().unwrap();
+        let not_a_dir = dir.path().join("frames");
+        write(&not_a_dir, "");
+        let launch_id = Uuid::new_v4();
+
+        // ENOTDIR
+        assert!(FrameCgroups::at(&not_a_dir).open(&launch_id).is_err());
+        // Something other than a cgroup directory at the cgroup's path
+        let frame_cgroups = FrameCgroups::at(dir.path());
+        write(&dir.path().join(launch_id.to_string()), "");
+        assert!(frame_cgroups.open(&launch_id).is_err());
     }
 
     #[test]
@@ -596,8 +643,11 @@ mod tests {
 
         let retry_cgroup = frame_cgroups.create(&retry).expect("create retry cgroup");
 
-        assert!(frame_cgroups.open(&first_run).is_none());
-        assert_eq!(frame_cgroups.open(&retry).unwrap().path, retry_cgroup.path);
+        assert!(frame_cgroups.open(&first_run).unwrap().is_none());
+        assert_eq!(
+            frame_cgroups.open(&retry).unwrap().unwrap().path,
+            retry_cgroup.path
+        );
     }
 
     #[test]
@@ -622,13 +672,45 @@ mod tests {
             Uuid::new_v4()
         );
 
-        assert_eq!(frame_cgroups.launch_in(&in_frame), Some(launch_id));
-        assert_eq!(frame_cgroups.launch_in(&removed), None);
+        assert_eq!(frame_cgroups.launch_in(&in_frame).unwrap(), Some(launch_id));
+        assert_eq!(frame_cgroups.launch_in(&removed).unwrap(), None);
         assert_eq!(
-            frame_cgroups.launch_in("0::/system.slice/openrqd.service\n"),
+            frame_cgroups
+                .launch_in("0::/system.slice/openrqd.service\n")
+                .unwrap(),
             None
         );
-        assert_eq!(frame_cgroups.launch_in(""), None);
+        assert_eq!(frame_cgroups.launch_in("").unwrap(), None);
+    }
+
+    #[test]
+    fn launch_lookup_fails_unless_it_can_tell() {
+        let dir = TempDir::new().unwrap();
+        let not_a_dir = dir.path().join("frames");
+        write(&not_a_dir, "");
+        let launch_id = Uuid::new_v4();
+        let in_frame = format!("0::/system.slice/openrqd.service/frames/{launch_id}\n");
+
+        // The frame cgroup can't be looked up
+        assert!(FrameCgroups::at(&not_a_dir).launch_in(&in_frame).is_err());
+        // Still parsed as outside any frame cgroup
+        assert_eq!(
+            FrameCgroups::at(&not_a_dir)
+                .launch_in("0::/system.slice/openrqd.service\n")
+                .unwrap(),
+            None
+        );
+
+        let frame_cgroups = FrameCgroups::at(dir.path());
+        // The process is gone
+        assert_eq!(
+            frame_cgroups
+                .launch_from(&dir.path().join("missing"))
+                .unwrap(),
+            None
+        );
+        // Its cgroup file can't be read (EISDIR)
+        assert!(frame_cgroups.launch_from(dir.path()).is_err());
     }
 
     #[test]
@@ -914,8 +996,11 @@ mod tests {
         assert!(pids.contains(&wrapper.id()), "{pids:?}");
         assert_eq!(pids.len(), 3, "{pids:?}");
         assert!(cgroup.is_populated().unwrap());
-        assert_eq!(frame_cgroups.launch_of(wrapper.id()), Some(launch_id));
-        assert_eq!(frame_cgroups.launch_of(std::process::id()), None);
+        assert_eq!(
+            frame_cgroups.launch_of(wrapper.id()).unwrap(),
+            Some(launch_id)
+        );
+        assert_eq!(frame_cgroups.launch_of(std::process::id()).unwrap(), None);
 
         // setsid only takes effect once the child execs it, so wait for a member to leave the
         // wrapper's session.
@@ -939,7 +1024,7 @@ mod tests {
 
         assert_eq!(cgroup.reap().await.expect("reap"), 2);
         assert!(!cgroup.path.exists());
-        assert!(frame_cgroups.open(&launch_id).is_none());
+        assert!(frame_cgroups.open(&launch_id).unwrap().is_none());
 
         fs::remove_dir(&frame_cgroups.path).unwrap();
     }
@@ -1001,12 +1086,17 @@ mod tests {
 
         reap_orphans(frame_cgroups.orphans(&[recovered]).unwrap()).await;
 
-        assert!(frame_cgroups.open(&recovered).is_some());
+        assert!(frame_cgroups.open(&recovered).unwrap().is_some());
         for orphan in &orphans {
-            assert!(frame_cgroups.open(orphan).is_none());
+            assert!(frame_cgroups.open(orphan).unwrap().is_none());
         }
 
-        frame_cgroups.open(&recovered).unwrap().remove().unwrap();
+        frame_cgroups
+            .open(&recovered)
+            .unwrap()
+            .unwrap()
+            .remove()
+            .unwrap();
         fs::remove_dir(&frame_cgroups.path).unwrap();
     }
 }

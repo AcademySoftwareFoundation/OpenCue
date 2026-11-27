@@ -172,6 +172,11 @@ pub struct RunningFrame {
     /// sets it when it finds the frame process in a frame cgroup.
     #[serde(skip)]
     contained: AtomicBool,
+    /// Set by recovery when the frame process is alive but whether it runs in a frame cgroup
+    /// couldn't be told. The frame is then tracked by session, and its cgroup, if any, is
+    /// unclaimed: the orphan sweep must not run (see `Recovery::incomplete`).
+    #[serde(skip)]
+    pub(super) cgroup_unresolved: bool,
     pub layer_id: Uuid,
     frame_stats: RwLock<ProcessStats>,
     pub log_path: String,
@@ -334,6 +339,7 @@ impl RunningFrame {
             frame_id,
             launch_id: Uuid::new_v4(),
             contained: AtomicBool::new(false),
+            cgroup_unresolved: false,
             layer_id,
             frame_stats: RwLock::new(ProcessStats::default()),
             log_path,
@@ -1005,7 +1011,7 @@ impl RunningFrame {
     /// process to join (see [`cgroup::join`]). The launch counts as contained from then on.
     ///
     /// When that fails the frame runs without a cgroup, tracked by session. Fails only when a
-    /// cgroup is left behind, which would have rqd look for the frame's processes there.
+    /// cgroup may be left behind, which would have rqd look for the frame's processes there.
     #[cfg(unix)]
     fn open_cgroup_for_launch(&self) -> Result<Option<std::fs::File>> {
         let Some(frame_cgroups) = cgroup::frame_cgroups() else {
@@ -1020,7 +1026,10 @@ impl RunningFrame {
                 Ok(Some(procs))
             }
             Err(err) => {
-                if let Some(frame_cgroup) = frame_cgroups.open(&self.launch_id) {
+                let leftover = frame_cgroups.open(&self.launch_id).map_err(|open_err| {
+                    miette!("Failed to set up the cgroup of {self}: {err}. {open_err}")
+                })?;
+                if let Some(frame_cgroup) = leftover {
                     frame_cgroup.remove().map_err(|remove_err| {
                         miette!("Failed to set up the cgroup of {self}: {err}. {remove_err}")
                     })?;
@@ -1038,7 +1047,13 @@ impl RunningFrame {
     /// period ([`RunnerConfig::frame_cgroup_kill_grace`]) to exit on its own.
     #[cfg(unix)]
     async fn reap_cgroup(&self) -> Option<usize> {
-        let frame_cgroup = cgroup::frame_cgroups()?.open(&self.launch_id)?;
+        let frame_cgroup = match cgroup::frame_cgroups()?.open(&self.launch_id) {
+            Ok(frame_cgroup) => frame_cgroup?,
+            Err(err) => {
+                warn!("Failed to reap the cgroup of {self}. {err}");
+                return None;
+            }
+        };
         if let Some(requested) = self.kill_requested_at.get() {
             let deadline = *requested + self.config.frame_cgroup_kill_grace();
             frame_cgroup.wait_empty(deadline).await;
@@ -1669,7 +1684,9 @@ impl RunningFrame {
     /// with the provided configuration. The frame is returned for recovery in all of these
     /// scenarios, so a frame's outcome is never silently lost across an RQD restart:
     /// - The frame process is still running (verified by pid **and** recorded process start
-    ///   time, so a pid recycled by the OS is not mistaken for the frame).
+    ///   time, so a pid recycled by the OS is not mistaken for the frame). When it can't be told
+    ///   whether the process runs in a frame cgroup, the frame is tracked by session and flagged
+    ///   as `cgroup_unresolved`.
     /// - The process finished while RQD was down but left its exit status in the exit file;
     ///   recovery reports the real exit status to Cuebot.
     /// - The process is gone without a trace; recovery reports a failure (exit 1/SIGTERM)
@@ -1699,11 +1716,19 @@ impl RunningFrame {
             info!("Snapshot {}: process {} is still running", frame, pid);
             // Pick the frame's cgroup back up. Without one the frame is tracked by session.
             #[cfg(unix)]
-            if let Some(launch_id) =
-                cgroup::frame_cgroups().and_then(|frame_cgroups| frame_cgroups.launch_of(pid))
-            {
-                frame.launch_id = launch_id;
-                frame.contained = AtomicBool::new(true);
+            match cgroup::frame_cgroups().map(|frame_cgroups| frame_cgroups.launch_of(pid)) {
+                Some(Ok(Some(launch_id))) => {
+                    frame.launch_id = launch_id;
+                    frame.contained = AtomicBool::new(true);
+                }
+                Some(Ok(None)) | None => {}
+                Some(Err(err)) => {
+                    warn!(
+                        "Snapshot {}: couldn't tell whether process {} runs in a frame cgroup,                         tracking it by session. {}",
+                        frame, pid, err
+                    );
+                    frame.cgroup_unresolved = true;
+                }
             }
         } else if Path::new(&frame.exit_file_path).exists() {
             info!(

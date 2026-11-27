@@ -72,6 +72,9 @@ enum Membership {
     Cgroup(FrameCgroup),
     /// The cgroup of a contained frame is gone, and with it every process of the frame.
     Gone,
+    /// The cgroup of a contained frame couldn't be looked up, so whether the frame still has
+    /// processes is unknown.
+    Unknown(miette::Report),
 }
 
 #[derive(Debug)]
@@ -920,20 +923,21 @@ impl LinuxSystem {
     }
 
     /// Contained frame launches are only ever tracked through their cgroup, so a missing cgroup
-    /// means the launch is gone; it never falls back to a session whose id may have been reused.
+    /// means the launch is gone, and a failed lookup leaves it unknown; it never falls back to a
+    /// session whose id may have been reused.
     /// Every other launch (cgroups disabled or unavailable, cgroup setup failed, or recovered
     /// from outside a frame cgroup) is tracked by its session.
     fn membership(&self, launch: FrameLaunch, pid: u32) -> Membership {
         if !launch.contained {
             return Membership::Session(pid);
         }
-        match self
-            .frame_cgroups
-            .as_ref()
-            .and_then(|frame_cgroups| frame_cgroups.open(&launch.id))
-        {
-            Some(cgroup) => Membership::Cgroup(cgroup),
-            None => Membership::Gone,
+        let Some(frame_cgroups) = &self.frame_cgroups else {
+            return Membership::Gone;
+        };
+        match frame_cgroups.open(&launch.id) {
+            Ok(Some(cgroup)) => Membership::Cgroup(cgroup),
+            Ok(None) => Membership::Gone,
+            Err(err) => Membership::Unknown(err),
         }
     }
 }
@@ -1037,6 +1041,13 @@ impl SystemManager for LinuxSystem {
             Membership::Session(session_id) => self.calculate_proc_session_data(&session_id),
             Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup),
             Membership::Gone => None,
+            // Not `None`: that would have the frame taken for finished
+            Membership::Unknown(err) => {
+                return Err(miette!(
+                    "Failed to find the processes of frame launch {}. {err}",
+                    launch.id
+                ))
+            }
         };
         Ok(frame_data.map(|session_data| {
             debug!(
@@ -1079,6 +1090,7 @@ impl SystemManager for LinuxSystem {
             // Signal every member so the wrapper's traps run as they do for a session kill
             Membership::Cgroup(cgroup) => cgroup.signal(Signal::SIGTERM).map(|_| ()),
             Membership::Gone => Ok(()),
+            Membership::Unknown(err) => Err(err),
         }
     }
 
@@ -1091,6 +1103,7 @@ impl SystemManager for LinuxSystem {
             .map_err(|err| miette!("Failed to kill {session_id}. {err}")),
             Membership::Cgroup(cgroup) => cgroup.kill(),
             Membership::Gone => Ok(()),
+            Membership::Unknown(err) => Err(err),
         }
     }
 
@@ -1125,6 +1138,13 @@ impl SystemManager for LinuxSystem {
                 }
             },
             Membership::Gone => Lineage::Gone,
+            Membership::Unknown(err) => {
+                warn!(
+                    "Failed to find the processes of frame launch {}. {err}",
+                    launch.id
+                );
+                Lineage::Unknown
+            }
         }
     }
 
@@ -1785,6 +1805,40 @@ mod tests {
             system
                 .force_kill_session(launch, unrelated.id())
                 .expect("force kill");
+
+            assert!(unrelated.try_wait().unwrap().is_none());
+            unrelated.kill().unwrap();
+            unrelated.wait().unwrap();
+        }
+
+        #[test]
+        fn contained_launch_with_unreadable_cgroup_is_unknown_and_spares_its_session() {
+            let mut unrelated = Command::new("sleep")
+                .arg("30")
+                .process_group(0)
+                .spawn()
+                .unwrap();
+            let launch = contained(Uuid::new_v4());
+            let dir = TempDir::new().unwrap();
+            // Looking a cgroup up under a file fails with ENOTDIR
+            let not_a_dir = dir.path().join("frames");
+            fs::write(&not_a_dir, "").unwrap();
+            let mut system = setup_test_system(4, 2, 1);
+            system.frame_cgroups = Some(FrameCgroups::at(&not_a_dir));
+
+            assert!(matches!(
+                system.membership(launch, unrelated.id()),
+                Membership::Unknown(_)
+            ));
+            assert_eq!(
+                system.get_proc_lineage(launch, unrelated.id()),
+                Lineage::Unknown
+            );
+            assert!(system
+                .collect_proc_stats(launch, unrelated.id(), "/nonexistent".to_string())
+                .is_err());
+            assert!(system.kill_session(launch, unrelated.id()).is_err());
+            assert!(system.force_kill_session(launch, unrelated.id()).is_err());
 
             assert!(unrelated.try_wait().unwrap().is_none());
             unrelated.kill().unwrap();

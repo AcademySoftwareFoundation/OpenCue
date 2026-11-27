@@ -122,6 +122,11 @@ async fn async_main() -> miette::Result<()> {
     #[cfg(target_os = "linux")]
     if let Some(frame_cgroups) = cgroup::frame_cgroups() {
         match &recovery {
+            // A live frame's cgroup may be missing from the claimed launches
+            Ok(recovery) if recovery.incomplete => warn!(
+                "Skipping the orphan frame cgroup sweep, the cgroup of a recovered frame couldn't \
+                 be determined"
+            ),
             Ok(recovery) => match frame_cgroups.orphans(&recovery.claimed_launches) {
                 Ok(orphans) => {
                     tokio::spawn(cgroup::reap_orphans(orphans));

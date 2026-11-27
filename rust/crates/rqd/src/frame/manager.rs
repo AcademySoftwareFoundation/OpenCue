@@ -36,7 +36,10 @@ use super::running_frame::RunningFrame;
 use crate::{
     config::{RunnerConfig, CONFIG},
     servant::rqd_servant::MachineImpl,
-    system::{machine, manager::Lineage},
+    system::{
+        machine,
+        manager::{FrameLaunch, Lineage},
+    },
 };
 
 pub struct FrameManager {
@@ -213,10 +216,7 @@ impl FrameManager {
         for path in snapshot_paths {
             match RunningFrame::from_snapshot(&path, CONFIG.runner.clone()).await {
                 Ok(running_frame) => {
-                    let launch = running_frame.launch();
-                    if launch.contained {
-                        recovery.claimed_launches.push(launch.id);
-                    }
+                    recovery.claim(running_frame.launch(), running_frame.cgroup_unresolved);
                     let alive = running_frame.is_process_alive();
                     loaded.push((path, Arc::new(running_frame), alive));
                 }
@@ -671,6 +671,20 @@ pub struct Recovery {
     pub claimed_launches: Vec<Uuid>,
     /// Frames that were recovered but couldn't get their resources back.
     pub errors: Vec<String>,
+    /// Set when a recovered frame's cgroup couldn't be determined, so `claimed_launches` may
+    /// miss a live frame's cgroup. The orphan frame cgroup sweep must not run.
+    pub incomplete: bool,
+}
+
+impl Recovery {
+    /// Records a recovered frame `launch`, `cgroup_unresolved` when whether it runs in a frame
+    /// cgroup couldn't be told.
+    fn claim(&mut self, launch: FrameLaunch, cgroup_unresolved: bool) {
+        if launch.contained {
+            self.claimed_launches.push(launch.id);
+        }
+        self.incomplete |= cgroup_unresolved;
+    }
 }
 
 /// Paths of the `.bin` snapshot files in `dir`. Fails unless the whole directory could be listed.
@@ -847,9 +861,30 @@ mod tests {
 
     use super::{
         list_snapshots, on_unknown_lineage, prefer_live_snapshots, tracked_lineage, KillEscalation,
-        UnknownLineageStep, MAX_BLIND_CGROUP_KILLS,
+        Recovery, UnknownLineageStep, MAX_BLIND_CGROUP_KILLS,
     };
-    use crate::config::RunnerConfig;
+    use crate::{config::RunnerConfig, system::manager::FrameLaunch};
+
+    #[test]
+    fn recovery_claims_contained_launches_and_flags_unresolved_cgroups() {
+        let launch = |contained| FrameLaunch {
+            id: Uuid::new_v4(),
+            contained,
+        };
+        let (contained, by_session) = (launch(true), launch(false));
+        let mut recovery = Recovery::default();
+
+        recovery.claim(contained, false);
+        recovery.claim(by_session, false);
+        assert_eq!(recovery.claimed_launches, vec![contained.id]);
+        assert!(!recovery.incomplete);
+
+        // A frame whose cgroup couldn't be determined is tracked by session
+        recovery.claim(launch(false), true);
+        recovery.claim(launch(false), false);
+        assert_eq!(recovery.claimed_launches, vec![contained.id]);
+        assert!(recovery.incomplete);
+    }
 
     #[test]
     fn frames_without_cgroup_follow_the_kill_monitor_settings() {
