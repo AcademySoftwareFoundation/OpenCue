@@ -44,7 +44,7 @@ use crate::system::cgroup;
 use crate::system::OOM_REASON_MSG;
 use crate::{
     frame::frame_cmd::FrameCmdBuilder,
-    system::manager::{HostMemSnapshot, PeerMem, ProcessStats},
+    system::manager::{FrameLaunch, HostMemSnapshot, PeerMem, ProcessStats},
 };
 
 use serde::{Deserialize, Serialize};
@@ -168,6 +168,10 @@ pub struct RunningFrame {
     /// reaches a retry. Not persisted, recovery reads it back from the frame process's cgroup.
     #[serde(skip)]
     pub launch_id: Uuid,
+    /// Set once this launch joined its cgroup (see [`Self::launch`]). Not persisted, recovery
+    /// sets it when it finds the frame process in a frame cgroup.
+    #[serde(skip)]
+    contained: AtomicBool,
     pub layer_id: Uuid,
     frame_stats: RwLock<ProcessStats>,
     pub log_path: String,
@@ -325,6 +329,7 @@ impl RunningFrame {
             job_id,
             frame_id,
             launch_id: Uuid::new_v4(),
+            contained: AtomicBool::new(false),
             layer_id,
             frame_stats: RwLock::new(ProcessStats::default()),
             log_path,
@@ -992,7 +997,7 @@ impl RunningFrame {
     }
 
     /// Creates the frame's cgroup, when frame cgroups are enabled, and opens it for the frame
-    /// process to join (see [`cgroup::join`]).
+    /// process to join (see [`cgroup::join`]). The launch counts as contained from then on.
     ///
     /// When that fails the frame runs without a cgroup, tracked by session. Fails only when a
     /// cgroup is left behind, which would have rqd look for the frame's processes there.
@@ -1005,7 +1010,10 @@ impl RunningFrame {
             .create(&self.launch_id)
             .and_then(|frame_cgroup| frame_cgroup.open_procs())
         {
-            Ok(procs) => Ok(Some(procs)),
+            Ok(procs) => {
+                self.contained.store(true, Ordering::SeqCst);
+                Ok(Some(procs))
+            }
             Err(err) => {
                 if let Some(frame_cgroup) = frame_cgroups.open(&self.launch_id) {
                     frame_cgroup.remove().map_err(|remove_err| {
@@ -1241,6 +1249,14 @@ impl RunningFrame {
     /// and its snapshot was written successfully (or it was itself recovered from one).
     pub(crate) fn is_recovery_armed(&self) -> bool {
         self.recovery_armed.load(Ordering::SeqCst)
+    }
+
+    /// This launch of the frame, as the system tracks its processes.
+    pub fn launch(&self) -> FrameLaunch {
+        FrameLaunch {
+            id: self.launch_id,
+            contained: self.contained.load(Ordering::SeqCst),
+        }
     }
 
     pub(crate) fn pid(&self) -> Option<u32> {
@@ -1668,6 +1684,7 @@ impl RunningFrame {
                 cgroup::frame_cgroups().and_then(|frame_cgroups| frame_cgroups.launch_of(pid))
             {
                 frame.launch_id = launch_id;
+                frame.contained = AtomicBool::new(true);
             }
         } else if Path::new(&frame.exit_file_path).exists() {
             info!(

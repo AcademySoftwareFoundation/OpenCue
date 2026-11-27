@@ -43,15 +43,15 @@ pub trait SystemManager {
     /// Creates an user if it doesn't already exist
     fn create_user_if_unexisting(&self, username: &str, uid: u32, gid: u32) -> Result<u32>;
 
-    /// Collects stats of the processes of the frame launch `launch_id` (see
-    /// `RunningFrame::launch_id`), whose wrapper process `pid` leads its session.
+    /// Collects stats of the processes of the frame `launch`, whose wrapper process `pid` leads
+    /// its session.
     ///
-    /// The processes are the members of the frame's cgroup when it has one (see
-    /// [`Self::has_frame_cgroup`]), otherwise the processes in the session of `pid`. Either way
+    /// The processes are the members of the launch's cgroup when it is contained (see
+    /// [`FrameLaunch::contained`]), otherwise the processes in the session of `pid`. Either way
     /// the stats come from per-process data. Returns `None` once `pid` is no longer active.
     fn collect_proc_stats(
         &self,
-        launch_id: &Uuid,
+        launch: FrameLaunch,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>>;
@@ -59,29 +59,54 @@ pub trait SystemManager {
     /// Update info about procs currently active
     fn refresh_procs(&self);
 
-    /// Sends SIGTERM to the processes of the frame launch `launch_id`: every member of its cgroup
-    /// when it has one, otherwise the process group of `session_pid`.
-    fn kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()>;
+    /// Sends SIGTERM to the processes of the frame `launch`: every member of its cgroup when it
+    /// is contained, otherwise the process group of `session_pid`. Nothing is signaled once the
+    /// cgroup of a contained launch is gone.
+    fn kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()>;
 
-    /// Sends SIGKILL to the processes of the frame launch `launch_id`, picked as in
+    /// Sends SIGKILL to the processes of the frame `launch`, picked as in
     /// [`Self::kill_session`].
-    fn force_kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()>;
+    fn force_kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()>;
 
     /// Force kill a list of pids
     fn force_kill(&self, pids: &[u32]) -> Result<()>;
 
-    /// Returns the active processes of the frame launch `launch_id`, picked as in
-    /// [`Self::collect_proc_stats`], or `None` once none is left.
-    fn get_proc_lineage(&self, launch_id: &Uuid, pid: u32) -> Option<Vec<u32>>;
-
-    /// Whether the frame launch `launch_id` is contained in a cgroup, in which case its processes
-    /// are tracked and killed through the cgroup instead of its session.
-    fn has_frame_cgroup(&self, _launch_id: &Uuid) -> bool {
-        false
-    }
+    /// Returns the active processes of the frame `launch`, picked as in
+    /// [`Self::collect_proc_stats`].
+    fn get_proc_lineage(&self, launch: FrameLaunch, pid: u32) -> Lineage;
 
     /// Request a system reboot
     fn reboot(&self) -> Result<()>;
+}
+
+/// A launch of a frame (see `RunningFrame::launch_id`), as the system tracks its processes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameLaunch {
+    /// Names the launch's cgroup.
+    pub id: Uuid,
+    /// Whether the launch's processes run in its cgroup. A contained launch is only ever tracked
+    /// through the cgroup, so once the cgroup is gone the launch has no processes left. A launch
+    /// that isn't contained is tracked by the session of its wrapper process.
+    pub contained: bool,
+}
+
+/// The processes of a frame launch still active, as returned by
+/// [`SystemManager::get_proc_lineage`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Lineage {
+    /// Pids of the processes still active.
+    Active(Vec<u32>),
+    /// No process of the launch is left.
+    Gone,
+    /// The processes couldn't be read this time, for instance on a transient cgroupfs error.
+    Unknown,
+}
+
+impl From<Option<Vec<u32>>> for Lineage {
+    /// Maps a session's processes, `None` when the session has none left.
+    fn from(pids: Option<Vec<u32>>) -> Self {
+        pids.map_or(Lineage::Gone, Lineage::Active)
+    }
 }
 
 #[derive(Debug, Clone, Diagnostic, Error)]

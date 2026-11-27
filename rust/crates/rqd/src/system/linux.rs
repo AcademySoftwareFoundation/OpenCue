@@ -44,7 +44,9 @@ use crate::{
     },
 };
 
-use super::manager::{MachineGpuStats, MachineStat, ProcessStats, SystemManager};
+use super::manager::{
+    FrameLaunch, Lineage, MachineGpuStats, MachineStat, ProcessStats, SystemManager,
+};
 
 pub struct LinuxSystem {
     config: MachineConfig,
@@ -68,6 +70,8 @@ enum Membership {
     Session(u32),
     /// The frame's cgroup.
     Cgroup(FrameCgroup),
+    /// The cgroup of a contained frame is gone, and with it every process of the frame.
+    Gone,
 }
 
 #[derive(Debug)]
@@ -919,16 +923,21 @@ impl LinuxSystem {
         Some(data)
     }
 
-    fn frame_cgroup(&self, launch_id: &Uuid) -> Option<FrameCgroup> {
-        self.frame_cgroups.as_ref()?.open(launch_id)
-    }
-
-    /// Frames launched in a cgroup are tracked through it; every other frame (cgroups disabled
-    /// or unavailable, or recovered from before they were enabled) by its session.
-    fn membership(&self, launch_id: &Uuid, pid: u32) -> Membership {
-        match self.frame_cgroup(launch_id) {
+    /// Contained frame launches are only ever tracked through their cgroup, so a missing cgroup
+    /// means the launch is gone; it never falls back to a session whose id may have been reused.
+    /// Every other launch (cgroups disabled or unavailable, cgroup setup failed, or recovered
+    /// from outside a frame cgroup) is tracked by its session.
+    fn membership(&self, launch: FrameLaunch, pid: u32) -> Membership {
+        if !launch.contained {
+            return Membership::Session(pid);
+        }
+        match self
+            .frame_cgroups
+            .as_ref()
+            .and_then(|frame_cgroups| frame_cgroups.open(&launch.id))
+        {
             Some(cgroup) => Membership::Cgroup(cgroup),
-            None => Membership::Session(pid),
+            None => Membership::Gone,
         }
     }
 }
@@ -1012,7 +1021,7 @@ impl SystemManager for LinuxSystem {
 
     fn collect_proc_stats(
         &self,
-        launch_id: &Uuid,
+        launch: FrameLaunch,
         pid: u32,
         log_path: String,
     ) -> Result<Option<ProcessStats>> {
@@ -1028,9 +1037,10 @@ impl SystemManager for LinuxSystem {
             .unwrap_or_default()
             .as_secs();
 
-        let frame_data = match self.membership(launch_id, pid) {
+        let frame_data = match self.membership(launch, pid) {
             Membership::Session(session_id) => self.calculate_proc_session_data(&session_id),
             Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup),
+            Membership::Gone => None,
         };
         Ok(frame_data.map(|session_data| {
             debug!(
@@ -1063,8 +1073,8 @@ impl SystemManager for LinuxSystem {
         };
     }
 
-    fn kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()> {
-        match self.membership(launch_id, session_pid) {
+    fn kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()> {
+        match self.membership(launch, session_pid) {
             Membership::Session(session_id) => killpg(
                 nix::unistd::Pid::from_raw(session_id as i32),
                 Signal::SIGTERM,
@@ -1072,17 +1082,19 @@ impl SystemManager for LinuxSystem {
             .map_err(|err| miette!("Failed to kill {session_id}. {err}")),
             // Signal every member so the wrapper's traps run as they do for a session kill
             Membership::Cgroup(cgroup) => cgroup.signal(Signal::SIGTERM).map(|_| ()),
+            Membership::Gone => Ok(()),
         }
     }
 
-    fn force_kill_session(&self, launch_id: &Uuid, session_pid: u32) -> Result<()> {
-        match self.membership(launch_id, session_pid) {
+    fn force_kill_session(&self, launch: FrameLaunch, session_pid: u32) -> Result<()> {
+        match self.membership(launch, session_pid) {
             Membership::Session(session_id) => killpg(
                 nix::unistd::Pid::from_raw(session_id as i32),
                 Signal::SIGKILL,
             )
             .map_err(|err| miette!("Failed to kill {session_id}. {err}")),
             Membership::Cgroup(cgroup) => cgroup.kill(),
+            Membership::Gone => Ok(()),
         }
     }
 
@@ -1098,17 +1110,26 @@ impl SystemManager for LinuxSystem {
         last_err.map_err(|err| miette!("Failed to force kill pids {:?}. Errno={err}", failed_pids))
     }
 
-    fn get_proc_lineage(&self, launch_id: &Uuid, pid: u32) -> Option<Vec<u32>> {
-        match self.membership(launch_id, pid) {
-            Membership::Session(session_id) => {
-                self.read_session_processes().get(&session_id).cloned()
-            }
-            Membership::Cgroup(cgroup) => cgroup.pids().ok().filter(|pids| !pids.is_empty()),
+    fn get_proc_lineage(&self, launch: FrameLaunch, pid: u32) -> Lineage {
+        match self.membership(launch, pid) {
+            Membership::Session(session_id) => self
+                .read_session_processes()
+                .get(&session_id)
+                .cloned()
+                .into(),
+            Membership::Cgroup(cgroup) => match cgroup.pids() {
+                Ok(pids) if pids.is_empty() => Lineage::Gone,
+                Ok(pids) => Lineage::Active(pids),
+                Err(err) => {
+                    warn!(
+                        "Failed to list the processes of frame launch {}. {err}",
+                        launch.id
+                    );
+                    Lineage::Unknown
+                }
+            },
+            Membership::Gone => Lineage::Gone,
         }
-    }
-
-    fn has_frame_cgroup(&self, launch_id: &Uuid) -> bool {
-        self.frame_cgroup(launch_id).is_some()
     }
 
     #[cfg(target_os = "linux")]
@@ -1416,13 +1437,16 @@ mod tests {
             LinuxSystem::init(&config, processor_info_data).expect("Failed to init system");
 
         // This should not panic or fail
-        use crate::system::manager::SystemManager;
+        use crate::system::manager::{FrameLaunch, SystemManager};
         system.refresh_procs();
 
-        // Verify the cache is accessible after refresh
-        let lineage = system.get_proc_lineage(&uuid::Uuid::nil(), 1);
-        // May or may not have lineage for PID 1, but shouldn't panic
-        assert!(lineage.is_some() || lineage.is_none());
+        // Verify the cache is accessible after refresh. May or may not have lineage for PID 1,
+        // but shouldn't panic
+        let launch = FrameLaunch {
+            id: uuid::Uuid::nil(),
+            contained: false,
+        };
+        let _ = system.get_proc_lineage(launch, 1);
     }
 
     #[cfg(target_os = "linux")]
@@ -1630,7 +1654,7 @@ mod tests {
     mod frame_membership {
         use std::{
             fs,
-            os::unix::process::ExitStatusExt,
+            os::unix::process::{CommandExt, ExitStatusExt},
             process::{Child, Command},
         };
 
@@ -1641,7 +1665,7 @@ mod tests {
         use crate::system::{
             cgroup::FrameCgroups,
             linux::{LinuxSystem, Membership},
-            manager::SystemManager,
+            manager::{FrameLaunch, Lineage, SystemManager},
         };
 
         /// A system whose frame cgroups live in a fake cgroupfs, plus the fake cgroup of
@@ -1659,38 +1683,54 @@ mod tests {
             (frames, system)
         }
 
+        fn contained(id: Uuid) -> FrameLaunch {
+            FrameLaunch {
+                id,
+                contained: true,
+            }
+        }
+
+        fn uncontained(id: Uuid) -> FrameLaunch {
+            FrameLaunch {
+                id,
+                contained: false,
+            }
+        }
+
         fn sleeper() -> Child {
             Command::new("sleep").arg("30").spawn().unwrap()
         }
 
         #[test]
-        fn frames_without_cgroup_use_their_session() {
+        fn uncontained_launches_use_their_session() {
             let launch_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&Uuid::new_v4(), &[]);
+            // Even with a cgroup named after the launch
+            let (_frames, system) = contained_frame(&launch_id, &[7]);
 
             assert!(matches!(
-                system.membership(&launch_id, 42),
+                system.membership(uncontained(launch_id), 42),
                 Membership::Session(42)
             ));
-            assert!(!system.has_frame_cgroup(&launch_id));
             // Frame cgroups disabled or unavailable
             assert!(matches!(
-                setup_test_system(4, 2, 1).membership(&launch_id, 42),
+                setup_test_system(4, 2, 1).membership(uncontained(launch_id), 42),
                 Membership::Session(42)
             ));
         }
 
         #[test]
-        fn frames_with_cgroup_use_it() {
+        fn contained_launches_use_their_cgroup() {
             let launch_id = Uuid::new_v4();
             let (_frames, system) = contained_frame(&launch_id, &[7, 8]);
 
             assert!(matches!(
-                system.membership(&launch_id, 42),
+                system.membership(contained(launch_id), 42),
                 Membership::Cgroup(_)
             ));
-            assert!(system.has_frame_cgroup(&launch_id));
-            assert_eq!(system.get_proc_lineage(&launch_id, 42), Some(vec![7, 8]));
+            assert_eq!(
+                system.get_proc_lineage(contained(launch_id), 42),
+                Lineage::Active(vec![7, 8])
+            );
         }
 
         #[test]
@@ -1698,7 +1738,61 @@ mod tests {
             let launch_id = Uuid::new_v4();
             let (_frames, system) = contained_frame(&launch_id, &[]);
 
-            assert_eq!(system.get_proc_lineage(&launch_id, 42), None);
+            assert_eq!(
+                system.get_proc_lineage(contained(launch_id), 42),
+                Lineage::Gone
+            );
+        }
+
+        #[test]
+        fn unreadable_cgroup_has_unknown_lineage() {
+            let launch_id = Uuid::new_v4();
+            let (frames, system) = contained_frame(&launch_id, &[7]);
+            let procs = frames
+                .path()
+                .join(launch_id.to_string())
+                .join("cgroup.procs");
+            fs::remove_file(&procs).unwrap();
+            fs::create_dir(&procs).unwrap();
+
+            assert_eq!(
+                system.get_proc_lineage(contained(launch_id), 42),
+                Lineage::Unknown
+            );
+        }
+
+        #[test]
+        fn contained_launch_without_cgroup_is_gone_and_spares_its_session() {
+            // The wrapper pid of a launch whose cgroup was reaped may have been reused by an
+            // unrelated process group.
+            let mut unrelated = Command::new("sleep")
+                .arg("30")
+                .process_group(0)
+                .spawn()
+                .unwrap();
+            let launch = contained(Uuid::new_v4());
+            let (_frames, system) = contained_frame(&Uuid::new_v4(), &[]);
+
+            assert!(matches!(
+                system.membership(launch, unrelated.id()),
+                Membership::Gone
+            ));
+            assert_eq!(
+                system.get_proc_lineage(launch, unrelated.id()),
+                Lineage::Gone
+            );
+            assert!(system
+                .collect_proc_stats(launch, unrelated.id(), "/nonexistent".to_string())
+                .unwrap()
+                .is_none());
+            system.kill_session(launch, unrelated.id()).expect("kill");
+            system
+                .force_kill_session(launch, unrelated.id())
+                .expect("force kill");
+
+            assert!(unrelated.try_wait().unwrap().is_none());
+            unrelated.kill().unwrap();
+            unrelated.wait().unwrap();
         }
 
         #[test]
@@ -1709,7 +1803,7 @@ mod tests {
 
             // The child is not in the session of the frame pid, only in the cgroup
             system
-                .kill_session(&launch_id, u32::MAX >> 2)
+                .kill_session(contained(launch_id), u32::MAX >> 2)
                 .expect("kill");
 
             assert_eq!(child.wait().unwrap().signal(), Some(libc::SIGTERM));
@@ -1721,7 +1815,7 @@ mod tests {
             let (frames, system) = contained_frame(&launch_id, &[]);
 
             system
-                .force_kill_session(&launch_id, 42)
+                .force_kill_session(contained(launch_id), 42)
                 .expect("force kill");
 
             let kill_file = frames
@@ -1737,14 +1831,18 @@ mod tests {
             // monitor of the first run keeps killing by its own launch id, the retry runs in a
             // cgroup of its own.
             let mut retry_process = sleeper();
-            let (first_run, retry) = (Uuid::new_v4(), Uuid::new_v4());
+            let (first_run, retry) = (contained(Uuid::new_v4()), Uuid::new_v4());
             let (frames, system) = contained_frame(&retry, &[retry_process.id()]);
             let first_run_pid = u32::MAX >> 2;
 
-            assert!(!system.has_frame_cgroup(&first_run));
-            assert_eq!(system.get_proc_lineage(&first_run, first_run_pid), None);
-            let _ = system.kill_session(&first_run, first_run_pid);
-            let _ = system.force_kill_session(&first_run, first_run_pid);
+            assert_eq!(
+                system.get_proc_lineage(first_run, first_run_pid),
+                Lineage::Gone
+            );
+            system.kill_session(first_run, first_run_pid).expect("kill");
+            system
+                .force_kill_session(first_run, first_run_pid)
+                .expect("force kill");
 
             let kill_file = frames.path().join(retry.to_string()).join("cgroup.kill");
             assert_eq!(fs::read_to_string(kill_file).unwrap(), "");
@@ -1758,11 +1856,11 @@ mod tests {
         fn stats_come_from_cgroup_members_while_the_wrapper_lives() {
             let mut wrapper = sleeper();
             let mut leftover = sleeper();
-            let launch_id = Uuid::new_v4();
-            let (_frames, system) = contained_frame(&launch_id, &[wrapper.id(), leftover.id()]);
+            let launch = contained(Uuid::new_v4());
+            let (_frames, system) = contained_frame(&launch.id, &[wrapper.id(), leftover.id()]);
 
             let stats = system
-                .collect_proc_stats(&launch_id, wrapper.id(), "/nonexistent".to_string())
+                .collect_proc_stats(launch, wrapper.id(), "/nonexistent".to_string())
                 .unwrap()
                 .expect("stats while the wrapper is alive");
             assert_eq!(stats.children.unwrap().children.len(), 2);
@@ -1771,7 +1869,7 @@ mod tests {
             wrapper.kill().unwrap();
             wrapper.wait().unwrap();
             assert!(system
-                .collect_proc_stats(&launch_id, wrapper.id(), "/nonexistent".to_string())
+                .collect_proc_stats(launch, wrapper.id(), "/nonexistent".to_string())
                 .unwrap()
                 .is_none());
             leftover.kill().unwrap();
