@@ -447,28 +447,25 @@ public class JobManagerSupport {
      * bulk retry against unreachable hosts costs up to the budget plus one RQD deadline per frame.
      * Size bulk retry requests against that, not against the budget alone.
      *
-     * Re-activating a layer's depends and setting the job back to PENDING run for the first frame
-     * released in each layer and each job, not for every frame. For the frames after it they change
-     * nothing (the depends are already active, the job already PENDING), but they would still cost
-     * a depend lookup and a write to the job row per frame, which adds up when every eaten or dead
-     * frame of a large job is retried at once.
+     * Setting the job back to PENDING runs for the first frame released in each job, not for every
+     * frame. For the frames after it the job is already PENDING, but each would still cost a write
+     * to the job row, which adds up when every eaten or dead frame of a large job is retried at
+     * once. A layer's depends are re-activated for every frame released: a frame released earlier
+     * can succeed while the request runs, and when the layer's other unfinished frames are eaten
+     * ones not reached yet, that completes the layer and satisfies its depends again.
      *
      * @param request
      * @param source
      */
     public void retryFrames(FrameSearchInterface request, Source source) {
         long killDeadlineMs = System.currentTimeMillis() + retryKillBudgetMs();
-        Set<String> activatedLayerIds = new HashSet<>();
         Set<String> pendingJobIds = new HashSet<>();
         for (FrameInterface frame : jobManager.findFrames(request)) {
             try {
                 if (!releaseFrame(frame, source, killDeadlineMs)) {
                     continue;
                 }
-                if (!activatedLayerIds.contains(frame.getLayerId())) {
-                    activateLayerDepends(frame);
-                    activatedLayerIds.add(frame.getLayerId());
-                }
+                activateLayerDepends(frame);
                 if (!pendingJobIds.contains(frame.getJobId())) {
                     setJobPending(frame);
                     pendingJobIds.add(frame.getJobId());

@@ -391,7 +391,7 @@ public class JobManagerSupportRetryFrameTests {
     }
 
     @Test
-    public void bulkRetryHandlesLayerDependsAndJobStateOncePerLayerAndJob() {
+    public void bulkRetryHandlesLayerDependsPerFrameAndJobStateOncePerJob() {
         when(dispatchSupport.stopFrame(any(FrameInterface.class), eq(FrameState.WAITING), anyInt()))
                 .thenReturn(false);
         String layerA = "00000000-0000-0000-0000-0000000000b1";
@@ -409,11 +409,13 @@ public class JobManagerSupportRetryFrameTests {
         verify(jobManager, times(3)).updateFrameState(any(FrameInterface.class),
                 eq(FrameState.WAITING));
         verify(dependManager, times(3)).getWhatDependsOn(any(FrameInterface.class), eq(false));
-        // ...but the LayerOnLayer depends are looked up once per layer...
+        // ...and so are its layer's LayerOnLayer depends, which an earlier frame of the layer
+        // succeeding may have satisfied again...
         verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame1, false);
+        verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame2, false);
         verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame3, false);
-        verify(dependManager, times(2)).getWhatDependsOn(any(LayerInterface.class), eq(false));
-        // ...and the job is set back to PENDING once, without being read first.
+        verify(dependManager, times(3)).getWhatDependsOn(any(LayerInterface.class), eq(false));
+        // ...but the job is set back to PENDING once, without being read first.
         verify(jobManager, times(1)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
         verify(jobManager, never()).getJob(anyString());
     }
@@ -453,8 +455,7 @@ public class JobManagerSupportRetryFrameTests {
 
     @Test
     public void bulkRetryRepeatsLayerDependsThatFailedForTheNextFrame() {
-        // A failed layer step is not recorded as done, so the layer's next frame repeats it, as
-        // it did when every frame ran the step.
+        // A frame whose layer step fails skips the job step too, so the next frame repeats both.
         when(dispatchSupport.stopFrame(any(FrameInterface.class), eq(FrameState.WAITING), anyInt()))
                 .thenReturn(false);
         FrameDetail frame1 = stoppedFrame("00000000-0000-0000-0000-0000000000f1", frame.layerId);
