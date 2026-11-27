@@ -63,6 +63,7 @@ import com.imageworks.spcue.util.JobLogUtil;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -483,6 +484,22 @@ public class JobDaoTests extends AbstractTransactionalJUnit4SpringContextTests {
         jobDao.updateState(job, JobState.FINISHED);
         assertEquals(JobState.FINISHED.toString(), jdbcTemplate.queryForObject(
                 "SELECT str_state FROM job WHERE pk_job=?", String.class, job.getJobId()));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testUpdateJobStateToItsStateWritesNothing() {
+        JobDetail job = insertJob();
+        String sql = "SELECT ctid::text FROM job WHERE pk_job=?";
+        String before = jdbcTemplate.queryForObject(sql, String.class, job.getJobId());
+
+        // Any write to the row moves it to a new tuple.
+        jobDao.updateState(job, JobState.PENDING);
+        assertEquals(before, jdbcTemplate.queryForObject(sql, String.class, job.getJobId()));
+
+        jobDao.updateState(job, JobState.FINISHED);
+        assertNotEquals(before, jdbcTemplate.queryForObject(sql, String.class, job.getJobId()));
     }
 
     @Test

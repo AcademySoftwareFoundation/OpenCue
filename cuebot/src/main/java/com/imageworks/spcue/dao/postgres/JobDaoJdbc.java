@@ -513,8 +513,8 @@ public class JobDaoJdbc extends JdbcDaoSupport implements JobDao {
 
     @Override
     public void updateState(JobInterface job, JobState state) {
-        getJdbcTemplate().update("UPDATE job SET str_state=? WHERE pk_job=?", state.toString(),
-                job.getJobId());
+        getJdbcTemplate().update("UPDATE job SET str_state=? WHERE pk_job=? AND str_state<>?",
+                state.toString(), job.getJobId(), state.toString());
     }
 
     @Override

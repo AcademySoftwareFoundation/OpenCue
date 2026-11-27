@@ -224,7 +224,8 @@ public interface JobDao {
     void activateJob(JobInterface job, JobState jobState);
 
     /**
-     * updates the state of a job with new job state
+     * updates the state of a job with new job state. The job row is only written when its state
+     * changes, so setting the state a job already has costs no write.
      *
      * @param job
      * @param state

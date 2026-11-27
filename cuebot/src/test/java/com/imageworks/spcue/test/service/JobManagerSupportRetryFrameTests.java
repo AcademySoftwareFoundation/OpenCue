@@ -391,7 +391,7 @@ public class JobManagerSupportRetryFrameTests {
     }
 
     @Test
-    public void bulkRetryHandlesLayerDependsPerFrameAndJobStateOncePerJob() {
+    public void bulkRetryHandlesLayerDependsAndJobStatePerFrame() {
         when(dispatchSupport.stopFrame(any(FrameInterface.class), eq(FrameState.WAITING), anyInt()))
                 .thenReturn(false);
         String layerA = "00000000-0000-0000-0000-0000000000b1";
@@ -415,15 +415,19 @@ public class JobManagerSupportRetryFrameTests {
         verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame2, false);
         verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) frame3, false);
         verify(dependManager, times(3)).getWhatDependsOn(any(LayerInterface.class), eq(false));
-        // ...but the job is set back to PENDING once, without being read first.
-        verify(jobManager, times(1)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
+        // ...and the job is set back to PENDING, which an earlier frame of the job succeeding may
+        // have shut down, without being read first.
+        verify(jobManager, times(1)).updateJobState(frame1, JobState.PENDING);
+        verify(jobManager, times(1)).updateJobState(frame2, JobState.PENDING);
+        verify(jobManager, times(1)).updateJobState(frame3, JobState.PENDING);
+        verify(jobManager, times(3)).updateJobState(any(JobInterface.class), eq(JobState.PENDING));
         verify(jobManager, never()).getJob(anyString());
     }
 
     @Test
-    public void bulkRetryHandlesLayerAndJobOnTheFirstReleasedFrame() {
-        // The first frame's render outlives the budget, so it is deferred: its layer and job are
-        // handled for the next frame, which is released.
+    public void bulkRetryHandlesLayerAndJobOnlyForReleasedFrames() {
+        // The first frame's render outlives the budget, so it is deferred: only the next frame,
+        // which is released, handles its layer and job.
         when(env.getProperty(eq(RETRY_KILL_BUDGET_PROPERTY), eq(Long.class), eq(10000L)))
                 .thenReturn(0L);
         FrameDetail released = stoppedFrame("00000000-0000-0000-0000-0000000000f2", frame.layerId);
@@ -437,6 +441,7 @@ public class JobManagerSupportRetryFrameTests {
 
         verify(dependManager, never()).getWhatDependsOn(frame, false);
         verify(dependManager, times(1)).getWhatDependsOn((LayerInterface) released, false);
+        verify(jobManager, never()).updateJobState(frame, JobState.PENDING);
         verify(jobManager, times(1)).updateJobState(released, JobState.PENDING);
     }
 

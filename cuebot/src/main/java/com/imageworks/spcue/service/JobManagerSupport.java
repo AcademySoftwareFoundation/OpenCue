@@ -17,9 +17,7 @@ package com.imageworks.spcue.service;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.LogManager;
@@ -447,29 +445,25 @@ public class JobManagerSupport {
      * bulk retry against unreachable hosts costs up to the budget plus one RQD deadline per frame.
      * Size bulk retry requests against that, not against the budget alone.
      *
-     * Setting the job back to PENDING runs for the first frame released in each job, not for every
-     * frame. For the frames after it the job is already PENDING, but each would still cost a write
-     * to the job row, which adds up when every eaten or dead frame of a large job is retried at
-     * once. A layer's depends are re-activated for every frame released: a frame released earlier
-     * can succeed while the request runs, and when the layer's other unfinished frames are eaten
-     * ones not reached yet, that completes the layer and satisfies its depends again.
+     * A layer's depends are re-activated and the job set back to PENDING for every frame released:
+     * a frame released earlier can succeed while the request runs, and when the other unfinished
+     * frames of its layer, or of its job, are eaten ones not reached yet, that completes the layer
+     * and satisfies its depends again, or completes the job and shuts it down. The job row is only
+     * written when the job is not PENDING already, so for the frames after the first, setting it
+     * back to PENDING costs a read of the job row, not a write to it.
      *
      * @param request
      * @param source
      */
     public void retryFrames(FrameSearchInterface request, Source source) {
         long killDeadlineMs = System.currentTimeMillis() + retryKillBudgetMs();
-        Set<String> pendingJobIds = new HashSet<>();
         for (FrameInterface frame : jobManager.findFrames(request)) {
             try {
                 if (!releaseFrame(frame, source, killDeadlineMs)) {
                     continue;
                 }
                 activateLayerDepends(frame);
-                if (!pendingJobIds.contains(frame.getJobId())) {
-                    setJobPending(frame);
-                    pendingJobIds.add(frame.getJobId());
-                }
+                setJobPending(frame);
             } catch (Exception e) {
                 CueExceptionUtil.logStackTrace(
                         "Failed to retry frame " + frame + " from source " + source, e);
