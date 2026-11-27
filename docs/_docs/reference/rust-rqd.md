@@ -325,7 +325,7 @@ At startup RQD creates `<unit cgroup>/frames`. It enables no controllers and set
 Behavior notes:
 
 - **Kill requests**: every process in the frame's cgroup gets `SIGTERM`, so the wrapper's traps still run, and whatever is left after `frame_cgroup_kill_grace_period` is `SIGKILL`ed. `kill_monitor_timeout`/`force_kill_after_timeout` only apply to frames without a cgroup.
-- **Frame completion**: when a frame's wrapper exits, anything left in its cgroup is killed and the cgroup removed. The frame log records `Reaped N leftover processes`.
+- **Frame completion**: when a frame's wrapper exits, anything left in its cgroup is killed and the cgroup removed. For a killed frame, leftovers first get the rest of `frame_cgroup_kill_grace_period` to exit. The frame log records `Reaped N leftover processes`.
 - **Restarts**: recovered frames that are still running are re-attached to their cgroups, found from the frame process's `/proc/<pid>/cgroup`. At startup any frame cgroup that doesn't belong to a recovered frame is killed and removed, including frames launched while `frame_recovery_enabled` was off, which leave no snapshot to recover from.
 - **Mixed hosts**: frames launched without a cgroup (feature off, or recovered from before it was enabled) keep being tracked by session.
 - **Containerized frames**: frames run in Docker (`run_on_docker`) are not contained in a cgroup and keep being tracked as today.

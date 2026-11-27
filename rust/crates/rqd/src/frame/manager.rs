@@ -11,7 +11,7 @@
 // the License.
 
 use chrono::{DateTime, Local};
-use itertools::Either;
+use itertools::{Either, Itertools};
 use miette::{miette, Diagnostic, Result};
 use opencue_proto::{
     host::HardwareState,
@@ -388,7 +388,10 @@ impl FrameManager {
 
     /// Kills a running frame on this host.
     ///
-    /// This function attempts to find and terminate a running frame by its ID.
+    /// Sends the frame a termination signal and arms a monitor that escalates to a force kill
+    /// when the frame's processes linger (see [`Self::monitor_killed_frame`]). The monitor is
+    /// armed even when the signal fails for some of the processes, so the frame is still
+    /// escalated.
     ///
     /// # Arguments
     ///
@@ -402,27 +405,13 @@ impl FrameManager {
     /// * `Err(miette::Error)` if frame cannot be killed, possibly a precondition wasn't met
     ///     - Frame existed but wasn't running
     ///     - Frame has alredy been killed
+    ///     - The signal failed for some of the frame's processes (the monitor is still armed)
     pub async fn kill_running_frame(&self, frame_id: &Uuid, reason: String) -> Result<Option<()>> {
         match self.get_running_frame(frame_id) {
             Some(running_frame) => {
-                let pid = running_frame.get_pid_to_kill(&reason);
-                if let Ok(frame_pid) = pid {
-                    info!(
-                        "Killing frame {running_frame}({frame_pid}) by request.\n\
-                        Reason: {reason}"
-                    );
-                    self.machine
-                        .kill_session(running_frame.launch(), frame_pid, false)
-                        .await?;
-                    self.monitor_killed_frame(frame_pid, &running_frame);
-
-                    Ok(Some(()))
-                } else {
-                    Err(miette!(
-                        "Kill frame with invalid State. Frame {running_frame} exists but has \
-                        no pid assigned to it"
-                    ))
-                }
+                self.kill_frame(&running_frame, &reason, "by request")
+                    .await?;
+                Ok(Some(()))
             }
             None => Ok(None),
         }
@@ -430,9 +419,8 @@ impl FrameManager {
 
     /// Kills all running frames on this host.
     ///
-    /// This function iterates through all running frames and attempts to terminate each one.
-    /// For each frame that is successfully killed, a monitor task is spawned to ensure the
-    /// process fully terminates.
+    /// Every running frame is killed as in [`Self::kill_running_frame`]. A failure on one frame
+    /// doesn't stop the others from being killed.
     ///
     /// # Arguments
     ///
@@ -440,32 +428,64 @@ impl FrameManager {
     ///
     /// # Returns
     ///
-    /// * `Ok(count)` - The number of frames that were successfully killed
-    /// * `Err(miette::Error)` - If any frame exists but has no pid assigned (invalid state)
+    /// * `Ok(count)` - The number of frames killed, each with a monitor armed
+    /// * `Err(miette::Error)` - Combines the errors of every frame that failed: frames without a
+    ///   pid assigned (invalid state) and frames whose signal failed for some of their
+    ///   processes. The latter still have a monitor armed.
     pub async fn kill_all_running_frames(&self, reason: &str) -> Result<usize> {
         let mut count = 0;
+        let mut errors = Vec::new();
         for frame_id in self.machine.all_running_frame_ids() {
-            if let Some(running_frame) = self.get_running_frame(&frame_id) {
-                let pid = running_frame.get_pid_to_kill(reason);
-                if let Ok(frame_pid) = pid {
-                    info!(
-                        "Killing frame {running_frame}({frame_pid}) as a kill_all request.\n\
-                        Reason: {reason}"
-                    );
-                    self.machine
-                        .kill_session(running_frame.launch(), frame_pid, false)
-                        .await?;
-                    self.monitor_killed_frame(frame_pid, &running_frame);
+            let Some(running_frame) = self.get_running_frame(&frame_id) else {
+                continue;
+            };
+            match self
+                .kill_frame(&running_frame, reason, "as a kill_all request")
+                .await
+            {
+                Ok(()) => count += 1,
+                Err(KillError::Signal(err)) => {
                     count += 1;
-                } else {
-                    Err(miette!(
-                        "Kill frame with invalid State. Frame {running_frame} exists but has \
-                        no pid assigned to it"
-                    ))?
+                    errors.push(err);
                 }
+                Err(KillError::NoPid(err)) => errors.push(err),
             }
         }
-        Ok(count)
+        if errors.is_empty() {
+            Ok(count)
+        } else {
+            Err(miette!(
+                "Failed to kill {} frames, {count} frames are monitored: {}",
+                errors.len(),
+                errors.iter().map(|err| err.to_string()).join("; ")
+            ))
+        }
+    }
+
+    /// Signals `running_frame` and arms its kill monitor, whether or not the signal reached
+    /// every process. `context` tells in the log why the frame is killed.
+    async fn kill_frame(
+        &self,
+        running_frame: &RunningFrame,
+        reason: &str,
+        context: &str,
+    ) -> Result<(), KillError> {
+        let frame_pid = running_frame.get_pid_to_kill(reason).map_err(|_| {
+            KillError::NoPid(miette!(
+                "Kill frame with invalid State. Frame {running_frame} exists but has \
+                no pid assigned to it"
+            ))
+        })?;
+        info!(
+            "Killing frame {running_frame}({frame_pid}) {context}.\n\
+            Reason: {reason}"
+        );
+        let signalled = self
+            .machine
+            .kill_session(running_frame.launch(), frame_pid, false)
+            .await;
+        self.monitor_killed_frame(frame_pid, running_frame);
+        signalled.map_err(|err| KillError::Signal(miette!("Frame {running_frame}: {err}")))
     }
 
     /// Monitors a killed frame to ensure it fully terminates.
@@ -473,7 +493,7 @@ impl FrameManager {
     /// After a frame is killed, this function spawns a background task that periodically checks
     /// if the frame's processes have fully terminated. Processes still running after the
     /// time limit (see [`KillEscalation`]) are force killed, or reported when force killing is
-    /// off.
+    /// off. A contained launch is only ever force killed through its cgroup, never by pid.
     ///
     /// # Arguments
     ///
@@ -514,10 +534,8 @@ impl FrameManager {
                         continue;
                     }
                 };
-                if let Some(mut lineage) = active_lineage {
-                    if !lineage.contains(&frame_pid) {
-                        lineage.push(frame_pid);
-                    }
+                if let Some(lineage) = active_lineage {
+                    let lineage = tracked_lineage(launch.contained, lineage, frame_pid);
                     // Check limit before decrementing as tick() returns immediately on the first call
                     if monitor_limit_seconds == 0 || tried_to_force_kill_session {
                         // Notify only
@@ -549,6 +567,20 @@ impl FrameManager {
                                     )
                                 }
                             }
+                        } else if launch.contained {
+                            // The wrapper pid may have been reused once the wrapper exited, so
+                            // only the cgroup is trusted to tell the frame's processes.
+                            match machine.kill_session(launch, frame_pid, true).await {
+                                Ok(()) => info!(
+                                    "Kill timeout for {}. Killed the cgroup again to kill {:?}",
+                                    job_str, lineage
+                                ),
+                                Err(err) => warn!(
+                                    "Failed to force_kill {} lineage = {:?}. {}",
+                                    job_str, lineage, err
+                                ),
+                            }
+                            break;
                         } else {
                             match machine.force_kill(&lineage).await {
                                 Ok(()) => info!(
@@ -576,6 +608,34 @@ impl FrameManager {
                 monitor_limit_seconds = monitor_limit_seconds.saturating_sub(interval_seconds);
             }
         });
+    }
+}
+
+/// The processes the kill monitor reports and, for a session-tracked launch, force kills by pid.
+///
+/// A session-tracked lineage always includes the frame's `frame_pid`. A contained launch is
+/// tracked by its cgroup members only: once the wrapper exits its pid may belong to an unrelated
+/// process.
+fn tracked_lineage(contained: bool, mut lineage: Vec<u32>, frame_pid: u32) -> Vec<u32> {
+    if !contained && !lineage.contains(&frame_pid) {
+        lineage.push(frame_pid);
+    }
+    lineage
+}
+
+/// Why [`FrameManager::kill_frame`] failed.
+enum KillError {
+    /// The frame has no pid to kill, nothing was signalled.
+    NoPid(miette::Report),
+    /// The signal failed for some of the frame's processes, its kill monitor is armed.
+    Signal(miette::Report),
+}
+
+impl From<KillError> for miette::Report {
+    fn from(err: KillError) -> Self {
+        match err {
+            KillError::NoPid(err) | KillError::Signal(err) => err,
+        }
     }
 }
 
@@ -644,7 +704,7 @@ impl From<FrameManagerError> for tonic::Status {
 mod tests {
     use std::time::Duration;
 
-    use super::KillEscalation;
+    use super::{tracked_lineage, KillEscalation};
     use crate::config::RunnerConfig;
 
     #[test]
@@ -675,6 +735,18 @@ mod tests {
                 force: true,
             }
         );
+    }
+
+    #[test]
+    fn session_lineage_includes_the_frame_pid() {
+        assert_eq!(tracked_lineage(false, vec![20, 30], 10), vec![20, 30, 10]);
+        assert_eq!(tracked_lineage(false, vec![10, 20], 10), vec![10, 20]);
+    }
+
+    #[test]
+    fn contained_lineage_is_only_the_cgroup_members() {
+        assert_eq!(tracked_lineage(true, vec![20, 30], 10), vec![20, 30]);
+        assert_eq!(tracked_lineage(true, vec![10, 20], 10), vec![10, 20]);
     }
 
     #[test]

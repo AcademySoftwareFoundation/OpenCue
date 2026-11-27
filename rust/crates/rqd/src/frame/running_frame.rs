@@ -19,7 +19,7 @@ use std::os::fd::{AsRawFd, FromRawFd, RawFd};
 #[cfg(unix)]
 use std::os::unix::process::ExitStatusExt;
 use std::process::Stdio;
-use std::time::SystemTime;
+use std::time::{Instant, SystemTime};
 use std::{
     collections::HashMap,
     env,
@@ -27,7 +27,7 @@ use std::{
     path::Path,
     process::ExitStatus,
     sync::atomic::{AtomicBool, Ordering},
-    sync::{Arc, RwLock},
+    sync::{Arc, OnceLock, RwLock},
 };
 use tokio::time::{self, Duration};
 
@@ -210,6 +210,10 @@ pub struct RunningFrame {
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
     latest_host_mem_snapshot: RwLock<Option<Arc<HostMemSnapshot>>>,
+    /// When a kill of this launch was first requested. Processes left in the frame's cgroup
+    /// when the wrapper exits get the rest of the kill grace period before being reaped.
+    #[serde(skip)]
+    kill_requested_at: OnceLock<Instant>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -351,6 +355,7 @@ impl RunningFrame {
             stats_frozen: AtomicBool::new(false),
             recovery_armed: AtomicBool::new(false),
             latest_host_mem_snapshot: RwLock::new(None),
+            kill_requested_at: OnceLock::new(),
         }
     }
 
@@ -1028,9 +1033,18 @@ impl RunningFrame {
 
     /// Kills whatever is left in the frame's cgroup, when it has one, and removes the cgroup.
     /// Returns the number of processes killed, when there were any.
+    ///
+    /// When the frame was killed, what is left first gets until the end of the kill grace
+    /// period (`frame_cgroup_kill_grace_period`) to exit on its own.
     #[cfg(unix)]
     async fn reap_cgroup(&self) -> Option<usize> {
         let frame_cgroup = cgroup::frame_cgroups()?.open(&self.launch_id)?;
+        if let Some(requested) = self.kill_requested_at.get() {
+            let deadline = *requested + self.config.frame_cgroup_kill_grace_period;
+            if let Err(err) = frame_cgroup.wait_empty(deadline).await {
+                warn!("Failed to wait on the cgroup of {self} to empty. {err}");
+            }
+        }
         match frame_cgroup.reap().await {
             Ok(0) => None,
             Ok(leftover) => {
@@ -1425,6 +1439,7 @@ impl RunningFrame {
             FrameState::Created(_) => Err(miette!("Frame has been created but hasn't started yet")),
             FrameState::Running(ref mut running_state) => {
                 running_state.kill_reason = Some(reason.to_owned());
+                self.kill_requested_at.get_or_init(Instant::now);
                 Ok(running_state.pid)
             }
             FrameState::Finished(ref finished_state) => {
@@ -2414,6 +2429,20 @@ mod tests {
         frame.start(12345);
         frame.get_pid_to_kill("manual kill").unwrap();
         assert_eq!(frame.scan_log_for_exit_status_override(1).await, None);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[test]
+    fn test_kill_request_time_is_the_first_request() {
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        frame.get_pid_to_kill("too early").unwrap_err();
+        assert!(frame.kill_requested_at.get().is_none());
+
+        frame.start(12345);
+        frame.get_pid_to_kill("first kill").unwrap();
+        let first = *frame.kill_requested_at.get().unwrap();
+        frame.get_pid_to_kill("second kill").unwrap();
+        assert_eq!(*frame.kill_requested_at.get().unwrap(), first);
         let _ = std::fs::remove_file(&frame.log_path);
     }
 
