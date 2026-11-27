@@ -878,22 +878,18 @@ impl LinuxSystem {
     fn calculate_proc_session_data(&self, session_id: &u32) -> Option<SessionData> {
         self.monitored_sessions.insert(*session_id);
 
-        let leader_alive = self
-            .cached_processes
+        // `cached_processes` is never evicted, so liveness comes from the latest refresh: it only
+        // lists live group leaders, and the session leader's pid is the session id.
+        let session_processes = self.read_session_processes();
+        let lineage = session_processes
             .get(session_id)
-            .is_some_and(|proc| !proc.is_dead());
-        if !leader_alive {
-            return None;
-        }
+            .filter(|lineage| lineage.contains(session_id))?;
 
-        // If session owner is still alive, iterate over the session and calculate memory
         let mut session_data = SessionData::new();
-        if let Some(lineage) = self.read_session_processes().get(session_id) {
-            for pid in lineage {
-                if let Some(proc) = self.cached_processes.get(pid) {
-                    if !proc.is_dead() {
-                        session_data.add(*pid, &proc);
-                    }
+        for pid in lineage {
+            if let Some(proc) = self.cached_processes.get(pid) {
+                if !proc.is_dead() {
+                    session_data.add(*pid, &proc);
                 }
             }
         }
@@ -1664,7 +1660,7 @@ mod tests {
         use super::setup_test_system;
         use crate::system::{
             cgroup::FrameCgroups,
-            linux::{LinuxSystem, Membership},
+            linux::{LinuxSystem, Membership, ProcessData},
             manager::{FrameLaunch, Lineage, SystemManager},
         };
 
@@ -1884,6 +1880,37 @@ mod tests {
             system.refresh_procs_cache().expect("refresh");
 
             assert!(system.read_session_processes().is_empty());
+        }
+
+        #[test]
+        fn session_data_requires_the_leader_in_the_latest_refresh() {
+            let system = setup_test_system(4, 2, 1);
+            let (leader, child) = (100, 101);
+            let alive = || ProcessData {
+                rss: 1,
+                pss: 1,
+                virtual_memory: 1,
+                cmd: "cmd".to_string(),
+                state: "S".to_string(),
+                name: "name".to_string(),
+                start_time: 10,
+                run_time: 1,
+            };
+            system.cached_processes.insert(leader, alive());
+            system.cached_processes.insert(child, alive());
+
+            // The leader exited: its stale cache entry must not keep the session alive.
+            system.write_session_processes().insert(leader, vec![child]);
+            assert!(system.calculate_proc_session_data(&leader).is_none());
+
+            system
+                .write_session_processes()
+                .insert(leader, vec![leader, child]);
+            let data = system
+                .calculate_proc_session_data(&leader)
+                .expect("leader is in the latest refresh");
+            assert_eq!(data.start_time, 10);
+            assert!(system.monitored_sessions.contains(&leader));
         }
 
         #[cfg(target_os = "linux")]
