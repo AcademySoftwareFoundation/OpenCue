@@ -49,6 +49,7 @@ use std::{
     time::{Duration, Instant},
 };
 
+use futures::future::join_all;
 use miette::{miette, Result};
 use nix::{
     errno::Errno,
@@ -189,7 +190,12 @@ impl FrameCgroups {
     }
 
     /// Frame cgroups that don't belong to any of `launch_ids`.
-    fn orphans(&self, launch_ids: &[Uuid]) -> Result<Vec<FrameCgroup>> {
+    ///
+    /// Meant for startup, after snapshot recovery, with the launch ids of the recovered frames:
+    /// any other frame cgroup holds processes of a frame rqd has lost track of. Taken before
+    /// any frame is launched, the list can't include a new launch, which gets a cgroup of its
+    /// own. Reap them with [`reap_orphans`].
+    pub fn orphans(&self, launch_ids: &[Uuid]) -> Result<Vec<FrameCgroup>> {
         let known: HashSet<String> = launch_ids.iter().map(Uuid::to_string).collect();
         let entries = fs::read_dir(&self.path)
             .map_err(|err| miette!("Failed to list {}: {err}", self.path.display()))?;
@@ -200,29 +206,21 @@ impl FrameCgroups {
             .map(|entry| FrameCgroup { path: entry.path() })
             .collect())
     }
+}
 
-    /// Kills and removes every frame cgroup that doesn't belong to one of `launch_ids`.
-    ///
-    /// Meant for startup, after snapshot recovery, with the launch ids of the recovered frames:
-    /// any other frame cgroup holds processes of a frame rqd has lost track of.
-    pub async fn reap_orphans(&self, launch_ids: &[Uuid]) {
-        let orphans = match self.orphans(launch_ids) {
-            Ok(orphans) => orphans,
-            Err(err) => {
-                warn!("Failed to look for orphan frame cgroups. {err}");
-                return;
-            }
-        };
-        for orphan in orphans {
-            match orphan.reap().await {
-                Ok(count) => info!(
-                    "Removed orphan frame cgroup {}, killed {count} leftover processes",
-                    orphan.path.display()
-                ),
-                Err(err) => warn!("Failed to reap orphan frame cgroup. {err}"),
-            }
+/// Kills and removes the orphan frame cgroups found by [`FrameCgroups::orphans`], concurrently,
+/// logging the outcome for each.
+pub async fn reap_orphans(orphans: Vec<FrameCgroup>) {
+    join_all(orphans.iter().map(|orphan| async move {
+        match orphan.reap().await {
+            Ok(count) => info!(
+                "Removed orphan frame cgroup {}, killed {count} leftover processes",
+                orphan.path.display()
+            ),
+            Err(err) => warn!("Failed to reap orphan frame cgroup. {err}"),
         }
-    }
+    }))
+    .await;
 }
 
 /// The cgroup of a single frame launch (`<service>/frames/<launch_id>`).
@@ -918,6 +916,47 @@ mod tests {
         fs::remove_dir(&frame_cgroups.path).unwrap();
     }
 
+    #[tokio::test]
+    async fn reaps_orphans_concurrently_and_spares_other_cgroups() {
+        let dir = TempDir::new().unwrap();
+        let frame_cgroups = FrameCgroups::at(dir.path());
+        let fake_cgroup = |launch_id: &Uuid| {
+            let cgroup = frame_cgroups.create(launch_id).unwrap();
+            write(&cgroup.path.join("cgroup.procs"), "");
+            // Never empties, so each reap runs into REAP_TIMEOUT
+            write(&cgroup.path.join("cgroup.events"), "populated 1\n");
+            write(&cgroup.path.join("cgroup.kill"), "");
+            cgroup
+        };
+        let recovered_id = Uuid::new_v4();
+        let recovered = fake_cgroup(&recovered_id);
+        let orphans: Vec<FrameCgroup> = (0..3).map(|_| fake_cgroup(&Uuid::new_v4())).collect();
+
+        let mut found = frame_cgroups.orphans(&[recovered_id]).unwrap();
+        // Launched after the orphans were listed, as once rqd serves
+        let launched = fake_cgroup(&Uuid::new_v4());
+        found.sort_by(|a, b| a.path.cmp(&b.path));
+        let mut expected: Vec<&PathBuf> = orphans.iter().map(|orphan| &orphan.path).collect();
+        expected.sort();
+        assert_eq!(
+            found.iter().map(|orphan| &orphan.path).collect::<Vec<_>>(),
+            expected
+        );
+
+        let start = Instant::now();
+        reap_orphans(found).await;
+
+        assert!(
+            start.elapsed() < REAP_TIMEOUT * 2,
+            "orphans were reaped one by one"
+        );
+        for orphan in &orphans {
+            assert_eq!(read(&orphan.path.join("cgroup.kill")), "1");
+        }
+        assert_eq!(read(&recovered.path.join("cgroup.kill")), "");
+        assert_eq!(read(&launched.path.join("cgroup.kill")), "");
+    }
+
     #[cfg(target_os = "linux")]
     #[tokio::test]
     async fn reaps_orphans_on_a_real_kernel() {
@@ -926,14 +965,18 @@ mod tests {
             return;
         };
         let recovered = Uuid::new_v4();
-        let orphan = Uuid::new_v4();
+        let orphans = [Uuid::new_v4(), Uuid::new_v4()];
         frame_cgroups.create(&recovered).unwrap();
-        frame_cgroups.create(&orphan).unwrap();
+        for orphan in &orphans {
+            frame_cgroups.create(orphan).unwrap();
+        }
 
-        frame_cgroups.reap_orphans(&[recovered]).await;
+        reap_orphans(frame_cgroups.orphans(&[recovered]).unwrap()).await;
 
         assert!(frame_cgroups.open(&recovered).is_some());
-        assert!(frame_cgroups.open(&orphan).is_none());
+        for orphan in &orphans {
+            assert!(frame_cgroups.open(orphan).is_none());
+        }
 
         frame_cgroups.open(&recovered).unwrap().remove().unwrap();
         fs::remove_dir(&frame_cgroups.path).unwrap();

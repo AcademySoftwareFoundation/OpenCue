@@ -1416,6 +1416,12 @@ impl RunningFrame {
         }
     }
 
+    /// Whether the process the frame spawned is still alive (see `process_matches`).
+    pub(crate) fn is_process_alive(&self) -> bool {
+        self.pid()
+            .is_some_and(|pid| Self::process_matches(pid, self.recorded_proc_start_epoch()))
+    }
+
     /// Retrieves the process ID (PID) that should be killed when terminating this frame
     ///
     /// # Returns

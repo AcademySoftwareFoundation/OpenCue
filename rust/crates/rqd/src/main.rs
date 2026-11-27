@@ -20,7 +20,7 @@ use tracing_rolling_file::{RollingConditionBase, RollingFileAppenderBase};
 #[cfg(unix)]
 use crate::frame::manager;
 #[cfg(target_os = "linux")]
-use crate::system::{cgroup, machine::Machine};
+use crate::system::cgroup;
 use crate::{
     config::CONFIG,
     system::{capabilities, machine},
@@ -105,22 +105,32 @@ async fn async_main() -> miette::Result<()> {
     // systemd kills every process in the unit's cgroup on stop/restart — including
     // the frames — regardless of their session or process group.
     #[cfg(unix)]
-    if let Err(err) = manager::instance().await?.recover_snapshots().await {
-        warn!("Failed to recover frames from snapshot: {}", err);
-    };
+    let recovery = manager::instance().await?.recover_snapshots().await;
+    #[cfg(unix)]
+    match &recovery {
+        Ok(recovery) if !recovery.errors.is_empty() => warn!(
+            "Failed to fully recover frames from snapshot: {}",
+            recovery.errors.join("\n")
+        ),
+        Ok(_) => {}
+        Err(err) => warn!("Failed to recover frames from snapshot: {}", err),
+    }
 
     // Any frame cgroup not claimed by a recovered frame holds processes of a frame rqd lost
-    // track of.
+    // track of. The orphans are listed before the servant starts, so no new launch can be among
+    // them, and reaped in the background so they don't hold back the servant.
     #[cfg(target_os = "linux")]
     if let Some(frame_cgroups) = cgroup::frame_cgroups() {
-        let machine_manager = machine::instance().await?;
-        let recovered: Vec<_> = machine_manager
-            .all_running_frame_ids()
-            .iter()
-            .filter_map(|frame_id| machine_manager.get_running_frame(frame_id))
-            .map(|running_frame| running_frame.launch_id)
-            .collect();
-        frame_cgroups.reap_orphans(&recovered).await;
+        match &recovery {
+            Ok(recovery) => match frame_cgroups.orphans(&recovery.claimed_launches) {
+                Ok(orphans) => {
+                    tokio::spawn(cgroup::reap_orphans(orphans));
+                }
+                Err(err) => warn!("Failed to look for orphan frame cgroups. {err}"),
+            },
+            // Without the snapshots every frame cgroup would look orphaned, live frames included
+            Err(_) => warn!("Skipping the orphan frame cgroup sweep, snapshots couldn't be read"),
+        }
     }
 
     // Initialize rqd grpc servant

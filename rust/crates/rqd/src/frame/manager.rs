@@ -18,7 +18,9 @@ use opencue_proto::{
     rqd::{run_frame, RunFrame},
 };
 use std::{
+    collections::HashMap,
     fs,
+    path::Path,
     sync::Arc,
     time::{Duration, SystemTime},
 };
@@ -189,86 +191,34 @@ impl FrameManager {
     /// This function:
     /// - Reads saved frame snapshots from the configured snapshots directory
     /// - Deserializes each valid snapshot file into a RunningFrame
+    /// - Keeps one snapshot per frame id, preferring one whose process is alive (see
+    ///   [`prefer_live_snapshots`]); stale duplicates are removed
     /// - Spawns recovered frames to continue execution
     /// - Cleans up invalid or corrupted snapshot files
     ///
     /// # Returns
     ///
-    /// * `Ok(())` if snapshot recovery was attempted (even if some snapshots failed)
-    /// * `Err(miette::Error)` if the snapshots directory could not be read
-    pub async fn recover_snapshots(&self) -> Result<()> {
+    /// * `Ok(Recovery)` once every snapshot was looked at, even if some frames failed to be
+    ///   recovered (see [`Recovery::errors`])
+    /// * `Err(miette::Error)` if the snapshots directory could not be listed in full, missing
+    ///   directory included: it is created at startup, so a missing one means snapshots were
+    ///   lost and rqd can't tell which frames are still running
+    pub async fn recover_snapshots(&self) -> Result<Recovery> {
         let snapshots_path = &CONFIG.runner.snapshots_path;
-        let read_dirs = std::fs::read_dir(snapshots_path).map_err(|err| {
-            let msg = format!("Failed to read snapshot dir. {}", err);
-            warn!(msg);
-            miette!(msg)
-        })?;
-        // Filter paths that are files ending with .bin
-        let snapshot_dir: Vec<String> = read_dirs
-            .filter_map(|entry| {
-                let entry = entry.ok()?;
-                let file_type = entry.file_type().ok()?;
-                if file_type.is_file() && entry.file_name().to_str().unwrap_or("").ends_with(".bin")
-                {
-                    entry.path().to_str().map(String::from)
-                } else {
-                    None
-                }
-            })
-            .collect();
-        let mut errors = Vec::new();
-        for path in snapshot_dir {
-            let running_frame = RunningFrame::from_snapshot(&path, CONFIG.runner.clone())
-                .await
-                .map(Arc::new);
-            match running_frame {
+        let snapshot_paths = list_snapshots(Path::new(snapshots_path))
+            .map_err(|err| miette!("Failed to read snapshot dir {snapshots_path}. {err}"))?;
+
+        let mut recovery = Recovery::default();
+        let mut loaded = Vec::new();
+        for path in snapshot_paths {
+            match RunningFrame::from_snapshot(&path, CONFIG.runner.clone()).await {
                 Ok(running_frame) => {
-                    // Recovering docker frames is not supported yet. Skip the snapshot (keeping
-                    // the file for manual inspection) instead of crashing: a todo!/panic here
-                    // would put the service in a startup crash-loop under its supervisor.
-                    if CONFIG.runner.run_on_docker {
-                        error!(
-                            "Skipping snapshot of {}: recovering docker frames is not \
-                             supported yet. The frame may still be running unmanaged; \
-                             remove {} to silence this on the next startup",
-                            running_frame, &path
-                        );
-                        continue;
+                    let launch = running_frame.launch();
+                    if launch.contained {
+                        recovery.claimed_launches.push(launch.id);
                     }
-
-                    // Update reservations. If a thread_ids list exists, the frame was booked using affinity
-                    if let Err(err) = match &running_frame.thread_ids {
-                        Some(thread_ids) => {
-                            self.machine
-                                .reserve_cores(
-                                    Either::Right(thread_ids.clone()),
-                                    running_frame.request.resource_id(),
-                                )
-                                .await
-                        }
-                        None => {
-                            let num_cores = (running_frame.request.num_cores as u32)
-                                .div_ceil(CONFIG.machine.core_multiplier);
-                            self.machine
-                                .reserve_cores(
-                                    Either::Left(num_cores as usize),
-                                    running_frame.request.resource_id(),
-                                )
-                                .await
-                        }
-                    } {
-                        errors.push(err.to_string());
-                    }
-
-                    let resource_id = running_frame.request.resource_id();
-                    if self.spawn_running_frame(running_frame, true).is_err() {
-                        if let Err(err) = self.machine.release_cores(&resource_id).await {
-                            warn!(
-                                "Failed to release cores reserved for {} during recover spawn error. {}",
-                                &resource_id, err
-                            );
-                        }
-                    }
+                    let alive = running_frame.is_process_alive();
+                    loaded.push((path, Arc::new(running_frame), alive));
                 }
                 Err(err) => {
                     error!("Snapshot recover failed: {}", err);
@@ -279,11 +229,76 @@ impl FrameManager {
             }
         }
 
-        if !errors.is_empty() {
-            Err(miette!("{}", errors.join("\n")))
-        } else {
-            Ok(())
+        let (recovered, duplicates) =
+            prefer_live_snapshots(loaded, |(_, frame, alive)| (frame.frame_id, *alive));
+        for (path, running_frame, alive) in duplicates {
+            if alive {
+                warn!(
+                    "Snapshot {} of {} is a duplicate of another live snapshot and is not \
+                     recovered. Its process is left running",
+                    path, running_frame
+                );
+            } else {
+                info!(
+                    "Removing stale snapshot {} of {}, another snapshot of the frame is recovered",
+                    path, running_frame
+                );
+                if let Err(err) = fs::remove_file(&path) {
+                    warn!("Snapshot {} failed to be cleared. {}", path, err);
+                };
+            }
         }
+
+        for (path, running_frame, _) in recovered {
+            // Recovering docker frames is not supported yet. Skip the snapshot (keeping
+            // the file for manual inspection) instead of crashing: a todo!/panic here
+            // would put the service in a startup crash-loop under its supervisor.
+            if CONFIG.runner.run_on_docker {
+                error!(
+                    "Skipping snapshot of {}: recovering docker frames is not \
+                     supported yet. The frame may still be running unmanaged; \
+                     remove {} to silence this on the next startup",
+                    running_frame, &path
+                );
+                continue;
+            }
+
+            // Update reservations. If a thread_ids list exists, the frame was booked using affinity
+            if let Err(err) = match &running_frame.thread_ids {
+                Some(thread_ids) => {
+                    self.machine
+                        .reserve_cores(
+                            Either::Right(thread_ids.clone()),
+                            running_frame.request.resource_id(),
+                        )
+                        .await
+                }
+                None => {
+                    let num_cores = (running_frame.request.num_cores as u32)
+                        .div_ceil(CONFIG.machine.core_multiplier);
+                    self.machine
+                        .reserve_cores(
+                            Either::Left(num_cores as usize),
+                            running_frame.request.resource_id(),
+                        )
+                        .await
+                }
+            } {
+                recovery.errors.push(err.to_string());
+            }
+
+            let resource_id = running_frame.request.resource_id();
+            if self.spawn_running_frame(running_frame, true).is_err() {
+                if let Err(err) = self.machine.release_cores(&resource_id).await {
+                    warn!(
+                        "Failed to release cores reserved for {} during recover spawn error. {}",
+                        &resource_id, err
+                    );
+                }
+            }
+        }
+
+        Ok(recovery)
     }
 
     fn spawn_running_frame(
@@ -611,6 +626,60 @@ impl FrameManager {
     }
 }
 
+/// What [`FrameManager::recover_snapshots`] got back from the snapshots on disk.
+#[derive(Debug, Default)]
+pub struct Recovery {
+    /// Launch ids of the snapshotted frames whose processes run in a frame cgroup. Every other
+    /// frame cgroup belongs to a frame rqd has lost track of.
+    pub claimed_launches: Vec<Uuid>,
+    /// Frames that were recovered but couldn't get their resources back.
+    pub errors: Vec<String>,
+}
+
+/// Paths of the `.bin` snapshot files in `dir`. Fails unless the whole directory could be listed.
+fn list_snapshots(dir: &Path) -> std::io::Result<Vec<String>> {
+    let mut snapshots = Vec::new();
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_file() && path.extension().is_some_and(|ext| ext == "bin") {
+            if let Some(path) = path.to_str() {
+                snapshots.push(path.to_string());
+            }
+        }
+    }
+    Ok(snapshots)
+}
+
+/// Splits `snapshots` into one to recover per frame id and the duplicates to drop, `key` giving
+/// a snapshot's frame id and whether its process is alive.
+///
+/// A snapshot file is named after the frame's pid, so one left behind by an earlier run of a
+/// frame can share its frame id with the current run. A live snapshot wins over a stale one,
+/// otherwise the first one listed wins.
+fn prefer_live_snapshots<T>(
+    snapshots: Vec<T>,
+    key: impl Fn(&T) -> (Uuid, bool),
+) -> (Vec<T>, Vec<T>) {
+    let mut kept: Vec<T> = Vec::new();
+    let mut kept_index: HashMap<Uuid, usize> = HashMap::new();
+    let mut duplicates = Vec::new();
+    for snapshot in snapshots {
+        let (frame_id, alive) = key(&snapshot);
+        match kept_index.get(&frame_id) {
+            None => {
+                kept_index.insert(frame_id, kept.len());
+                kept.push(snapshot);
+            }
+            Some(&index) if alive && !key(&kept[index]).1 => {
+                duplicates.push(std::mem::replace(&mut kept[index], snapshot));
+            }
+            Some(_) => duplicates.push(snapshot),
+        }
+    }
+    (kept, duplicates)
+}
+
 /// The processes the kill monitor reports and, for a session-tracked launch, force kills by pid.
 ///
 /// A session-tracked lineage always includes the frame's `frame_pid`. A contained launch is
@@ -704,7 +773,9 @@ impl From<FrameManagerError> for tonic::Status {
 mod tests {
     use std::time::Duration;
 
-    use super::{tracked_lineage, KillEscalation};
+    use uuid::Uuid;
+
+    use super::{list_snapshots, prefer_live_snapshots, tracked_lineage, KillEscalation};
     use crate::config::RunnerConfig;
 
     #[test]
@@ -758,5 +829,93 @@ mod tests {
             KillEscalation::for_frame(true, &config).interval,
             Duration::from_secs(1)
         );
+    }
+
+    /// (frame id, alive, name) as a snapshot stand-in.
+    fn snapshot(frame_id: Uuid, alive: bool, name: &'static str) -> (Uuid, bool, &'static str) {
+        (frame_id, alive, name)
+    }
+
+    fn names(snapshots: &[(Uuid, bool, &'static str)]) -> Vec<&'static str> {
+        snapshots.iter().map(|(_, _, name)| *name).collect()
+    }
+
+    fn pick(snapshots: Vec<(Uuid, bool, &'static str)>) -> (Vec<&'static str>, Vec<&'static str>) {
+        let (kept, duplicates) =
+            prefer_live_snapshots(snapshots, |&(frame_id, alive, _)| (frame_id, alive));
+        (names(&kept), names(&duplicates))
+    }
+
+    #[test]
+    fn a_live_snapshot_wins_over_a_stale_one_whatever_the_order() {
+        let frame = Uuid::new_v4();
+
+        assert_eq!(
+            pick(vec![
+                snapshot(frame, false, "stale"),
+                snapshot(frame, true, "live")
+            ]),
+            (vec!["live"], vec!["stale"])
+        );
+        assert_eq!(
+            pick(vec![
+                snapshot(frame, true, "live"),
+                snapshot(frame, false, "stale")
+            ]),
+            (vec!["live"], vec!["stale"])
+        );
+    }
+
+    #[test]
+    fn the_first_snapshot_wins_between_equally_live_ones() {
+        let frame = Uuid::new_v4();
+
+        assert_eq!(
+            pick(vec![
+                snapshot(frame, false, "first"),
+                snapshot(frame, false, "second")
+            ]),
+            (vec!["first"], vec!["second"])
+        );
+        assert_eq!(
+            pick(vec![
+                snapshot(frame, true, "first"),
+                snapshot(frame, true, "second")
+            ]),
+            (vec!["first"], vec!["second"])
+        );
+    }
+
+    #[test]
+    fn snapshots_of_distinct_frames_are_all_kept() {
+        let (first, second) = (Uuid::new_v4(), Uuid::new_v4());
+
+        assert_eq!(
+            pick(vec![
+                snapshot(first, false, "first"),
+                snapshot(second, true, "second")
+            ]),
+            (vec!["first", "second"], vec![])
+        );
+    }
+
+    #[test]
+    fn lists_only_snapshot_files() {
+        let dir = tempfile::TempDir::new().unwrap();
+        std::fs::write(dir.path().join("job_frame_10.bin"), "").unwrap();
+        std::fs::write(dir.path().join("notes.txt"), "").unwrap();
+        std::fs::create_dir(dir.path().join("dir.bin")).unwrap();
+
+        assert_eq!(
+            list_snapshots(dir.path()).unwrap(),
+            vec![dir.path().join("job_frame_10.bin").to_str().unwrap()]
+        );
+    }
+
+    #[test]
+    fn listing_a_missing_snapshot_dir_fails() {
+        let dir = tempfile::TempDir::new().unwrap();
+
+        assert!(list_snapshots(&dir.path().join("missing")).is_err());
     }
 }
