@@ -40,7 +40,7 @@
 #![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     fs::{self, File, OpenOptions},
     io::{self, Write},
     os::fd::RawFd,
@@ -298,6 +298,7 @@ impl FrameCgroup {
         let freeze = self.path.join("cgroup.freeze");
         let frozen = write_cgroup_file(&freeze, "1").is_ok();
         let mut killed = HashSet::new();
+        let mut failed = HashMap::new();
         let mut result = Ok(());
         for _ in 0..SIGNAL_KILL_PASSES {
             let pids = match self.pids() {
@@ -309,14 +310,20 @@ impl FrameCgroup {
             };
             let new_pids: Vec<u32> = pids
                 .into_iter()
-                .filter(|pid| !killed.contains(pid))
+                .filter(|pid| !killed.contains(pid) && !failed.contains_key(pid))
                 .collect();
             if new_pids.is_empty() {
                 break;
             }
             for pid in new_pids {
-                let _ = kill(Pid::from_raw(pid as i32), Signal::SIGKILL);
-                killed.insert(pid);
+                match kill(Pid::from_raw(pid as i32), Signal::SIGKILL) {
+                    Ok(()) | Err(Errno::ESRCH) => {
+                        killed.insert(pid);
+                    }
+                    Err(err) => {
+                        failed.insert(pid, err);
+                    }
+                }
             }
         }
         // A fatal signal gets through the freezer. Thawing only keeps anything that survived
@@ -324,7 +331,19 @@ impl FrameCgroup {
         if frozen {
             let _ = write_cgroup_file(&freeze, "0");
         }
-        result
+        result?;
+        if failed.is_empty() {
+            Ok(())
+        } else {
+            let mut failed: Vec<(u32, Errno)> = failed.into_iter().collect();
+            failed.sort_unstable_by_key(|&(pid, _)| pid);
+            Err(miette!(
+                "Failed to send {} to {:?} in {}",
+                Signal::SIGKILL,
+                failed,
+                self.path.display()
+            ))
+        }
     }
 
     /// Removes the cgroup, which fails while processes are left in it.
@@ -393,13 +412,17 @@ fn write_cgroup_file(path: &Path, value: &str) -> io::Result<()> {
         .write_all(value.as_bytes())
 }
 
+/// Parses `cgroup.procs`, which may list a pid more than once.
 fn parse_pids(procs: &str) -> Vec<u32> {
-    procs
+    let mut pids: Vec<u32> = procs
         .lines()
         .filter_map(|line| line.trim().parse().ok())
         // Signalling pid 0 would hit rqd's own process group.
         .filter(|&pid| pid != 0)
-        .collect()
+        .collect();
+    pids.sort_unstable();
+    pids.dedup();
+    pids
 }
 
 fn parse_populated(events: &str) -> Option<bool> {
@@ -453,6 +476,7 @@ mod tests {
     #[test]
     fn parses_pids_skipping_blank_and_zero_entries() {
         assert_eq!(parse_pids("12\n\n345\n0\n"), vec![12, 345]);
+        assert_eq!(parse_pids("345\n12\n345\n"), vec![12, 345]);
         assert!(parse_pids("").is_empty());
     }
 
@@ -750,6 +774,16 @@ mod tests {
         }
     }
 
+    /// Session id of `pid`, from field 6 of `/proc/<pid>/stat`.
+    #[cfg(target_os = "linux")]
+    fn session_of(pid: u32) -> Option<i32> {
+        let stat = fs::read_to_string(format!("/proc/{pid}/stat")).ok()?;
+        // comm (field 2) may contain spaces and parentheses, so parse after its closing paren.
+        let (_, rest) = stat.rsplit_once(')')?;
+        // rest starts at field 3 (state), so the session is the 4th field after it.
+        rest.split_whitespace().nth(3)?.parse().ok()
+    }
+
     /// Runs on a real kernel: a frame-like process tree, including a child that escapes its
     /// session with setsid, is tracked, signalled and reaped through its cgroup.
     #[cfg(target_os = "linux")]
@@ -783,6 +817,21 @@ mod tests {
         assert!(cgroup.is_populated().unwrap());
         assert_eq!(frame_cgroups.launch_of(wrapper.id()), Some(launch_id));
         assert_eq!(frame_cgroups.launch_of(std::process::id()), None);
+
+        // setsid only takes effect once the child execs it, so wait for a member to leave the
+        // wrapper's session.
+        let wrapper_sid = session_of(wrapper.id()).expect("wrapper sid");
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let escaped = loop {
+            let escaped = cgroup.pids().unwrap().into_iter().any(|pid| {
+                pid != wrapper.id() && session_of(pid).is_some_and(|sid| sid != wrapper_sid)
+            });
+            if escaped || Instant::now() >= deadline {
+                break escaped;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        };
+        assert!(escaped, "no member left the wrapper's session");
 
         // The wrapper exits, leaving both sleeps behind in the cgroup
         wrapper.kill().unwrap();
