@@ -35,6 +35,7 @@ import com.imageworks.spcue.test.AssumingPostgresEngine;
 import com.imageworks.spcue.util.CueUtil;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 
 @Transactional
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
@@ -103,6 +104,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
         s.minMemoryIncrease = CueUtil.GB4 + CueUtil.GB2;
+        s.emailOnFailing = true;
 
         serviceDao.update(s);
         ServiceEntity s1 = serviceDao.get(s.getId());
@@ -113,6 +115,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s.threadable, s1.threadable);
         assertEquals(s.tags.toArray()[0], s1.tags.toArray()[0]);
         assertEquals(s.minMemoryIncrease, s1.minMemoryIncrease);
+        assertTrue(s1.emailOnFailing);
     }
 
     @Test
@@ -189,6 +192,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         s.tags = Sets.newLinkedHashSet();
         s.tags.add("linux");
         s.minMemoryIncrease = CueUtil.GB4;
+        s.emailOnFailing = true;
 
         serviceDao.update(s);
         ServiceEntity s1 = serviceDao.getOverride(s.getId());
@@ -203,6 +207,7 @@ public class ServiceDaoTests extends AbstractTransactionalJUnit4SpringContextTes
         assertEquals(s.tags.toArray()[0], s1.tags.toArray()[0]);
         assertEquals(s.minMemoryIncrease, s1.minMemoryIncrease);
         assertEquals(s1.minMemoryIncrease, CueUtil.GB4);
+        assertTrue(s1.emailOnFailing);
     }
 
     @Test

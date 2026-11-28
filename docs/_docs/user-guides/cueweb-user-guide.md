@@ -1451,6 +1451,7 @@ The page has two panes: the list of services on the left, and the edit form for 
 | Timeout | Maximum run time per frame, in minutes (0 = no timeout) |
 | Timeout LLU | Maximum time without a log update, in minutes (0 = no timeout) |
 | OOM Increase MB | How much to raise the memory reservation when a frame is retried after running out of memory |
+| Email on Failing Job | Email the job's owner once per run when a job stops running (nothing left waiting or running) with dead frames in a layer that uses this service |
 | Tags | The host tags a frame may run on. Pick from the predefined tags, or enable **Custom Tags** to enter your own (space- or comma-separated) |
 
 The numeric fields take non-negative whole numbers.

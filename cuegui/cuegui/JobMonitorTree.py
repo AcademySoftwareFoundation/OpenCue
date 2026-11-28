@@ -784,6 +784,9 @@ class JobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         if jobType["paused"]:
             self.__menuActions.jobs().addAction(menu, "resume")
         menu.addSeparator()
+        if jobType["hasUnsuccessful"]:
+            self.__menuActions.jobs().addAction(menu, "retryUnsuccessful").setEnabled(
+                jobType["canRetryUnsuccessful"])
         if jobType["hasDead"]:
             self.__menuActions.jobs().addAction(menu, "retryDead")
             self.__menuActions.jobs().addAction(menu, "eatDead")

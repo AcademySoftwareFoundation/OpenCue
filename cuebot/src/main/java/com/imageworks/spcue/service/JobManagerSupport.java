@@ -45,6 +45,7 @@ import com.imageworks.spcue.dispatcher.DispatchSupport;
 import com.imageworks.spcue.dispatcher.Dispatcher;
 import com.imageworks.spcue.dispatcher.RedirectManager;
 import com.imageworks.spcue.dispatcher.commands.DispatchJobComplete;
+import com.imageworks.spcue.dispatcher.commands.DispatchJobFailingEmail;
 import com.imageworks.spcue.grpc.depend.DependTarget;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
@@ -94,6 +95,10 @@ public class JobManagerSupport {
 
     public void queueShutdownJob(JobInterface job, Source source, boolean isManualKill) {
         manageQueue.execute(new DispatchJobComplete(job, source, isManualKill, this));
+    }
+
+    public void queueFailingJobEmail(JobInterface job) {
+        manageQueue.execute(new DispatchJobFailingEmail(job, emailSupport));
     }
 
     public boolean shutdownJob(JobInterface job, Source source, boolean isManualKill) {
@@ -440,6 +445,13 @@ public class JobManagerSupport {
      * bulk retry against unreachable hosts costs up to the budget plus one RQD deadline per frame.
      * Size bulk retry requests against that, not against the budget alone.
      *
+     * A layer's depends are re-activated and the job set back to PENDING for every frame released:
+     * a frame released earlier can succeed while the request runs, and when the other unfinished
+     * frames of its layer, or of its job, are eaten ones not reached yet, that completes the layer
+     * and satisfies its depends again, or completes the job and shuts it down. The job row is only
+     * written when the job is not PENDING already, so for the frames after the first, setting it
+     * back to PENDING costs a read of the job row, not a write to it.
+     *
      * @param request
      * @param source
      */
@@ -447,7 +459,11 @@ public class JobManagerSupport {
         long killDeadlineMs = System.currentTimeMillis() + retryKillBudgetMs();
         for (FrameInterface frame : jobManager.findFrames(request)) {
             try {
-                retryFrame(frame, source, killDeadlineMs);
+                if (!releaseFrame(frame, source, killDeadlineMs)) {
+                    continue;
+                }
+                activateLayerDepends(frame);
+                setJobPending(frame);
             } catch (Exception e) {
                 CueExceptionUtil.logStackTrace(
                         "Failed to retry frame " + frame + " from source " + source, e);
@@ -469,15 +485,22 @@ public class JobManagerSupport {
      * @param source
      */
     public void retryFrame(FrameInterface frame, Source source) {
-        retryFrame(frame, source, System.currentTimeMillis() + retryKillBudgetMs());
+        if (releaseFrame(frame, source, System.currentTimeMillis() + retryKillBudgetMs())) {
+            activateLayerDepends(frame);
+            setJobPending(frame);
+        }
     }
 
     /**
-     * Retry a single frame against an externally supplied kill-confirmation deadline, so a bulk
-     * retry can share one budget across all of its frames. See
-     * {@link #retryFrame(FrameInterface, Source)} for the kill-before-release semantics.
+     * Release a single frame for a retry against an externally supplied kill-confirmation deadline,
+     * so a bulk retry can share one budget across all of its frames, and re-activate the
+     * FrameOnFrame depends on it. See {@link #retryFrame(FrameInterface, Source)} for the
+     * kill-before-release semantics. The caller re-activates the frame's layer depends and sets its
+     * job back to PENDING.
+     *
+     * @return false when the retry was deferred and the frame left RUNNING
      */
-    private void retryFrame(FrameInterface frame, Source source, long killDeadlineMs) {
+    private boolean releaseFrame(FrameInterface frame, Source source, long killDeadlineMs) {
         /**
          * Have to find the proc before we stop the frame.
          */
@@ -515,7 +538,7 @@ public class JobManagerSupport {
                         + "not be confirmed stopped on " + proc.getName() + ". The frame is left "
                         + "RUNNING so it is not booked onto a second host while the original "
                         + "render is still alive.");
-                return;
+                return false;
             }
         }
 
@@ -570,15 +593,25 @@ public class JobManagerSupport {
             dependManager.unsatisfyDepend(depend);
         }
 
-        // Handle LayerOnLayer depends.
-        for (LightweightDependency depend : dependManager.getWhatDependsOn((LayerInterface) frame,
-                false)) {
+        return true;
+    }
+
+    /**
+     * Handle the LayerOnLayer depends of a layer a retried frame belongs to: they should become
+     * active again.
+     */
+    private void activateLayerDepends(LayerInterface layer) {
+        for (LightweightDependency depend : dependManager.getWhatDependsOn(layer, false)) {
             dependManager.unsatisfyDepend(depend);
         }
+    }
 
-        // set the job back to pending.
-        jobManager.updateJobState(jobManager.getJob(frame.getJobId()), JobState.PENDING);
-
+    /**
+     * Set the job of a retried frame back to pending. The state update only needs the job's id,
+     * which the frame carries, so the job is not read first.
+     */
+    private void setJobPending(JobInterface job) {
+        jobManager.updateJobState(job, JobState.PENDING);
     }
 
     /**

@@ -55,6 +55,9 @@ message Service {
     int32 min_gpus = 11;
     int32 max_gpus = 12;
     int32 min_memory_increase = 13;
+    // Email the job's owner, once per run of a job, when the job stops running
+    // (nothing left waiting or running) with dead frames in a layer using this service.
+    bool email_on_failing = 14;
 }
 
 message ServiceSeq {

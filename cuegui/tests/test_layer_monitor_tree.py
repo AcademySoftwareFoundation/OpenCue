@@ -19,11 +19,17 @@
 import unittest
 
 import mock
+import qtpy.QtCore
+import qtpy.QtWidgets
 
 import opencue_proto.job_pb2
+import opencue.wrappers.job
 import opencue.wrappers.layer
 
 import cuegui.LayerMonitorTree
+import cuegui.Style
+
+from . import test_utils
 
 
 def _layer(min_memory, booked_memory, auto_memory):
@@ -49,6 +55,79 @@ class LayerMemoryColumnTests(unittest.TestCase):
         layer = _layer(8388608, 8388608, False)
         self.assertEqual('8.0G', cuegui.LayerMonitorTree.layerMemoryText(layer))
         self.assertEqual(8388608, cuegui.LayerMonitorTree.layerMemoryKb(layer))
+
+
+@mock.patch('cuegui.Constants.OUTPUT_VIEWERS', new=[])
+@mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+class LayerMonitorTreeMenuTests(unittest.TestCase):
+
+    @mock.patch('opencue.cuebot.Cuebot.getStub', new=mock.Mock())
+    def setUp(self):
+        app = test_utils.createApplication()
+        app.settings = qtpy.QtCore.QSettings()
+        cuegui.Style.init()
+        self.parentWidget = qtpy.QtWidgets.QWidget()
+        self.layerMonitorTree = cuegui.LayerMonitorTree.LayerMonitorTree(self.parentWidget)
+        self.job = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='foo'))
+        self.layerMonitorTree.setJob(self.job)
+        with mock.patch.object(self.job, 'getLayers', return_value=[]):
+            self.layerMonitorTree.tick()
+
+    def __menuOnRightClick(self, *layerStats):
+        """Opens the context menu on layers with the given stats and returns its actions by
+        text."""
+        layers = [opencue.wrappers.layer.Layer(opencue_proto.job_pb2.Layer(
+            name='layer%d' % i, layer_stats=opencue_proto.job_pb2.LayerStats(**stats)))
+            for i, stats in enumerate(layerStats)]
+        shownMenus = []
+
+        class RecordingMenu(qtpy.QtWidgets.QMenu):
+            """Records the menu instead of showing it."""
+            def exec_(self, *_):  # pylint: disable=arguments-differ
+                shownMenus.append(self)
+
+        with mock.patch('qtpy.QtWidgets.QMenu', new=RecordingMenu), \
+                mock.patch.object(self.layerMonitorTree, 'selectedObjects', return_value=layers):
+            self.layerMonitorTree.contextMenuEvent(mock.Mock())
+        return {action.text(): action for action in shownMenus[-1].actions()}
+
+    @mock.patch('opencue.api.getJob')
+    def test_rightClickLayerWithEatenFrames(self, getJobMock):
+        actions = self.__menuOnRightClick({'eaten_frames': 1})
+
+        self.assertTrue(actions['Retry unsuccessful frames'].isEnabled())
+        self.assertNotIn('Retry dead frames', actions)
+        getJobMock.assert_not_called()
+
+    def test_rightClickLayerWithDeadFrames(self):
+        actions = self.__menuOnRightClick({'succeeded_frames': 1}, {'dead_frames': 1})
+
+        self.assertTrue(actions['Retry unsuccessful frames'].isEnabled())
+        self.assertTrue(actions['Retry dead frames'].isEnabled())
+
+    def test_rightClickLayerWithNothingToRetry(self):
+        actions = self.__menuOnRightClick({'succeeded_frames': 1})
+
+        self.assertNotIn('Retry unsuccessful frames', actions)
+        self.assertNotIn('Retry dead frames', actions)
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    def test_rightClickFinishedJobIsReadonly(self):
+        # The frame view writes the job state it polls onto the shared job.
+        self.job.data.state = opencue_proto.job_pb2.FINISHED
+
+        actions = self.__menuOnRightClick({'eaten_frames': 1}, {'dead_frames': 1})
+
+        self.assertFalse(actions['Retry unsuccessful frames'].isEnabled())
+        self.assertFalse(actions['Retry dead frames'].isEnabled())
+
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=False)
+    def test_rightClickFinishedJobCanRetryWhenConfigAllows(self):
+        self.job.data.state = opencue_proto.job_pb2.FINISHED
+
+        actions = self.__menuOnRightClick({'eaten_frames': 1})
+
+        self.assertTrue(actions['Retry unsuccessful frames'].isEnabled())
 
 
 if __name__ == '__main__':

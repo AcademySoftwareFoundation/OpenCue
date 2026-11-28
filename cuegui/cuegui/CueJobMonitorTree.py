@@ -658,6 +658,7 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         counts = cuegui.Utils.countObjectTypes(selectedObjects)
 
         menu = QtWidgets.QMenu()
+        menu.setToolTipsVisible(True)
         if counts["rootgroup"] > 0:
             if counts["group"] > 0 or counts["job"] > 0:
                 if counts["rootgroup"] == 1:
@@ -729,6 +730,9 @@ class CueJobMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             if jobTypes["paused"]:
                 self.__menuActions.jobs().addAction(menu, "resume")
             menu.addSeparator()
+            if jobTypes["hasUnsuccessful"]:
+                self.__menuActions.jobs().addAction(menu, "retryUnsuccessful").setEnabled(
+                    jobTypes["canRetryUnsuccessful"])
             if jobTypes["hasDead"]:
                 self.__menuActions.jobs().addAction(menu, "retryDead")
                 self.__menuActions.jobs().addAction(menu, "eatDead")

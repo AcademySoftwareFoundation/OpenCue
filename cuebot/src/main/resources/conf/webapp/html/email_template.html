@@ -3,7 +3,7 @@
   <title>Job Execution Summary</title>
 </head>
 <body style="font-family: 'Open Sans'; color: #B2B2B2; margin: 0; padding: 0; background-color: #434343; line-height: 1.4;">
-    #if( $jobStatus == "FAILED " )
+    #if( $jobStatus == "FAILED " || $jobStatus == "FAILING " )
         #set( $statusColor = "#FF0000")
     #else
         #set( $statusColor = "#37C837")

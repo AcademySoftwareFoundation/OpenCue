@@ -407,6 +407,7 @@ Configures facility-wide service definitions that specify resource requirements 
 - **Timeout**: Frame timeout in minutes
 - **Timeout LLU**: Timeout for last log update
 - **Out-Of-Memory (OOM) Increase MB**: Memory increase on out-of-memory
+- **Email on Failing Job**: Email the job's owner once per run when a job stops running with dead frames in a layer that uses this service
 
 **Tags Section**:
 - Service tags for categorization

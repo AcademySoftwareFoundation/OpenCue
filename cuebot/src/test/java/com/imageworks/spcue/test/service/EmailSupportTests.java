@@ -40,6 +40,8 @@ import com.imageworks.spcue.service.EmailSupport;
 import com.imageworks.spcue.service.JobLauncher;
 import com.imageworks.spcue.service.JobSpec;
 
+import static org.junit.Assert.assertArrayEquals;
+
 @Transactional
 @ContextConfiguration(classes = TestAppConfig.class, loader = AnnotationConfigContextLoader.class)
 public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextTests {
@@ -114,5 +116,43 @@ public class EmailSupportTests extends AbstractTransactionalJUnit4SpringContextT
                 .updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
 
         emailSupport.sendShutdownEmail(job);
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void testJobFailingEmail() {
+        JobSpec spec = jobLauncher.parse(new File("src/test/resources/conf/jobspec/jobspec.xml"));
+        jobLauncher.launch(spec);
+
+        JobDetail job = spec.getJobs().get(0).detail;
+
+        layerDao.getLayers(job)
+                .forEach(layer -> dependDao.getWhatThisDependsOn(layer, DependTarget.ANY_TARGET)
+                        .forEach(dep -> dependManager.satisfyDepend(dep)));
+
+        frameDao.findFrames(frameSearchFactory.create(job)).forEach(frame -> frameDao
+                .updateFrameState(frameDao.getFrame(frame.getFrameId()), FrameState.DEAD));
+
+        // The job has no email address, so this goes to the job's user.
+        emailSupport.sendFailingEmail(job);
+    }
+
+    @Test
+    public void testFailingEmailRecipients() {
+        JobDetail job = new JobDetail();
+        job.user = "testuser";
+
+        job.email = "a@example.com,b@example.com";
+        assertArrayEquals(new String[] {"a@example.com", "b@example.com"},
+                emailSupport.getFailingEmailRecipients(job));
+
+        // Without an address of its own, the job's user gets the email.
+        job.email = null;
+        assertArrayEquals(new String[] {"testuser@opencue.io"},
+                emailSupport.getFailingEmailRecipients(job));
+        job.email = "  ";
+        assertArrayEquals(new String[] {"testuser@opencue.io"},
+                emailSupport.getFailingEmailRecipients(job));
     }
 }

@@ -206,7 +206,7 @@ OpenCueWeb replicates the core functionality of [CueGUI](https://www.opencue.io/
 
 33. **Facility Service Defaults (CueCommander &rarr; Services):**
    - A facility-wide service-defaults editor at `/services`, the OpenCueWeb equivalent of CueGUI's Facility Service Defaults tab. Reached from the CueCommander menu / sidebar entry. It edits the default resource requirements applied to a layer when it runs a given service (for example `arnold`, `maya`, `nuke`, or `shell`).
-   - Two panes: a left list of services (with **New** / **Del**) and a right edit form with Name, Threadable, Min/Max Threads (100 = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, and Tags (predefined checkboxes or a Custom Tags free-text toggle).
+   - Two panes: a left list of services (with **New** / **Del**) and a right edit form with Name, Threadable, Min/Max Threads (100 = 1 thread), Min Memory MB, Min Gpu Memory MB, Timeout, Timeout LLU, OOM Increase MB, Email on Failing Job, and Tags (predefined checkboxes or a Custom Tags free-text toggle).
    - Because these are facility-wide defaults, **Save** asks for a confirmation before creating or updating, and **Del** confirms before removing a service; a toast reports the result.
 
 34. **Subscriptions (CueCommander &rarr; Subscriptions):**

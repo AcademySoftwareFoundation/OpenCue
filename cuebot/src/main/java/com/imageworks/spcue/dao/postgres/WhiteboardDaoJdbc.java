@@ -1470,7 +1470,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                             ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
                     .setTimeout(rs.getInt("int_timeout"))
                     .setTimeoutLlu(rs.getInt("int_timeout_llu"))
-                    .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
+                    .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
+                    .setEmailOnFailing(rs.getBoolean("b_email_on_failing")).build();
         }
     };
 
@@ -1491,7 +1492,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                                     ServiceDaoJdbc.splitTags(SqlUtil.getString(rs, "str_tags"))))
                             .setTimeout(rs.getInt("int_timeout"))
                             .setTimeoutLlu(rs.getInt("int_timeout_llu"))
-                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase")).build();
+                            .setMinMemoryIncrease(rs.getInt("int_min_memory_increase"))
+                            .setEmailOnFailing(rs.getBoolean("b_email_on_failing")).build();
                     return ServiceOverride.newBuilder()
                             .setId(SqlUtil.getString(rs, "pk_show_service")).setData(data).build();
                 }
@@ -2146,7 +2148,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "service.str_tags,"
                 + "service.int_timeout,"
                 + "service.int_timeout_llu,"
-                + "service.int_min_memory_increase "
+                + "service.int_min_memory_increase,"
+                + "service.b_email_on_failing "
             + "FROM "
                 + "service ";
     // spotless:on
@@ -2166,7 +2169,8 @@ public class WhiteboardDaoJdbc extends JdbcDaoSupport implements WhiteboardDao {
                 + "show_service.str_tags,"
                 + "show_service.int_timeout,"
                 + "show_service.int_timeout_llu,"
-                + "show_service.int_min_memory_increase "
+                + "show_service.int_min_memory_increase,"
+                + "show_service.b_email_on_failing "
             + "FROM "
                 + "show_service, "
                 + "show "

@@ -16,6 +16,7 @@
 package com.imageworks.spcue.test.service;
 
 import java.io.File;
+import java.util.List;
 import javax.annotation.Resource;
 
 import com.google.common.collect.ImmutableList;
@@ -50,6 +51,7 @@ import com.imageworks.spcue.dao.criteria.FrameSearchInterface;
 import com.imageworks.spcue.grpc.host.HardwareState;
 import com.imageworks.spcue.grpc.job.FrameSearchCriteria;
 import com.imageworks.spcue.grpc.job.FrameState;
+import com.imageworks.spcue.grpc.job.FrameStateSeq;
 import com.imageworks.spcue.grpc.job.JobState;
 import com.imageworks.spcue.grpc.job.Order;
 import com.imageworks.spcue.grpc.report.RenderHost;
@@ -422,6 +424,39 @@ public class JobManagerTests extends AbstractTransactionalJUnit4SpringContextTes
 
         assertTrue(frameDao.findFrameDetails(frameSearchFactory.create(layer)).stream()
                 .allMatch(frame -> frame.state == FrameState.EATEN));
+    }
+
+    @Test
+    @Transactional
+    @Rollback(true)
+    public void retryUnsuccessfulFramesOfFinishedJob() {
+        JobDetail job = getJob1();
+        // The job finishes with 10 frames succeeded, 5 eaten and 5 dead.
+        List<FrameInterface> frames = frameDao.findFrames(frameSearchFactory.create(job));
+        assertEquals(20, frames.size());
+        for (int i = 0; i < frames.size(); i++) {
+            jobManager.updateFrameState(frames.get(i),
+                    i < 10 ? FrameState.SUCCEEDED : i < 15 ? FrameState.EATEN : FrameState.DEAD);
+        }
+        jobDao.updateJobFinished(job);
+        assertEquals(JobState.FINISHED, jobDao.getJobDetail(job.id).state);
+
+        jobManagerSupport
+                .retryFrames(
+                        frameSearchFactory.create(job,
+                                FrameSearchCriteria.newBuilder()
+                                        .setStates(FrameStateSeq.newBuilder()
+                                                .addFrameStates(FrameState.DEAD)
+                                                .addFrameStates(FrameState.EATEN))
+                                        .build()),
+                        new Source());
+
+        assertEquals(JobState.PENDING, jobDao.getJobDetail(job.id).state);
+        FrameStateTotals totals = jobDao.getFrameStateTotals(job);
+        assertEquals(10, totals.succeeded);
+        assertEquals(10, totals.waiting);
+        assertEquals(0, totals.eaten);
+        assertEquals(0, totals.dead);
     }
 
     @Test

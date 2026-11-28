@@ -84,6 +84,7 @@ def countObjectTypes(objects):
 def countJobTypes(objects):
     """Given a list of jobs, returns a count of how many jobs have each status."""
     results = {"paused": False, "unpaused": False, "hasDead": False,
+               "hasUnsuccessful": False, "canRetryUnsuccessful": False,
                "autoEating": False, "notEating": False, "completed": False}
 
     for obj in objects:
@@ -96,6 +97,10 @@ def countJobTypes(objects):
                 results["unpaused"] = True
             if obj.data.job_stats.dead_frames:
                 results["hasDead"] = True
+            if hasUnsuccessfulFrames(obj):
+                results["hasUnsuccessful"] = True
+                if not isFinishedJobReadonly(obj):
+                    results["canRetryUnsuccessful"] = True
             if obj.data.auto_eat:
                 results["autoEating"] = True
             else:
@@ -127,6 +132,42 @@ def isJobCompleted(job):
     stats = job.data.job_stats
     return not (stats.waiting_frames or stats.running_frames
                 or stats.dead_frames or stats.depend_frames)
+
+
+def hasUnsuccessfulFrames(obj):
+    """Returns whether a job or layer has dead or eaten frames, the frames that
+    "Retry unsuccessful frames" retries.
+
+    Reads the frame counts Cuebot already sent with the job or layer, so it makes
+    no call to Cuebot.
+
+    @type  obj: opencue.wrappers.job.Job, opencue.wrappers.job.NestedJob or
+                opencue.wrappers.layer.Layer
+    @param obj: the job or layer to check
+    @rtype:  bool
+    @return: whether the job or layer has dead or eaten frames"""
+    if isinstance(obj, opencue.wrappers.job.NestedJob):
+        obj = obj.asJob()
+    stats = obj.data.layer_stats if isLayer(obj) else obj.data.job_stats
+    return bool(stats.dead_frames or stats.eaten_frames)
+
+
+def isFinishedJobReadonly(job):
+    """Returns whether a job's frames are readonly because the job has finished.
+
+    finished_jobs_readonly.frame in the cuegui config decides this, as it does for
+    the frame view. Cuebot guards the job's frame actions with its own
+    frame.finished_jobs_readonly in opencue.properties. Reads the state Cuebot
+    already sent with the job, so it makes no call to Cuebot.
+
+    @type  job: opencue.wrappers.job.Job or opencue.wrappers.job.NestedJob
+    @param job: the job to check
+    @rtype:  bool
+    @return: whether the job has finished and its frames are readonly"""
+    if isinstance(job, opencue.wrappers.job.NestedJob):
+        job = job.asJob()
+    return bool(cuegui.Constants.FINISHED_JOBS_READONLY_FRAME
+                and job.data.state == opencue.api.job_pb2.FINISHED)
 
 
 def qvarToString(qv):

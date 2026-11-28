@@ -199,6 +199,33 @@ public class EmailSupport {
             return;
         }
 
+        sendJobSummaryEmail(job, d, false, d.email.split(","));
+    }
+
+    /**
+     * Sends the job summary email, marked failing, for a job that stopped running with dead frames.
+     * Goes to the job's email addresses, or to the job's user when the job has none.
+     */
+    public void sendFailingEmail(JobInterface job) {
+
+        JobDetail d = jobManager.getJobDetail(job.getJobId());
+        sendJobSummaryEmail(job, d, true, getFailingEmailRecipients(d));
+    }
+
+    /**
+     * The failing job email's recipients: the job's email addresses, or the job's user at the email
+     * domain when the job has none.
+     */
+    public String[] getFailingEmailRecipients(JobDetail d) {
+        if (d.email == null || d.email.trim().isEmpty()) {
+            return new String[] {String.format("%s@%s", d.user, this.emailDomain)};
+        }
+        return d.email.split(",");
+    }
+
+    private void sendJobSummaryEmail(JobInterface job, JobDetail d, boolean failing,
+            String[] recipients) {
+
         try {
 
             VelocityEngine ve = new VelocityEngine();
@@ -212,7 +239,9 @@ public class EmailSupport {
             FrameStateTotals jts = jobManager.getFrameStateTotals(job);
 
             String status = "";
-            if (jts.total != jts.succeeded) {
+            if (failing) {
+                status = "Failing ";
+            } else if (jts.total != jts.succeeded) {
                 status = "Failed ";
             } else {
                 status = "Succeeded ";
@@ -310,14 +339,15 @@ public class EmailSupport {
                 }
             }
 
-            for (String email : d.email.split(",")) {
+            for (String email : recipients) {
                 try {
                     CueUtil.sendmail(email, this.emailFromAddress, subject,
                             new StringBuilder(w.toString()), imageMap, file);
                 } catch (Exception e) {
                     // just log and eat if the mail server is down or something
                     // of that nature.
-                    logger.info("Failed to send job complete mail, reason: " + e);
+                    logger.info("Failed to send job " + (failing ? "failing" : "complete")
+                            + " mail, reason: " + e);
                 }
             }
         } catch (Exception e) {

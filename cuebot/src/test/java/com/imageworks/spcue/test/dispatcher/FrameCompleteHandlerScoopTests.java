@@ -29,6 +29,7 @@ import org.springframework.core.env.Environment;
 import com.imageworks.spcue.DispatchFrame;
 import com.imageworks.spcue.DispatchJob;
 import com.imageworks.spcue.FrameDetail;
+import com.imageworks.spcue.JobRunState;
 import com.imageworks.spcue.LayerDetail;
 import com.imageworks.spcue.PrometheusMetricsCollector;
 import com.imageworks.spcue.VirtualProc;
@@ -49,6 +50,7 @@ import com.imageworks.spcue.service.JobManagerSupport;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -77,6 +79,7 @@ public class FrameCompleteHandlerScoopTests {
     private PrometheusMetricsCollector prometheusMetrics;
     private DispatchSupport dispatchSupport;
     private JobManager jobManager;
+    private JobManagerSupport jobManagerSupport;
     private ShowDao showDao;
     // The worker reuses one scoop list, so a mock sees it empty later: sizes are taken at the call.
     private final BlockingQueue<Integer> batchSizes = new LinkedBlockingQueue<Integer>();
@@ -113,7 +116,9 @@ public class FrameCompleteHandlerScoopTests {
         handler.setPrometheusMetrics(prometheusMetrics);
         handler.setDispatchSupport(dispatchSupport);
         handler.setJobManager(jobManager);
-        handler.setJobManagerSupport(mock(JobManagerSupport.class));
+        when(jobManager.getJobRunState(any())).thenReturn(JobRunState.IN_PROGRESS);
+        jobManagerSupport = mock(JobManagerSupport.class);
+        handler.setJobManagerSupport(jobManagerSupport);
         handler.setHostManager(mock(HostManager.class));
         handler.setDispatcher(mock(Dispatcher.class));
         handler.setDispatchQueue(mock(DispatchQueue.class));
@@ -214,7 +219,7 @@ public class FrameCompleteHandlerScoopTests {
         when(showDao.isSchedulerManaged("managed")).thenReturn(true);
         handler.queuePostOps(completion("done", FrameState.SUCCEEDED, 42, "managed"));
         // The job check is the scoop's last phase, after the layer's.
-        verify(jobManager, timeout(5000)).isJobComplete(any());
+        verify(jobManager, timeout(5000)).getJobRunState(any());
         verify(jobManager, never()).optimizeLayer(any(), anyLong());
     }
 
@@ -282,6 +287,117 @@ public class FrameCompleteHandlerScoopTests {
                 .recordFrameCompleted(any(), eq("bad"), any());
         handler.queuePostOps(completion("f1", FrameState.SUCCEEDED, 1, "bad"));
         verify(jobManager, timeout(5000)).isLayerComplete(any());
-        verify(jobManager, timeout(5000)).isJobComplete(any());
+        verify(jobManager, timeout(5000)).getJobRunState(any());
+    }
+
+    /** Files one completion through the legacy path, which runs on the calling thread. */
+    private void fileThroughTheLegacyPath(FrameState state) {
+        QueuedFrameCompletion c = completion("f1", state, 1, "show");
+        VirtualProc proc = new VirtualProc();
+        proc.unbooked = true;
+        handler.handlePostFrameCompleteOperations(proc, c.report, c.job, c.frame, state,
+                c.frameDetail);
+    }
+
+    /** A failing job whose run this completion claims the email for. */
+    private void failingJobWithTheEmailClaimed() {
+        when(jobManager.getJobRunState(any())).thenReturn(JobRunState.FAILING);
+        when(jobManager.claimFailingEmail(any())).thenReturn(true);
+    }
+
+    @Test
+    public void aDeadFrameOfAFailingJobQueuesTheFailingEmail() {
+        failingJobWithTheEmailClaimed();
+        handler.queuePostOps(completion("f1", FrameState.DEAD, 1, "show"));
+        verify(jobManagerSupport, timeout(5000))
+                .queueFailingJobEmail(argThat(j -> "job".equals(j.getJobId())));
+    }
+
+    @Test
+    public void aSuccessLeavingOnlyDeadFramesQueuesTheFailingEmail() {
+        failingJobWithTheEmailClaimed();
+        handler.queuePostOps(completion("f1", FrameState.SUCCEEDED, 1, "show"));
+        verify(jobManagerSupport, timeout(5000)).queueFailingJobEmail(any());
+    }
+
+    /** A dead frame of the "failing" job, which the blocker's job is not. */
+    private static QueuedFrameCompletion deadFrameOfTheFailingJob(String frameId) {
+        QueuedFrameCompletion c = completion(frameId, FrameState.DEAD, 1, "show");
+        c.job.id = "failing";
+        c.frame.jobId = "failing";
+        return c;
+    }
+
+    @Test
+    public void aScoopChecksEachJobOnce() throws InterruptedException {
+        failingJobWithTheEmailClaimed();
+        CountDownLatch release = parkTheWorker();
+        handler.queuePostOps(deadFrameOfTheFailingJob("f1"));
+        handler.queuePostOps(deadFrameOfTheFailingJob("f2"));
+        release.countDown();
+        assertEquals(Integer.valueOf(1), batchSizes.poll(5, TimeUnit.SECONDS));
+        assertEquals(Integer.valueOf(2), batchSizes.poll(5, TimeUnit.SECONDS));
+        verify(jobManagerSupport, timeout(5000))
+                .queueFailingJobEmail(argThat(j -> "failing".equals(j.getJobId())));
+        verify(jobManager, times(1)).getJobRunState(argThat(j -> "failing".equals(j.getJobId())));
+    }
+
+    @Test
+    public void theLegacyPathQueuesTheFailingEmailForADeadFrame() {
+        failingJobWithTheEmailClaimed();
+        fileThroughTheLegacyPath(FrameState.DEAD);
+        verify(jobManagerSupport).queueFailingJobEmail(any());
+    }
+
+    @Test
+    public void theLegacyPathQueuesTheFailingEmailWhenASuccessLeavesOnlyDeadFrames() {
+        failingJobWithTheEmailClaimed();
+        fileThroughTheLegacyPath(FrameState.SUCCEEDED);
+        verify(jobManager).getJobRunState(any());
+        verify(jobManagerSupport).queueFailingJobEmail(any());
+        verify(jobManagerSupport, never()).queueShutdownJob(any(), any(), anyBoolean());
+    }
+
+    @Test
+    public void aCompleteJobShutsDownWithoutTheFailingEmail() {
+        when(jobManager.getJobRunState(any())).thenReturn(JobRunState.COMPLETE);
+        fileThroughTheLegacyPath(FrameState.SUCCEEDED);
+        verify(jobManagerSupport).queueShutdownJob(any(), any(), eq(false));
+        verify(jobManager, never()).claimFailingEmail(any());
+    }
+
+    @Test
+    public void aRunAnotherCompletionClaimedQueuesNoEmail() {
+        failingJobWithTheEmailClaimed();
+        when(jobManager.claimFailingEmail(any())).thenReturn(false);
+        fileThroughTheLegacyPath(FrameState.DEAD);
+        verify(jobManager).claimFailingEmail(any());
+        verify(jobManagerSupport, never()).queueFailingJobEmail(any());
+    }
+
+    @Test
+    public void aJobThatIsNotFailingIsCheckedNoFurther() {
+        fileThroughTheLegacyPath(FrameState.DEAD);
+        verify(jobManager).getJobRunState(any());
+        verify(jobManager, never()).claimFailingEmail(any());
+        verify(jobManagerSupport, never()).queueFailingJobEmail(any());
+    }
+
+    @Test
+    public void aFailedFailingCheckCostsTheEmailOnly() {
+        when(jobManager.getJobRunState(any())).thenThrow(new RuntimeException("boom"));
+        fileThroughTheLegacyPath(FrameState.DEAD);
+        verify(jobManagerSupport, never()).queueFailingJobEmail(any());
+        // The proc is still handled after the failing check.
+        verify(dispatchSupport).unbookProc(any());
+    }
+
+    @Test
+    public void aFailedClaimCostsTheEmailOnly() {
+        failingJobWithTheEmailClaimed();
+        when(jobManager.claimFailingEmail(any())).thenThrow(new RuntimeException("boom"));
+        fileThroughTheLegacyPath(FrameState.SUCCEEDED);
+        verify(jobManagerSupport, never()).queueFailingJobEmail(any());
+        verify(dispatchSupport).unbookProc(any());
     }
 }

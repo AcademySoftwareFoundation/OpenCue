@@ -66,4 +66,10 @@ public class ServiceEntity extends Entity {
 
     public long minMemoryIncrease = Dispatcher.MINIMUM_MEMORY_INCREASE;
 
+    /**
+     * Email the job's owner, once per run of a job, when the job stops running (nothing left
+     * waiting or running) with dead frames in a layer using this service.
+     */
+    public boolean emailOnFailing = false;
+
 }

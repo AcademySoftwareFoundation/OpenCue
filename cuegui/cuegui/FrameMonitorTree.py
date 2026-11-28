@@ -250,6 +250,7 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
 
         self.__job = None
         self.__jobState = None
+        self.__frameCountsCurrent = True
 
         cuegui.AbstractTreeWidget.AbstractTreeWidget.__init__(self, parent)
 
@@ -429,6 +430,8 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         self.removeAllItems()
         if job:
             self.__jobState = job.state()
+            # The frame counts loaded with the job are as recent as its state.
+            self.__frameCountsCurrent = True
             self.__sortByColumnLoad()
         self._lastUpdate = 0
         self.job_changed.emit()
@@ -540,22 +543,85 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
             list(map(logger.warning, cuegui.Utils.exceptionOutput(e)))
             return []
 
+    @staticmethod
+    def __finishedJobsReadonly():
+        """Returns whether the cuegui config makes finished jobs readonly for both frames
+        and layers, so nothing in CueGUI can retry a finished job's frames."""
+        return (cuegui.Constants.FINISHED_JOBS_READONLY_FRAME and
+                cuegui.Constants.FINISHED_JOBS_READONLY_LAYER)
+
+    def __pollFinishedJob(self):
+        """Returns whether to keep polling the job now that it has finished.
+
+        Retrying a finished job's dead and eaten frames moves it back to PENDING, so a
+        job that has such frames, and is not readonly, is still polled to keep its
+        frames and state current. A job whose frames all succeeded is not: it is
+        unlikely to be retried. Frame counts that may predate the finish count as
+        having frames to retry, so a retry is never missed. Makes no call to Cuebot.
+        @rtype:  bool
+        @return: whether to keep polling the finished job"""
+        if self.__finishedJobsReadonly():
+            return False
+        return not self.__frameCountsCurrent or cuegui.Utils.hasUnsuccessfulFrames(self.__job)
+
+    def __updateFrameCounts(self, job):
+        """Fetches the frame counts of a job that has finished since it was loaded, as
+        the counts loaded with it predate its finish. They decide whether the job is
+        still polled. Nothing is fetched when the job won't be polled anyway.
+
+        The job's state comes with the counts, from one read of the job: a retry after
+        the update that reported the finish moves the job back to PENDING, and the
+        counts then no longer show the frames it retried.
+        @type  job: opencue.wrappers.job.Job
+        @param job: the job that has finished
+        @rtype:  int or None
+        @return: the job's state read with its frame counts, or None when the counts
+                 are not current"""
+        if self.__finishedJobsReadonly():
+            return None
+        try:
+            fetchedJob = opencue.api.getJob(job.id())
+            job.data.job_stats.CopyFrom(fetchedJob.data.job_stats)
+            return fetchedJob.data.state
+        except (grpc.RpcError, opencue.exception.CueException) as e:
+            logger.warning("Failed to fetch the frame counts of finished job %s, will retry: %s",
+                           job.name(), e)
+            return None
+
     def _getUpdateChanged(self):
         """Returns the updated data from the cuebot
         @rtype:  None or List<Frame>
         @return: The results from the cuebot"""
         logger.info("_getUpdateChanged")
         if not self.__job or \
-           (self.__jobState and self.__jobState == opencue.api.job_pb2.FINISHED):
-            logger.debug("no job or job is finished, bailing")
+           (self.__jobState == opencue.api.job_pb2.FINISHED and not self.__pollFinishedJob()):
+            logger.debug("no job or job is finished and won't be retried, bailing")
             return []
         logger.info(" + Nth update = %s", self.__class__)
         updatedFrames = []
         try:
-            updated_data = self.__job.getUpdatedFrames(self.__lastUpdateTime)
-            self.__lastUpdateTime = updated_data.server_time
-            self.__jobState = updated_data.state
-            updatedFrames = updated_data.updated_frames.updated_frames
+            job = self.__job
+            updated_data = job.getUpdatedFrames(self.__lastUpdateTime)
+            state = updated_data.state
+            frameCountsCurrent = self.__frameCountsCurrent
+            if state == opencue.api.job_pb2.FINISHED and \
+               (self.__jobState != opencue.api.job_pb2.FINISHED or not frameCountsCurrent):
+                fetchedState = self.__updateFrameCounts(job)
+                frameCountsCurrent = fetchedState is not None
+                if frameCountsCurrent:
+                    # The state read with the counts is as recent as they are.
+                    state = fetchedState
+            # The layer view shares this job object and reads its state for its menu, so
+            # it needs no call to Cuebot of its own. This is the job that was polled even
+            # if another job was opened while the call was in flight.
+            job.data.state = state
+            # The tree's own state is the polled job's only while the tree still shows it.
+            # Once another job is opened, it is that job's.
+            if job is self.__job:
+                self.__lastUpdateTime = updated_data.server_time
+                self.__jobState = state
+                self.__frameCountsCurrent = frameCountsCurrent
+                updatedFrames = updated_data.updated_frames.updated_frames
 
         except grpc.RpcError as e:
             # Handle gRPC errors - allow UI to continue and retry

@@ -94,6 +94,13 @@ Individual frame management options are also available through right-click conte
 *   **Eat** - Eating a frame stops rendering and doesn't try to continue processing the frame.
 *   **Kill** - Killing a frame stops rendering and books to another proc.
 
+Right-clicking jobs in the *Monitor Jobs* and *Monitor Cue* views, or layers in the job details view, offers two ways to retry the frames that did not succeed:
+
+*   **Retry Unsuccessful Frames** - Retries both the dead and the eaten frames. Shown when the selection has dead or eaten frames, including a finished job whose frames were eaten.
+*   **Retry Dead Frames** - Retries only the dead frames. Shown when the selection has dead frames.
+
+Retrying moves a finished job back to pending. While `finished_jobs_readonly.frame` is `true` in the CueGUI config, **Retry Unsuccessful Frames** is disabled on finished jobs in the job views. While `finished_jobs_readonly.layer` is `true`, the layer view disables its retry options on finished jobs. Cuebot enforces the same protection separately through `frame.finished_jobs_readonly` and `layer.finished_jobs_readonly` in `opencue.properties`.
+
 ## Rendering and staggering frames
 
 To reorder the way frames are rendered, right-click on either the job or the
@@ -170,5 +177,10 @@ To edit and add services to OpenCue:
 
     You can modify the CPU, memory, and GPU requirements. You can also define
     the *tags* associated with this service.
+
+    Turn on **Email on Failing Job** to email the job's owner when a job stops
+    running with dead frames in a layer that uses this service. The email is
+    sent once per run of the job, so retried frames that fail again send it
+    again. A show's service override takes precedence over this setting.
 
 1.  Click **Save** to push your changes to Cuebot.
