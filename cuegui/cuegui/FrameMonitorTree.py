@@ -602,21 +602,26 @@ class FrameMonitorTree(cuegui.AbstractTreeWidget.AbstractTreeWidget):
         try:
             job = self.__job
             updated_data = job.getUpdatedFrames(self.__lastUpdateTime)
-            self.__lastUpdateTime = updated_data.server_time
             state = updated_data.state
+            frameCountsCurrent = self.__frameCountsCurrent
             if state == opencue.api.job_pb2.FINISHED and \
-               (self.__jobState != opencue.api.job_pb2.FINISHED or not self.__frameCountsCurrent):
+               (self.__jobState != opencue.api.job_pb2.FINISHED or not frameCountsCurrent):
                 fetchedState = self.__updateFrameCounts(job)
-                self.__frameCountsCurrent = fetchedState is not None
-                if self.__frameCountsCurrent:
+                frameCountsCurrent = fetchedState is not None
+                if frameCountsCurrent:
                     # The state read with the counts is as recent as they are.
                     state = fetchedState
-            self.__jobState = state
             # The layer view shares this job object and reads its state for its menu, so
             # it needs no call to Cuebot of its own. This is the job that was polled even
             # if another job was opened while the call was in flight.
             job.data.state = state
-            updatedFrames = updated_data.updated_frames.updated_frames
+            # The tree's own state is the polled job's only while the tree still shows it.
+            # Once another job is opened, it is that job's.
+            if job is self.__job:
+                self.__lastUpdateTime = updated_data.server_time
+                self.__jobState = state
+                self.__frameCountsCurrent = frameCountsCurrent
+                updatedFrames = updated_data.updated_frames.updated_frames
 
         except grpc.RpcError as e:
             # Handle gRPC errors - allow UI to continue and retry

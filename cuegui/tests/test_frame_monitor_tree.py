@@ -299,6 +299,31 @@ class FrameMonitorTreeTests(unittest.TestCase):
         self.assertEqual(opencue_proto.job_pb2.FINISHED, self.job.state())
         self.assertEqual(opencue_proto.job_pb2.PENDING, otherJob.state())
 
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_LAYER', new=True)
+    @mock.patch('cuegui.Constants.FINISHED_JOBS_READONLY_FRAME', new=True)
+    @mock.patch.object(opencue.wrappers.job.Job, 'getFrames')
+    def test_tickUpdateChangedLeavesTheTreeToAJobOpenedInFlight(self, getFramesMock):
+        getFramesMock.return_value = []
+        self.frameMonitorTree.tick()
+        otherJob = opencue.wrappers.job.Job(opencue_proto.job_pb2.Job(id='bar'))
+
+        def openOtherJobAndFinish(_):
+            # Another job is opened while this job's update is in flight.
+            self.frameMonitorTree._FrameMonitorTree__setJob(otherJob)  # pylint: disable=protected-access
+            return opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+                state=opencue_proto.job_pb2.FINISHED, server_time=1000)
+
+        with mock.patch.object(self.job, 'getUpdatedFrames', side_effect=openOtherJobAndFinish):
+            self.__pollChanged()
+
+        # The tree's state is still the other job's, which is pending, so it is polled.
+        otherUpdate = opencue_proto.job_pb2.JobGetUpdatedFramesResponse(
+            state=opencue_proto.job_pb2.PENDING, server_time=2000)
+        with mock.patch.object(otherJob, 'getUpdatedFrames',
+                               return_value=otherUpdate) as otherGetUpdatedFramesMock:
+            self.__pollChanged()
+        otherGetUpdatedFramesMock.assert_called_once()
+
     def test_getCores(self):
         frame = opencue.wrappers.frame.Frame(
             opencue_proto.job_pb2.Frame(last_resource='foo/125.82723/0'))
