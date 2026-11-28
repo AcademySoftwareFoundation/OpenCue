@@ -190,7 +190,7 @@ mod tests {
 
     use tempfile::Builder;
 
-    use super::{Config, MachineConfig, RunnerConfig};
+    use super::{Config, MachineConfig, RunnerConfig, MAX_FRAME_CGROUP_KILL_GRACE};
 
     #[test]
     fn machine_config_defaults_to_unlocked_nimby_startup() {
@@ -198,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    fn frame_cgroup_kill_grace_is_at_least_a_second() {
+    fn frame_cgroup_kill_grace_is_between_a_second_and_an_hour() {
         let mut config = RunnerConfig {
             frame_cgroup_kill_grace_period: Duration::ZERO,
             ..Default::default()
@@ -207,6 +207,14 @@ mod tests {
 
         config.frame_cgroup_kill_grace_period = Duration::from_secs(45);
         assert_eq!(config.frame_cgroup_kill_grace(), Duration::from_secs(45));
+
+        config.frame_cgroup_kill_grace_period = Duration::from_secs(u64::MAX);
+        assert_eq!(
+            config.frame_cgroup_kill_grace(),
+            MAX_FRAME_CGROUP_KILL_GRACE
+        );
+        // Deadlines derived from the grace must not overflow.
+        let _ = std::time::Instant::now() + config.frame_cgroup_kill_grace();
     }
 
     #[test]
@@ -570,12 +578,17 @@ impl Default for RunnerConfig {
     }
 }
 
+/// Longest grace period a killed frame contained in a cgroup gets, whatever
+/// `frame_cgroup_kill_grace_period` says. Keeps deadlines computed from it from overflowing.
+const MAX_FRAME_CGROUP_KILL_GRACE: Duration = Duration::from_secs(60 * 60);
+
 impl RunnerConfig {
     /// The grace period a killed frame contained in a cgroup actually gets:
-    /// `frame_cgroup_kill_grace_period`, but at least one second.
+    /// `frame_cgroup_kill_grace_period`, clamped between one second and one hour so deadlines
+    /// derived from it stay meaningful and never overflow.
     pub fn frame_cgroup_kill_grace(&self) -> Duration {
         self.frame_cgroup_kill_grace_period
-            .max(Duration::from_secs(1))
+            .clamp(Duration::from_secs(1), MAX_FRAME_CGROUP_KILL_GRACE)
     }
 
     /// Returns the current compiled `log_exit_status_rules`, seeding the shared cell from this

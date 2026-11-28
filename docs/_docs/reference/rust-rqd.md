@@ -308,7 +308,7 @@ By default RQD tracks a frame's processes by session, which misses anything that
 runner:
   # Default: false
   frame_cgroups: true
-  # Time a killed frame gets to exit after SIGTERM before its cgroup is SIGKILLed. Default: 30s
+  # Time a killed frame gets to exit after SIGTERM before its cgroup is SIGKILLed (1s to 1h). Default: 30s
   frame_cgroup_kill_grace_period: 30s
 ```
 

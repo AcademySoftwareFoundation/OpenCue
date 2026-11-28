@@ -237,6 +237,7 @@ runner:
   # How long a frame contained in a cgroup gets to exit after the SIGTERM of a
   # kill request before everything left in its cgroup is SIGKILLed. Frames
   # without a cgroup follow kill_monitor_timeout/force_kill_after_timeout.
+  # Clamped to between 1s and 1h.
   # Default: 30s
   # frame_cgroup_kill_grace_period: 30s
 
