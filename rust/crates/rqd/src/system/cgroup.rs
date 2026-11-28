@@ -243,8 +243,12 @@ impl FrameCgroups {
 pub async fn reap_orphans(orphans: Vec<FrameCgroup>) {
     join_all(orphans.iter().map(|orphan| async move {
         match orphan.reap().await {
-            Ok(count) => info!(
+            Ok(Some(count)) => info!(
                 "Removed orphan frame cgroup {}, killed {count} leftover processes",
+                orphan.path.display()
+            ),
+            Ok(None) => info!(
+                "Removed orphan frame cgroup {}, killed its uncounted leftover processes",
                 orphan.path.display()
             ),
             Err(err) => warn!("Failed to reap orphan frame cgroup. {err}"),
@@ -406,26 +410,35 @@ impl FrameCgroup {
     }
 
     /// Kills whatever is left in the cgroup, waits for it to empty and removes it. Returns the
-    /// number of processes that were left.
-    pub async fn reap(&self) -> Result<usize> {
+    /// number of processes that were left, or `None` when `cgroup.procs` couldn't be read to
+    /// count them. A missing cgroup has nothing left.
+    ///
+    /// Unless `cgroup.events` confirms the cgroup is empty, it is killed, so a failed read
+    /// never leaves processes behind.
+    pub async fn reap(&self) -> Result<Option<usize>> {
         if !self.path.exists() {
-            return Ok(0);
+            return Ok(Some(0));
         }
-        let leftover = self.pids()?.len();
-        if self.is_populated()? {
+        let leftover = match self.pids() {
+            Ok(pids) => Some(pids.len()),
+            Err(err) => {
+                warn!("Failed to count the leftover processes. {err}");
+                None
+            }
+        };
+        if !matches!(self.is_populated(), Ok(false)) {
             self.kill()?;
-            let deadline = Instant::now() + REAP_TIMEOUT;
-            while self.is_populated()? {
-                if Instant::now() >= deadline {
-                    return Err(miette!(
-                        "{} still has processes {}s after being killed",
-                        self.path.display(),
-                        REAP_TIMEOUT.as_secs()
-                    ));
-                }
-                tokio::time::sleep(REAP_POLL_INTERVAL).await;
+            self.wait_empty(Instant::now() + REAP_TIMEOUT).await;
+            if matches!(self.is_populated(), Ok(true)) {
+                return Err(miette!(
+                    "{} still has processes {}s after being killed",
+                    self.path.display(),
+                    REAP_TIMEOUT.as_secs()
+                ));
             }
         }
+        // Removal fails while the cgroup is populated, which settles an unreadable
+        // `cgroup.events`
         self.remove()?;
         Ok(leftover)
     }
@@ -813,7 +826,59 @@ mod tests {
             path: dir.path().join("missing"),
         };
 
-        assert_eq!(cgroup.reap().await.unwrap(), 0);
+        assert_eq!(cgroup.reap().await.unwrap(), Some(0));
+    }
+
+    /// Stands in for the kernel: once `cgroup.kill` is written, the cgroup empties and goes.
+    fn remove_once_killed(path: PathBuf) -> tokio::task::JoinHandle<()> {
+        tokio::spawn(async move {
+            let kill = path.join("cgroup.kill");
+            while fs::read_to_string(&kill).unwrap_or_default() != "1" {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            fs::remove_dir_all(&path).unwrap();
+        })
+    }
+
+    #[tokio::test]
+    async fn reap_kills_through_unreadable_membership() {
+        let dir = TempDir::new().unwrap();
+        // `cgroup.procs` can't be read (EISDIR), so the leftovers can't be counted
+        let procs_dir = FrameCgroup {
+            path: dir.path().join("procs_dir"),
+        };
+        fs::create_dir_all(procs_dir.path.join("cgroup.procs")).unwrap();
+        write(&procs_dir.path.join("cgroup.events"), "populated 1\n");
+        // `cgroup.events` can't be read, so the cgroup may still be populated
+        let missing_events = FrameCgroup {
+            path: dir.path().join("missing_events"),
+        };
+        fs::create_dir(&missing_events.path).unwrap();
+        write(&missing_events.path.join("cgroup.procs"), "");
+
+        for (cgroup, leftover) in [(procs_dir, None), (missing_events, Some(0))] {
+            write(&cgroup.path.join("cgroup.kill"), "");
+            let kernel = remove_once_killed(cgroup.path.clone());
+
+            assert_eq!(cgroup.reap().await.expect("reap"), leftover);
+            kernel.await.unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn reap_spares_a_confirmed_empty_cgroup() {
+        let dir = TempDir::new().unwrap();
+        let cgroup = FrameCgroup {
+            path: dir.path().join("frame"),
+        };
+        fs::create_dir(&cgroup.path).unwrap();
+        fs::create_dir_all(cgroup.path.join("cgroup.procs")).unwrap();
+        write(&cgroup.path.join("cgroup.events"), "populated 0\n");
+        write(&cgroup.path.join("cgroup.kill"), "");
+
+        // The fake cgroup isn't empty as a directory, so it can't be removed
+        assert!(cgroup.reap().await.is_err());
+        assert_eq!(read(&cgroup.path.join("cgroup.kill")), "");
     }
 
     #[tokio::test]
@@ -1022,7 +1087,7 @@ mod tests {
         wrapper.wait().unwrap();
         assert_eq!(wait_for_members(&cgroup, 2).await.len(), 2);
 
-        assert_eq!(cgroup.reap().await.expect("reap"), 2);
+        assert_eq!(cgroup.reap().await.expect("reap"), Some(2));
         assert!(!cgroup.path.exists());
         assert!(frame_cgroups.open(&launch_id).unwrap().is_none());
 

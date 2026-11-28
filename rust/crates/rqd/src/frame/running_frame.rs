@@ -1041,7 +1041,7 @@ impl RunningFrame {
     }
 
     /// Kills whatever is left in the frame's cgroup, when it has one, and removes the cgroup.
-    /// Returns the number of processes killed, when there were any.
+    /// Returns the number of processes killed, when there were any and they could be counted.
     ///
     /// When the frame was killed, what is left first gets until the end of the kill grace
     /// period ([`RunnerConfig::frame_cgroup_kill_grace`]) to exit on its own.
@@ -1059,10 +1059,14 @@ impl RunningFrame {
             frame_cgroup.wait_empty(deadline).await;
         }
         match frame_cgroup.reap().await {
-            Ok(0) => None,
-            Ok(leftover) => {
+            Ok(Some(0)) => None,
+            Ok(Some(leftover)) => {
                 info!("Frame {self}: reaped {leftover} leftover processes");
                 Some(leftover)
+            }
+            Ok(None) => {
+                info!("Frame {self}: reaped an uncounted number of leftover processes");
+                None
             }
             Err(err) => {
                 warn!("Failed to reap the cgroup of {self}. {err}");

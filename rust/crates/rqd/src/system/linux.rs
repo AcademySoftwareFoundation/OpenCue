@@ -901,25 +901,36 @@ impl LinuxSystem {
 
     /// Aggregates the processes in a frame's cgroup, read straight from /proc. Like the session
     /// path, returns `None` once the frame's wrapper process `leader` is gone.
-    fn calculate_cgroup_data(&self, leader: u32, cgroup: &FrameCgroup) -> Option<SessionData> {
-        let pids = cgroup
-            .pids()
-            .map_err(|err| debug!("Failed to list frame cgroup processes. {err}"))
-            .ok()?;
-        let procs: Vec<(u32, ProcessData)> = pids
-            .into_iter()
-            .filter_map(|pid| self.read_proc_data(pid).ok().map(|proc| (pid, proc)))
-            .filter(|(_, proc)| !proc.is_dead())
-            .collect();
+    ///
+    /// Fails when the cgroup can't be listed or the wrapper can't be read while still alive, as
+    /// either leaves the frame's state unknown. Other members that can't be read are left out of
+    /// the sample.
+    fn calculate_cgroup_data(
+        &self,
+        leader: u32,
+        cgroup: &FrameCgroup,
+    ) -> Result<Option<SessionData>> {
+        let mut procs = Vec::new();
+        for pid in cgroup.pids()? {
+            match self.read_proc_data(pid) {
+                Ok(proc) => procs.push((pid, proc)),
+                Err(_) if !is_alive(pid) => {}
+                Err(err) if pid == leader => {
+                    return Err(err.wrap_err(format!("Failed to read frame wrapper {pid}")))
+                }
+                Err(err) => debug!("Skipping frame cgroup member {pid}. {err}"),
+            }
+        }
+        procs.retain(|(_, proc)| !proc.is_dead());
         if !procs.iter().any(|(pid, _)| *pid == leader) {
-            return None;
+            return Ok(None);
         }
 
         let mut data = SessionData::new();
         for (pid, proc) in &procs {
             data.add(*pid, proc);
         }
-        Some(data)
+        Ok(Some(data))
     }
 
     /// Contained frame launches are only ever tracked through their cgroup, so a missing cgroup
@@ -940,6 +951,14 @@ impl LinuxSystem {
             Err(err) => Membership::Unknown(err),
         }
     }
+}
+
+/// Whether `pid` still exists, as a zombie included.
+fn is_alive(pid: u32) -> bool {
+    !matches!(
+        kill(nix::unistd::Pid::from_raw(pid as i32), None),
+        Err(nix::errno::Errno::ESRCH)
+    )
 }
 
 impl SystemManager for LinuxSystem {
@@ -1039,7 +1058,7 @@ impl SystemManager for LinuxSystem {
 
         let frame_data = match self.membership(launch, pid) {
             Membership::Session(session_id) => self.calculate_proc_session_data(&session_id),
-            Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup),
+            Membership::Cgroup(cgroup) => self.calculate_cgroup_data(pid, &cgroup)?,
             Membership::Gone => None,
             // Not `None`: that would have the frame taken for finished
             Membership::Unknown(err) => {
@@ -1775,6 +1794,23 @@ mod tests {
                 system.get_proc_lineage(contained(launch_id), 42),
                 Lineage::Unknown
             );
+        }
+
+        #[test]
+        fn unreadable_cgroup_fails_stats_collection() {
+            let launch_id = Uuid::new_v4();
+            let (frames, system) = contained_frame(&launch_id, &[7]);
+            let procs = frames
+                .path()
+                .join(launch_id.to_string())
+                .join("cgroup.procs");
+            fs::remove_file(&procs).unwrap();
+            fs::create_dir(&procs).unwrap();
+
+            // Not `Ok(None)`, which would have the frame taken for finished
+            assert!(system
+                .collect_proc_stats(contained(launch_id), 7, "/nonexistent".to_string())
+                .is_err());
         }
 
         #[test]
