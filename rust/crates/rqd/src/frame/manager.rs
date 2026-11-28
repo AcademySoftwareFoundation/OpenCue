@@ -32,7 +32,7 @@ use uuid::Uuid;
 #[cfg(feature = "containerized_frames")]
 use super::docker_running_frame;
 
-use super::running_frame::RunningFrame;
+use super::running_frame::{RunningFrame, SnapshotError};
 use crate::{
     config::{RunnerConfig, CONFIG},
     servant::rqd_servant::MachineImpl,
@@ -197,7 +197,8 @@ impl FrameManager {
     /// - Keeps one snapshot per frame id, preferring one whose process is alive (see
     ///   [`prefer_live_snapshots`]); stale duplicates are removed
     /// - Spawns recovered frames to continue execution
-    /// - Cleans up invalid or corrupted snapshot files
+    /// - Cleans up invalid or corrupted snapshot files. A snapshot file that can't be read is
+    ///   kept and the recovery flagged [`Recovery::incomplete`], as its frame may still be running
     ///
     /// # Returns
     ///
@@ -221,10 +222,12 @@ impl FrameManager {
                     loaded.push((path, Arc::new(running_frame), alive));
                 }
                 Err(err) => {
-                    error!("Snapshot recover failed: {}", err);
-                    if let Err(err) = fs::remove_file(&path) {
-                        warn!("Snapshot {} failed to be cleared. {}", path, err);
-                    };
+                    error!("Snapshot {} recover failed: {}", path, err);
+                    if recovery.reject(&err) {
+                        if let Err(err) = fs::remove_file(&path) {
+                            warn!("Snapshot {} failed to be cleared. {}", path, err);
+                        };
+                    }
                 }
             }
         }
@@ -671,8 +674,9 @@ pub struct Recovery {
     pub claimed_launches: Vec<Uuid>,
     /// Frames that were recovered but couldn't get their resources back.
     pub errors: Vec<String>,
-    /// Set when a recovered frame's cgroup couldn't be determined, so `claimed_launches` may
-    /// miss a live frame's cgroup. The orphan frame cgroup sweep must not run.
+    /// Set when a recovered frame's cgroup couldn't be determined or a snapshot couldn't be
+    /// read, so `claimed_launches` may miss a live frame's cgroup. The orphan frame cgroup sweep
+    /// must not run.
     pub incomplete: bool,
 }
 
@@ -684,6 +688,18 @@ impl Recovery {
             self.claimed_launches.push(launch.id);
         }
         self.incomplete |= cgroup_unresolved;
+    }
+
+    /// Records a snapshot that failed to load and returns whether its file should be removed.
+    /// An unreadable snapshot is kept: its frame may still be running, unclaimed.
+    fn reject(&mut self, err: &SnapshotError) -> bool {
+        match err {
+            SnapshotError::Read(_) => {
+                self.incomplete = true;
+                false
+            }
+            SnapshotError::Invalid(_) => true,
+        }
     }
 }
 
@@ -857,13 +873,16 @@ impl From<FrameManagerError> for tonic::Status {
 mod tests {
     use std::time::Duration;
 
+    use miette::miette;
     use uuid::Uuid;
 
     use super::{
         list_snapshots, on_unknown_lineage, prefer_live_snapshots, tracked_lineage, KillEscalation,
         Recovery, UnknownLineageStep, MAX_BLIND_CGROUP_KILLS,
     };
-    use crate::{config::RunnerConfig, system::manager::FrameLaunch};
+    use crate::{
+        config::RunnerConfig, frame::running_frame::SnapshotError, system::manager::FrameLaunch,
+    };
 
     #[test]
     fn recovery_claims_contained_launches_and_flags_unresolved_cgroups() {
@@ -883,6 +902,18 @@ mod tests {
         recovery.claim(launch(false), true);
         recovery.claim(launch(false), false);
         assert_eq!(recovery.claimed_launches, vec![contained.id]);
+        assert!(recovery.incomplete);
+    }
+
+    #[test]
+    fn recovery_keeps_unreadable_snapshots_and_removes_invalid_ones() {
+        let mut recovery = Recovery::default();
+
+        assert!(recovery.reject(&SnapshotError::Invalid(miette!("garbage"))));
+        assert!(!recovery.incomplete);
+
+        let unreadable = std::io::Error::from(std::io::ErrorKind::PermissionDenied);
+        assert!(!recovery.reject(&SnapshotError::Read(unreadable)));
         assert!(recovery.incomplete);
     }
 

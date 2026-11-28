@@ -162,6 +162,17 @@ fn become_user(uid: u32, gid: u32) -> std::io::Result<()> {
     Ok(())
 }
 
+/// Why [`RunningFrame::from_snapshot`] couldn't load a snapshot.
+#[derive(Debug, thiserror::Error)]
+pub enum SnapshotError {
+    /// The file couldn't be read. Its frame may still be running.
+    #[error("Failed to read frame snapshot. {0}")]
+    Read(std::io::Error),
+    /// The file was read but doesn't hold a usable frame.
+    #[error("{0}")]
+    Invalid(miette::Report),
+}
+
 /// Wrapper around protobuf message RunningFrameInfo
 #[derive(Serialize, Deserialize)]
 pub struct RunningFrame {
@@ -1697,10 +1708,9 @@ impl RunningFrame {
     /// Returns a `Result` containing the deserialized `RunningFrame` if successful
     ///
     /// # Errors
-    /// Returns an error if:
-    /// - The snapshot file cannot be opened or read
-    /// - The snapshot data cannot be deserialized
-    /// - The snapshot doesn't contain a valid PID
+    /// - [`SnapshotError::Read`] if the snapshot file cannot be read
+    /// - [`SnapshotError::Invalid`] if the snapshot data cannot be deserialized or doesn't
+    ///   contain a valid PID
     ///
     /// # Details
     /// This function loads a previously saved frame state from a snapshot file and updates it
@@ -1715,12 +1725,15 @@ impl RunningFrame {
     /// - The process is gone without a trace; recovery reports a failure (exit 1/SIGTERM)
     ///   so Cuebot can immediately reschedule the frame instead of waiting for a stuck-frame
     ///   timeout.
-    pub async fn from_snapshot(path: &str, config: RunnerConfig) -> Result<Self> {
-        let buff = tokio::fs::read(path).await.into_diagnostic()?;
+    pub async fn from_snapshot(
+        path: &str,
+        config: RunnerConfig,
+    ) -> std::result::Result<Self, SnapshotError> {
+        let buff = tokio::fs::read(path).await.map_err(SnapshotError::Read)?;
 
-        let mut frame: RunningFrame = bincode::deserialize(&buff)
-            .into_diagnostic()
-            .map_err(|e| miette!("Failed to deserialize frame snapshot: {}", e))?;
+        let mut frame: RunningFrame = bincode::deserialize(&buff).map_err(|e| {
+            SnapshotError::Invalid(miette!("Failed to deserialize frame snapshot: {}", e))
+        })?;
 
         // Replace snapshot config with the new config:
         frame.config = config;
@@ -1731,9 +1744,9 @@ impl RunningFrame {
         // A launch id of its own until the frame's cgroup, if any, is found
         frame.launch_id = Uuid::new_v4();
 
-        let pid = frame
-            .pid()
-            .ok_or(miette!("Invalid snapshot. Pid not present. {}", frame))?;
+        let pid = frame.pid().ok_or_else(|| {
+            SnapshotError::Invalid(miette!("Invalid snapshot. Pid not present. {}", frame))
+        })?;
 
         if Self::process_matches(pid, frame.recorded_proc_start_epoch()) {
             info!("Snapshot {}: process {} is still running", frame, pid);
@@ -2149,7 +2162,9 @@ mod tests {
     use crate::frame::logging::FrameLoggerT;
     use crate::frame::logging::TestLogger;
 
-    use super::{match_exit_status_rules, read_last_lines, RunningFrame, LOG_SCAN_MAX_BYTES};
+    use super::{
+        match_exit_status_rules, read_last_lines, RunningFrame, SnapshotError, LOG_SCAN_MAX_BYTES,
+    };
 
     fn create_running_frame(
         command: &str,
@@ -2309,6 +2324,21 @@ mod tests {
             match_exit_status_rules("also valid", &compiled),
             Some(("GOOD".to_string(), 1))
         );
+    }
+
+    #[tokio::test]
+    async fn from_snapshot_tells_unreadable_from_invalid_snapshots() {
+        let dir = tempfile::tempdir().unwrap();
+        let unreadable = dir.path().to_string_lossy().to_string();
+        let result = RunningFrame::from_snapshot(&unreadable, RunnerConfig::default()).await;
+        assert!(matches!(result, Err(SnapshotError::Read(_))));
+
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+        use std::io::Write;
+        file.write_all(b"not a snapshot").unwrap();
+        let garbage = file.path().to_string_lossy().to_string();
+        let result = RunningFrame::from_snapshot(&garbage, RunnerConfig::default()).await;
+        assert!(matches!(result, Err(SnapshotError::Invalid(_))));
     }
 
     #[tokio::test]
