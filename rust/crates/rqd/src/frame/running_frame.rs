@@ -69,6 +69,11 @@ const LOG_SCAN_MAX_BYTES: u64 = 1024 * 1024; // 1 MiB
 /// a single read with headroom.
 const LOG_SCAN_CHUNK_BYTES: u64 = 16 * 1024; // 16 KiB
 
+/// Slack on top of the cgroup cleanup deadline for the run task to finish the frame after
+/// reaping.
+#[cfg(unix)]
+const CGROUP_CLEANUP_MARGIN: Duration = Duration::from_secs(5);
+
 /// Returns the `(name, exit_status)` of the first rule that matches anywhere in `log_tail`.
 fn match_exit_status_rules(
     log_tail: &str,
@@ -219,6 +224,11 @@ pub struct RunningFrame {
     /// when the wrapper exits get the rest of the kill grace period before being reaped.
     #[serde(skip)]
     kill_requested_at: OnceLock<Instant>,
+    /// Until when the run task may still be reaping the frame's cgroup, set when it starts.
+    /// The run task owns the frame's completion until then, so the frame is not finished as
+    /// dangling while its leftover processes are given their grace period and reaped.
+    #[serde(skip)]
+    cgroup_cleanup_deadline: OnceLock<Instant>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -362,6 +372,7 @@ impl RunningFrame {
             recovery_armed: AtomicBool::new(false),
             latest_host_mem_snapshot: RwLock::new(None),
             kill_requested_at: OnceLock::new(),
+            cgroup_cleanup_deadline: OnceLock::new(),
         }
     }
 
@@ -1044,7 +1055,8 @@ impl RunningFrame {
     /// Returns the number of processes killed, when there were any and they could be counted.
     ///
     /// When the frame was killed, what is left first gets until the end of the kill grace
-    /// period ([`RunnerConfig::frame_cgroup_kill_grace`]) to exit on its own.
+    /// period ([`RunnerConfig::frame_cgroup_kill_grace`]) to exit on its own. Sets
+    /// [`Self::cgroup_cleanup_deadline`] so the frame is not finished as dangling meanwhile.
     #[cfg(unix)]
     async fn reap_cgroup(&self) -> Option<usize> {
         let frame_cgroup = match cgroup::frame_cgroups()?.open(&self.launch_id) {
@@ -1054,8 +1066,15 @@ impl RunningFrame {
                 return None;
             }
         };
-        if let Some(requested) = self.kill_requested_at.get() {
-            let deadline = *requested + self.config.frame_cgroup_kill_grace();
+        let kill_deadline = self
+            .kill_requested_at
+            .get()
+            .map(|requested| *requested + self.config.frame_cgroup_kill_grace());
+        let now = Instant::now();
+        let reap_start = kill_deadline.unwrap_or(now).max(now);
+        self.cgroup_cleanup_deadline
+            .get_or_init(|| reap_start + cgroup::REAP_TIMEOUT + CGROUP_CLEANUP_MARGIN);
+        if let Some(deadline) = kill_deadline {
             frame_cgroup.wait_empty(deadline).await;
         }
         match frame_cgroup.reap().await {
@@ -1958,7 +1977,17 @@ Render Frame Completed
         *lock = None
     }
 
+    /// Whether the frame has been dangling (its process not found) for longer than the
+    /// dangling grace period. Never true while the run task is still cleaning up the frame's
+    /// cgroup (see [`Self::cgroup_cleanup_deadline`]), as it then finishes the frame itself.
     pub fn is_dangling_expired(&self) -> bool {
+        if self
+            .cgroup_cleanup_deadline
+            .get()
+            .is_some_and(|deadline| Instant::now() < *deadline)
+        {
+            return false;
+        }
         let last_occurrence = *self
             .dangling_state_registed_at
             .read()
@@ -2113,6 +2142,7 @@ mod tests {
     use opencue_proto::rqd::{run_frame::UidOptional, RunFrame};
     use std::collections::HashMap;
     use std::sync::Arc;
+    use std::time::{Duration, Instant, SystemTime};
     use uuid::Uuid;
 
     use crate::config::{compile_exit_status_rules, Config, LogExitStatusRule, RunnerConfig};
@@ -2476,6 +2506,24 @@ mod tests {
         let first = *frame.kill_requested_at.get().unwrap();
         frame.get_pid_to_kill("second kill").unwrap();
         assert_eq!(*frame.kill_requested_at.get().unwrap(), first);
+        let _ = std::fs::remove_file(&frame.log_path);
+    }
+
+    #[test]
+    fn test_dangling_does_not_expire_during_cgroup_cleanup() {
+        let frame = frame_with_license_rule("", LICENSE_LOG);
+        *frame.dangling_state_registed_at.write().unwrap() =
+            Some(SystemTime::now() - Duration::from_secs(60));
+        assert!(frame.is_dangling_expired());
+
+        frame
+            .cgroup_cleanup_deadline
+            .set(Instant::now() + Duration::from_millis(100))
+            .unwrap();
+        assert!(!frame.is_dangling_expired());
+
+        std::thread::sleep(Duration::from_millis(150));
+        assert!(frame.is_dangling_expired());
         let _ = std::fs::remove_file(&frame.log_path);
     }
 

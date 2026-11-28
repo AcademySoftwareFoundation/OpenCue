@@ -63,7 +63,7 @@ const CGROUP_MOUNT: &str = "/sys/fs/cgroup";
 const SELF_CGROUP: &str = "/proc/self/cgroup";
 const FRAMES_CGROUP: &str = "frames";
 /// How long a killed cgroup gets to empty before rqd gives up on removing it.
-const REAP_TIMEOUT: Duration = Duration::from_secs(5);
+pub(crate) const REAP_TIMEOUT: Duration = Duration::from_secs(5);
 const REAP_POLL_INTERVAL: Duration = Duration::from_millis(50);
 /// Passes of the signal-based kill fallback, each one catching processes forked during the
 /// previous pass.
